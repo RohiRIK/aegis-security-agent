@@ -190,16 +190,3 @@ export async function wrapTrivy(args: string[]): Promise<ScannerResult> {
   await writeScannerCache("trivy", key, result);
   return result;
 }
-
-export async function wrapTrufflehog(args: string[]): Promise<ScannerResult> {
-  const config = args.join("|");
-  const { key, cached } = await readScannerCache("trufflehog", config, args);
-
-  if (cached) {
-    return cached;
-  }
-
-  const result = await scannerRunner.runScannerWithTimeout(["trufflehog", ...args], SCANNER_BUDGETS.trufflehog);
-  await writeScannerCache("trufflehog", key, result);
-  return result;
-}

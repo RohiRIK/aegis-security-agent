@@ -1,0 +1,8 @@
+Task: T-05
+Checks:
+- grep count for appendVerdictEvent|readRecentVerdicts in src/lib/verdict-log.ts: 0
+- grep count for appendVerdictEvent|readRecentVerdicts in src/lib/verdict-log.test.ts: 0
+- lsp_diagnostics verdict-log.ts: clean
+- lsp_diagnostics verdict-log.test.ts: clean
+- bun test src/lib/verdict-log.test.ts: pass
+- bun tsc --noEmit: pass

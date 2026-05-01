@@ -1,0 +1,5 @@
+Task: T-01
+Checks:
+- grep count for printErr|printSectionTitle|printBox|stripAnsi in src/lib/ui.ts: 0
+- lsp_diagnostics src/lib/ui.ts: clean
+- bun tsc --noEmit: pass

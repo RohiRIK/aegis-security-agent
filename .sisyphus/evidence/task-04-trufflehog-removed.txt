@@ -1,0 +1,8 @@
+Task: T-04
+Checks:
+- grep count for wrapTrufflehog in src/lib/scanner.ts: 0
+- grep count for wrapTrufflehog in src/lib/scanner.test.ts: 0
+- lsp_diagnostics scanner.ts: clean
+- lsp_diagnostics scanner.test.ts: clean
+- bun test src/lib/scanner.test.ts: pass
+- bun tsc --noEmit: pass

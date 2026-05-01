@@ -1,0 +1,6 @@
+Task: T-02
+Checks:
+- grep count for runShellInherit in src/lib/base.ts: 0
+- grep count for runShellCapture in src/lib/base.ts: 1
+- lsp_diagnostics src/lib/base.ts: clean
+- bun tsc --noEmit: pass

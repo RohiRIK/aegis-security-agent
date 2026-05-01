@@ -37,10 +37,6 @@ export function println(text = ""): void {
   process.stdout.write(`${text}\n`);
 }
 
-export function printErr(text: string): void {
-  process.stderr.write(`${text}\n`);
-}
-
 export function clearLine(): void {
   if (isTTY()) process.stdout.write("\r\x1b[K");
 }
@@ -50,26 +46,6 @@ export function printHeader(): void {
   println(`  ${icon.shield}  ${c.bold(c.white("Harness"))} ${c.dim("· AI-Agent Security Harness")}`);
   println(c.dim("  ─────────────────────────────────────"));
   println();
-}
-
-export function printSectionTitle(title: string): void {
-  println(c.bold(c.cyan(`  ${title}`)));
-}
-
-export function printBox(lines: string[], style: "info" | "success" | "error" = "info"): void {
-  const borderColor = style === "success" ? c.green : style === "error" ? c.red : c.cyan;
-  const width = Math.max(...lines.map((l) => stripAnsi(l).length)) + 4;
-  const bar = borderColor("─".repeat(width));
-  println(bar);
-  for (const line of lines) {
-    const pad = width - stripAnsi(line).length - 2;
-    println(`${borderColor("│")} ${line}${" ".repeat(pad)}${borderColor("│")}`);
-  }
-  println(bar);
-}
-
-function stripAnsi(s: string): string {
-  return s.replace(/\x1b\[[0-9;]*m/g, "");
 }
 
 export type StepResult = "ok" | "warn" | "fail" | "skip";

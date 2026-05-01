@@ -1,4 +1,5 @@
 import { describe, expect, spyOn, test } from "bun:test";
+import crypto from "node:crypto";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,7 +10,6 @@ import {
   runScannerWithTimeout,
   wrapSemgrep,
   wrapTrivy,
-  wrapTrufflehog,
   type ScannerResult,
 } from "./scanner.ts";
 
@@ -106,12 +106,13 @@ describe("scanner wrappers", () => {
   test("wrapSemgrep uses 120000ms budget", async () => {
     const runnerSpy = spyOn(scannerRunner, "runScannerWithTimeout").mockResolvedValue(okResult);
     const versionSpy = spyOn(scannerRunner, "getScannerVersion").mockResolvedValue("1.0.0");
+    const targetPath = `src/example-${crypto.randomUUID()}.py`;
 
     try {
-      await wrapSemgrep("src/example.py");
+      await wrapSemgrep(targetPath);
 
       expect(runnerSpy).toHaveBeenCalledWith(
-        ["semgrep", "scan", "--config=p/security-audit", "--config=p/secrets", "--json", "src/example.py"],
+        ["semgrep", "scan", "--config=p/security-audit", "--config=p/secrets", "--json", targetPath],
         SCANNER_BUDGETS.semgrep,
       );
     } finally {
@@ -123,30 +124,14 @@ describe("scanner wrappers", () => {
   test("wrapTrivy uses 60000ms budget", async () => {
     const runnerSpy = spyOn(scannerRunner, "runScannerWithTimeout").mockResolvedValue(okResult);
     const versionSpy = spyOn(scannerRunner, "getScannerVersion").mockResolvedValue("0.50.0");
+    const targetPath = `/tmp/scan-dir-${crypto.randomUUID()}`;
 
     try {
-      await wrapTrivy(["fs", "--format", "json", "/tmp/scan-dir"]);
+      await wrapTrivy(["fs", "--format", "json", targetPath]);
 
       expect(runnerSpy).toHaveBeenCalledWith(
-        ["trivy", "fs", "--format", "json", "/tmp/scan-dir"],
+        ["trivy", "fs", "--format", "json", targetPath],
         SCANNER_BUDGETS.trivy,
-      );
-    } finally {
-      runnerSpy.mockRestore();
-      versionSpy.mockRestore();
-    }
-  });
-
-  test("wrapTrufflehog uses 90000ms budget", async () => {
-    const runnerSpy = spyOn(scannerRunner, "runScannerWithTimeout").mockResolvedValue(okResult);
-    const versionSpy = spyOn(scannerRunner, "getScannerVersion").mockResolvedValue("3.0.0");
-
-    try {
-      await wrapTrufflehog(["filesystem", ".", "--json"]);
-
-      expect(runnerSpy).toHaveBeenCalledWith(
-        ["trufflehog", "filesystem", ".", "--json"],
-        SCANNER_BUDGETS.trufflehog,
       );
     } finally {
       runnerSpy.mockRestore();

@@ -91,16 +91,6 @@ export async function runShellCapture(
   return await runCommandCapture(["bash", "-lc", command], options);
 }
 
-export async function runShellInherit(
-  command: string,
-  options?: {
-    cwd?: string;
-    env?: Record<string, string | undefined>;
-  },
-): Promise<number> {
-  return await runCommandInherit(["bash", "-lc", command], options);
-}
-
 export async function ensureDir(dirPath: string): Promise<void> {
   const result = await runCommandCapture(["mkdir", "-p", dirPath]);
   if (result.exitCode !== 0) {
