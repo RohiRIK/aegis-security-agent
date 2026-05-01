@@ -18,7 +18,8 @@ fi
 echo "[sandbox] Starting ${CONTAINER}..."
 docker run -d \
   --name "${CONTAINER}" \
-  --security-opt seccomp=unconfined \
+  --security-opt no-new-privileges \
+  --user 65534:65534 \
   --network none \
   --memory 2g \
   --cpus 2 \

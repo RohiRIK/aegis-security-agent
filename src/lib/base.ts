@@ -1,3 +1,4 @@
+import { appendFileSync } from "node:fs";
 import { dirname } from "node:path";
 
 export type CommandResult = {
@@ -110,8 +111,7 @@ export async function deleteFileIfExists(filePath: string): Promise<void> {
 
 export async function appendText(filePath: string, text: string): Promise<void> {
   await ensureDir(dirname(filePath));
-  const existing = (await fileExists(filePath)) ? await Bun.file(filePath).text() : "";
-  await Bun.write(filePath, `${existing}${text}`);
+  appendFileSync(filePath, text, { encoding: "utf-8" });
 }
 
 export function formatTimestamp(): string {

@@ -51,7 +51,13 @@ async function main(): Promise<number> {
   }
 
   const timeoutSeconds = Number.parseInt(process.env.HITL_TIMEOUT_SECONDS ?? "120", 10);
-  const parsed = JSON.parse(requestJson) as HitlRequest;
+  let parsed: HitlRequest;
+  try {
+    parsed = JSON.parse(requestJson) as HitlRequest;
+  } catch (e) {
+    process.stderr.write(`[hitl-gateway] Invalid JSON input: ${e}\n`);
+    process.exit(1);
+  }
   const tool = parsed.hitl_request?.action?.tool ?? "";
   const command = parsed.hitl_request?.action?.command ?? "";
   const riskReason = parsed.hitl_request?.action?.risk_reason ?? "";

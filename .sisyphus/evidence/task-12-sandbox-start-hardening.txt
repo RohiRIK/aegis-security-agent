@@ -1,0 +1,7 @@
+Task: T-12
+Checks:
+- seccomp=unconfined removed from src/sandbox/start.ts
+- no-new-privileges present once
+- 65534:65534 present once
+- lsp_diagnostics start.ts: clean
+- bun tsc --noEmit: pass

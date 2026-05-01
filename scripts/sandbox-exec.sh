@@ -6,7 +6,7 @@ set -euo pipefail
 CONTAINER="harness-sandbox"
 CMD="${1:?Usage: sandbox-exec.sh \"<command>\"}"
 
-docker exec "${CONTAINER}" bash -c "${CMD}"
+docker exec "${CONTAINER}" bash -c '$1' _ "${CMD}"
 EXIT_CODE=$?
 
 bash "$(dirname "$0")/sandbox-reset.sh" >/dev/null

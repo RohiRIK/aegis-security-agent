@@ -1,0 +1,3 @@
+Task: T-18 existing patterns
+Checks:
+- DROP TABLE, rm -rf, kubectl apply, terraform apply still present

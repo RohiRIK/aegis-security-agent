@@ -784,7 +784,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ### ═══ WAVE 4 — Track C: Security Fixes (all parallel, HIGH priority first) ═══
 
-- [ ] T-12. **[HIGH]** Fix `src/sandbox/start.ts` — remove `seccomp=unconfined`, add `--no-new-privileges` + `--user 65534:65534`
+- [x] T-12. **[HIGH]** Fix `src/sandbox/start.ts` — remove `seccomp=unconfined`, add `--no-new-privileges` + `--user 65534:65534`
 
   **What to do**:
   - Remove `"--security-opt", "seccomp=unconfined"` from the docker run args array (lines 37-38)
@@ -841,7 +841,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ---
 
-- [ ] T-13. **[HIGH]** Fix `scripts/sandbox-exec.sh` — fix `$CMD` shell injection
+- [x] T-13. **[HIGH]** Fix `scripts/sandbox-exec.sh` — fix `$CMD` shell injection
 
   **What to do**:
   - Line 9: Change `docker exec "${CONTAINER}" bash -c "${CMD}"` to pass CMD as a separate argument to avoid shell injection
@@ -901,7 +901,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ---
 
-- [ ] T-14. **[HIGH]** Fix `src/opencode/index.ts` — remove `swallow: true` from `tool.execute.after`
+- [x] T-14. **[HIGH]** Fix `src/opencode/index.ts` — remove `swallow: true` from `tool.execute.after`
 
   **What to do**:
   - Line 65: Change `safe(afterHandler as AnyHandler, { swallow: true })` to `safe(afterHandler as AnyHandler)` (remove the options object entirely)
@@ -948,7 +948,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ---
 
-- [ ] T-15. **[MEDIUM]** Fix `src/lib/base.ts` `appendText()` — replace with atomic `fs.appendFile` (`O_APPEND`)
+- [x] T-15. **[MEDIUM]** Fix `src/lib/base.ts` `appendText()` — replace with atomic `fs.appendFile` (`O_APPEND`)
 
   **What to do**:
   - Replace the current `appendText` implementation (lines 121-125) which does read-then-write (race condition):
@@ -1012,7 +1012,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ---
 
-- [ ] T-16. **[MEDIUM]** Fix `src/hitl-gateway.ts` — wrap `JSON.parse` in try/catch
+- [x] T-16. **[MEDIUM]** Fix `src/hitl-gateway.ts` — wrap `JSON.parse` in try/catch
 
   **What to do**:
   - Line 54: `const parsed = JSON.parse(requestJson) as HitlRequest;` is unprotected
@@ -1067,7 +1067,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ---
 
-- [ ] T-17. **[MEDIUM]** Fix `scripts/sandbox-start.sh` — add `--no-new-privileges` + `--user 65534:65534`
+- [x] T-17. **[MEDIUM]** Fix `scripts/sandbox-start.sh` — add `--no-new-privileges` + `--user 65534:65534`
 
   **What to do**:
   - Line 21: Replace `--security-opt seccomp=unconfined` with `--security-opt no-new-privileges`
@@ -1118,7 +1118,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ### ═══ WAVE 5 — Track C: Policy Updates + Verification Gate ═══
 
-- [ ] T-18. **[MEDIUM]** Add missing `high_risk_patterns` to `harness-policy.json`
+- [x] T-18. **[MEDIUM]** Add missing `high_risk_patterns` to `harness-policy.json`
 
   **What to do**:
   - Add the following patterns to the `high_risk_patterns` array in `harness-policy.json`:
@@ -1178,7 +1178,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ---
 
-- [ ] T-19. **[MEDIUM]** Add missing `deny_patterns` to `harness-policy.json` `edit_file` section
+- [x] T-19. **[MEDIUM]** Add missing `deny_patterns` to `harness-policy.json` `edit_file` section
 
   **What to do**:
   - Add the following patterns to `actions.edit_file.deny_patterns` array:
@@ -1227,7 +1227,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ---
 
-- [ ] T-20. Track C Verification Gate
+- [x] T-20. Track C Verification Gate
 
   **What to do**:
   - Run `bun tsc --noEmit` — must pass

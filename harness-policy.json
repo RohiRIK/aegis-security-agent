@@ -9,7 +9,7 @@
     "edit_file": {
       "default": "ask",
       "allow_patterns": ["src/**", "tests/**", "docs/**"],
-      "deny_patterns": [".env", "**/*.pem"]
+      "deny_patterns": [".env", "**/*.pem", "**/*.key", "**/*_rsa", "**/*_ed25519"]
     },
     "run_shell": {
       "default": "sandbox",
@@ -31,7 +31,8 @@
   "high_risk_patterns": [
     "DROP TABLE", "DROP DATABASE", "DELETE FROM", "ALTER TABLE", "TRUNCATE",
     "rm -rf", "kubectl apply", "kubectl delete", "terraform apply", "terraform destroy",
-    "git push --force", "npm publish", "docker push", "ssh ", "curl.*--upload"
+    "git push --force", "npm publish", "docker push", "ssh ", "curl.*--upload",
+    "bun install", "bun add", "curl ", "wget ", "chmod \\+x", "sudo ", "su ", "nc ", "eval "
   ],
   "hitl_timeout_seconds": 120
 }

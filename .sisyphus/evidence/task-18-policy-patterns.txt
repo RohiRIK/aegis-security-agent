@@ -1,0 +1,4 @@
+Task: T-18
+Checks:
+- required high_risk_patterns added to harness-policy.json
+- JSON parses successfully

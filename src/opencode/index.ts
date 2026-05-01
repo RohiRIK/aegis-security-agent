@@ -62,7 +62,7 @@ export const HarnessSecurityPlugin: Plugin = async ({ directory }) => {
 
   return {
     "tool.execute.before": safe(beforeHandler as AnyHandler),
-    "tool.execute.after": safe(afterHandler as AnyHandler, { swallow: true }),
+    "tool.execute.after": safe(afterHandler as AnyHandler),
     "event": safe(sessionHandler as AnyHandler, { swallow: true, onError: () => { preflightPassed = false; } }),
     "shell.env": safe(envHandler as AnyHandler),
     "permission.ask": safe(permissionHandler as AnyHandler),

@@ -1,0 +1,6 @@
+Task: T-13
+Checks:
+- vulnerable bash -c ${CMD} pattern removed
+- positional $1 pattern present
+- bash -n scripts/sandbox-exec.sh: pass
+- bun tsc --noEmit: pass

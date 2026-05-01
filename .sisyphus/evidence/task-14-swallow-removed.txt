@@ -1,0 +1,6 @@
+Task: T-14
+Checks:
+- swallow: true count in src/opencode/index.ts: 1
+- afterHandler swallow removed, event handler swallow retained
+- lsp_diagnostics index.ts: clean
+- bun tsc --noEmit: pass

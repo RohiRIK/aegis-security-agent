@@ -1,0 +1,6 @@
+Task: T-16
+Checks:
+- JSON.parse(requestJson) wrapped in try/catch
+- parse failure writes stderr and returns 1
+- lsp_diagnostics hitl-gateway.ts: clean
+- bun tsc --noEmit: pass
