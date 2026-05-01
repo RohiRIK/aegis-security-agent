@@ -468,7 +468,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ### ═══ WAVE 2 — Track B: Semgrep + parseInstallCommand Consolidation ═══
 
-- [ ] T-06. Export `parseSemgrepFindings` from `src/core/security.ts`
+- [x] T-06. Export `parseSemgrepFindings` from `src/core/security.ts`
 
   **What to do**:
   - Add a new exported function `parseSemgrepFindings(stdout: string): SemgrepFinding[]` to `src/core/security.ts`
@@ -518,7 +518,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ---
 
-- [ ] T-07. Refactor `src/hooks/post-tool-use.ts` → use shared Semgrep types/parser from `core/security.ts`
+- [x] T-07. Refactor `src/hooks/post-tool-use.ts` → use shared Semgrep types/parser from `core/security.ts`
 
   **What to do**:
   - Remove the local `SemgrepResult` type definition (lines 17-26) and `SemgrepPayload` type (lines 28-30)
@@ -571,7 +571,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ---
 
-- [ ] T-08. Refactor `src/opencode/handlers/after.ts` → use shared `parseSemgrepFindings` from `core/security.ts`
+- [x] T-08. Refactor `src/opencode/handlers/after.ts` → use shared `parseSemgrepFindings` from `core/security.ts`
 
   **What to do**:
   - Remove the local `parseSemgrepFindings` function (lines 4-21)
@@ -620,7 +620,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ---
 
-- [ ] T-09. Remove local `parseInstallCommand`/types/`makeLockfileContent`/`trivyScan` from `src/hooks/pre-tool-use.ts` → import from `core/security.ts`
+- [x] T-09. Remove local `parseInstallCommand`/types/`makeLockfileContent`/`trivyScan` from `src/hooks/pre-tool-use.ts` → import from `core/security.ts`
 
   **What to do**:
   - Remove the local type definitions: `HarnessPolicy` (lines 23-26), `PackageEcosystem` (line 28), `ParsedInstall` (lines 30-34) — these duplicate `src/core/security.ts` exports
@@ -680,7 +680,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ### ═══ WAVE 3 — Track B: Trivy Consolidation + Verification Gate ═══
 
-- [ ] T-10. Refactor `src/opencode/handlers/before.ts` `scanPackageWithTrivy` → use `trivyScan` from `core/security.ts`
+- [x] T-10. Refactor `src/opencode/handlers/before.ts` `scanPackageWithTrivy` → use `trivyScan` from `core/security.ts`
 
   **What to do**:
   - Remove the local `scanPackageWithTrivy` function (lines 15-61)
@@ -734,7 +734,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ---
 
-- [ ] T-11. Track B Verification Gate
+- [x] T-11. Track B Verification Gate
 
   **What to do**:
   - Run `bun tsc --noEmit` — must pass with zero errors

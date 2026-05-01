@@ -33,6 +33,25 @@ export type SemgrepResult = {
   };
 };
 
+export function parseSemgrepFindings(stdout: string): SemgrepFinding[] {
+  let parsed: { results?: SemgrepResult[] };
+  try {
+    parsed = JSON.parse(stdout) as { results?: SemgrepResult[] };
+  } catch {
+    return [];
+  }
+
+  const results = Array.isArray(parsed.results) ? parsed.results : [];
+  return results
+    .filter((result) => result.extra?.severity === "ERROR")
+    .map((result) => ({
+      rule: result.check_id ?? "unknown",
+      severity: result.extra?.severity ?? "ERROR",
+      message: result.extra?.message ?? "",
+      line: result.start?.line ?? 0,
+    }));
+}
+
 // ---------------------------------------------------------------------------
 // Default sensitive vars (from src/preflight.ts)
 // ---------------------------------------------------------------------------
@@ -201,22 +220,7 @@ export async function semgrepScan(filePath: string): Promise<SemgrepFinding[]> {
   if (exitCode !== 0 && exitCode !== 1) return []; // non-zero exit other than findings = semgrep error
 
   const output = await new Response(semgrep.stdout).text();
-  let parsed: { results?: SemgrepResult[] };
-  try {
-    parsed = JSON.parse(output) as { results?: SemgrepResult[] };
-  } catch {
-    return [];
-  }
-
-  const results = Array.isArray(parsed.results) ? parsed.results : [];
-  return results
-    .filter((r) => r.extra?.severity === "ERROR")
-    .map((r) => ({
-      rule: r.check_id ?? "unknown",
-      severity: r.extra?.severity ?? "ERROR",
-      message: r.extra?.message ?? "",
-      line: r.start?.line ?? 0,
-    }));
+  return parseSemgrepFindings(output);
 }
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,7 @@
+Task: T-07
+Checks:
+- local SemgrepResult/SemgrepPayload types removed from src/hooks/post-tool-use.ts
+- parseSemgrepFindings imported and used in src/hooks/post-tool-use.ts
+- wrapSemgrep used in src/hooks/post-tool-use.ts
+- lsp_diagnostics post-tool-use.ts: clean
+- bun tsc --noEmit: pass

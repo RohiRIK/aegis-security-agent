@@ -1,0 +1,6 @@
+Task: T-11
+Checks:
+- bun tsc --noEmit: pass
+- bun test: 51 pass, 0 fail
+- dead code checks satisfied for ui/base/aegis/scanner/verdict-log
+- duplicate consolidation checks satisfied for pre-tool-use/post-tool-use/after/before

@@ -1,0 +1,7 @@
+Task: T-10
+Checks:
+- local scanPackageWithTrivy removed from src/opencode/handlers/before.ts
+- trivyScan imported and used from core/security.ts
+- degraded handling removed per plan
+- lsp_diagnostics before.ts: clean
+- bun tsc --noEmit: pass

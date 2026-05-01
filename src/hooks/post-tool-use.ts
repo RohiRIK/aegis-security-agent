@@ -10,24 +10,11 @@ import {
   writeStderr,
   writeStdout,
 } from "../lib/base.ts";
+import { wrapSemgrep } from "../lib/scanner.ts";
+import { parseSemgrepFindings, type SemgrepFinding } from "../core/security.ts";
 
 const HARNESS_DIR = resolve(import.meta.dir, "..", "..");
 const AUDIT_LOG = join(HARNESS_DIR, ".harness", "audit.log");
-
-type SemgrepResult = {
-  check_id?: string;
-  extra?: {
-    severity?: string;
-    message?: string;
-  };
-  start?: {
-    line?: number;
-  };
-};
-
-type SemgrepPayload = {
-  results?: SemgrepResult[];
-};
 
 async function main(): Promise<number> {
   const inputText = await readStdinText();
@@ -43,30 +30,16 @@ async function main(): Promise<number> {
   await ensureDir(join(HARNESS_DIR, ".harness"));
 
   if (["Write", "Edit", "write", "edit"].includes(toolName) && writtenFile.length > 0 && (await Bun.file(writtenFile).exists())) {
-    const semgrep = Bun.spawn([
-      "semgrep",
-      "scan",
-      "--config=p/security-audit",
-      "--config=p/secrets",
-      "--json",
-      writtenFile,
-    ], {
-      stdout: "pipe",
-      stderr: "ignore",
-    });
-    const semgrepExitCode = await semgrep.exited;
-    const semgrepOutput = semgrepExitCode === 0 ? await new Response(semgrep.stdout).text() : '{"results":[]}';
-    const parsedSemgrep = JSON.parse(semgrepOutput) as SemgrepPayload;
-    const results = Array.isArray(parsedSemgrep.results) ? parsedSemgrep.results : [];
-    const errorResults = results.filter((result) => result.extra?.severity === "ERROR");
+    const semgrepResult = await wrapSemgrep(writtenFile);
+    const errorResults = semgrepResult.status === "ok" ? parseSemgrepFindings(semgrepResult.stdout) : [];
 
     if (errorResults.length > 0) {
       for (const result of errorResults) {
         writeStdout(`${JSON.stringify({
-          rule: result.check_id,
-          severity: result.extra?.severity,
-          message: result.extra?.message,
-          line: result.start?.line,
+          rule: result.rule,
+          severity: result.severity,
+          message: result.message,
+          line: result.line,
         })}\n`);
       }
 
