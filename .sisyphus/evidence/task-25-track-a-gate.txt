@@ -1,0 +1,7 @@
+Task: T-25
+Checks:
+- bun tsc --noEmit: pass
+- bun test: pass including routing tests
+- harness-policy.json routing section present
+- routeCommand defined and used in src/hooks/pre-tool-use.ts
+- HITL logic, Trivy scan, and sandbox rewrite preserved

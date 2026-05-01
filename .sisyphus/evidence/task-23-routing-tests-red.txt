@@ -1,0 +1,5 @@
+Task: T-23
+Checks:
+- src/hooks/pre-tool-use.test.ts created
+- bun tsc --noEmit: pass
+- bun test src/hooks/pre-tool-use.test.ts: expected RED failures before implementation

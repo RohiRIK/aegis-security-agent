@@ -1272,7 +1272,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ### ═══ WAVE 6 — Track A: Command Routing Matrix (TDD) ═══
 
-- [ ] T-21. Add `routing` section to `harness-policy.json`
+- [x] T-21. Add `routing` section to `harness-policy.json`
 
   **What to do**:
   - Add a new top-level `routing` key to `harness-policy.json` with two arrays:
@@ -1356,7 +1356,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ---
 
-- [ ] T-22. Add `HarnessPolicy` routing types to `src/hooks/pre-tool-use.ts`
+- [x] T-22. Add `HarnessPolicy` routing types to `src/hooks/pre-tool-use.ts`
 
   **What to do**:
   - Update the `HarnessPolicy` type (currently at the top of `pre-tool-use.ts`, or imported from core/security after T-09) to include:
@@ -1411,7 +1411,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ---
 
-- [ ] T-23. Write routing tests (TDD RED phase) — `src/hooks/pre-tool-use.test.ts`
+- [x] T-23. Write routing tests (TDD RED phase) — `src/hooks/pre-tool-use.test.ts`
 
   **What to do**:
   - Create a new test file `src/hooks/pre-tool-use.test.ts` (or add to existing if one exists)
@@ -1532,7 +1532,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ---
 
-- [ ] T-24. Implement `routeCommand` in `src/hooks/pre-tool-use.ts` (TDD GREEN phase)
+- [x] T-24. Implement `routeCommand` in `src/hooks/pre-tool-use.ts` (TDD GREEN phase)
 
   **What to do**:
   - Export a `routeCommand` function from `src/hooks/pre-tool-use.ts`:
@@ -1617,7 +1617,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ---
 
-- [ ] T-25. Track A Verification Gate
+- [x] T-25. Track A Verification Gate
 
   **What to do**:
   - Run `bun tsc --noEmit` — must pass
