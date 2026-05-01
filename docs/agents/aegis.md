@@ -3,7 +3,7 @@ description: >-
   Harness-aware security analyst. Deep vulnerability scanning, threat modeling,
   dependency auditing, and audit log analysis. Produces structured SAFE/RISKY/BLOCKED
   verdicts with evidence and remediation. Read-only — never edits code.
-mode: subagent
+mode: agent
 temperature: 0.1
 permission:
   edit: deny
