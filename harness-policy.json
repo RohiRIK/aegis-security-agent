@@ -32,7 +32,39 @@
     "DROP TABLE", "DROP DATABASE", "DELETE FROM", "ALTER TABLE", "TRUNCATE",
     "rm -rf", "kubectl apply", "kubectl delete", "terraform apply", "terraform destroy",
     "git push --force", "npm publish", "docker push", "ssh ", "curl.*--upload",
-    "bun install", "bun add", "curl ", "wget ", "chmod \\+x", "sudo ", "su ", "nc ", "eval "
+    "bun install", "bun add", "curl ", "wget ", "chmod \\+x", "sudo ", "su ", "\\bnc\\b", "\\beval\\b"
   ],
+  "routing": {
+    "host_passthrough": [
+      "^git ",
+      "^bun (tsc|test|run)",
+      "^ls\\b",
+      "^cat ",
+      "^grep ",
+      "^find ",
+      "^echo ",
+      "^pwd$",
+      "^which ",
+      "^head ",
+      "^tail ",
+      "^wc ",
+      "^sort ",
+      "^diff "
+    ],
+    "sandbox_required": [
+      "^bun (install|add|x|pm)",
+      "^npm ",
+      "^curl ",
+      "^wget ",
+      "^python[23]? ",
+      "^node ",
+      "^pip3? ",
+      "^cargo ",
+      "^go (get|run|build)",
+      "^make\\b",
+      "^sh ",
+      "^bash "
+    ]
+  },
   "hitl_timeout_seconds": 120
 }

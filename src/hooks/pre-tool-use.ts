@@ -19,7 +19,28 @@ const POLICY_PATH = join(HARNESS_DIR, "harness-policy.json");
 type HarnessPolicy = {
   high_risk_patterns?: string[];
   hitl_timeout_seconds?: number;
+  routing?: {
+    host_passthrough?: string[];
+    sandbox_required?: string[];
+  };
 };
+
+export function routeCommand(command: string, policy: HarnessPolicy): "host" | "sandbox" | "hitl" {
+  if (!command) return "sandbox";
+
+  const highRiskPatterns = Array.isArray(policy.high_risk_patterns) ? policy.high_risk_patterns : [];
+  if (matchHighRiskPattern(command, highRiskPatterns) !== null) return "hitl";
+
+  for (const pattern of policy.routing?.sandbox_required ?? []) {
+    if (new RegExp(pattern).test(command)) return "sandbox";
+  }
+
+  for (const pattern of policy.routing?.host_passthrough ?? []) {
+    if (new RegExp(pattern).test(command)) return "host";
+  }
+
+  return "sandbox";
+}
 
 async function main(): Promise<number> {
   const inputText = await readStdinText();
@@ -36,8 +57,8 @@ async function main(): Promise<number> {
 
   if ((toolName === "Bash" || toolName === "bash") && bashCommand.length > 0) {
     const policy = (await Bun.file(POLICY_PATH).json()) as HarnessPolicy;
-    const highRiskPatterns = Array.isArray(policy.high_risk_patterns) ? policy.high_risk_patterns : [];
-    const matchedPattern = matchHighRiskPattern(bashCommand, highRiskPatterns) ?? "";
+    const route = routeCommand(bashCommand, policy);
+    const matchedPattern = route === "hitl" ? matchHighRiskPattern(bashCommand, policy.high_risk_patterns ?? []) ?? "" : "";
 
     if (matchedPattern.length > 0) {
       const timeoutSeconds = typeof policy.hitl_timeout_seconds === "number" ? policy.hitl_timeout_seconds : 120;
@@ -72,6 +93,11 @@ async function main(): Promise<number> {
       }
     }
 
+    if (route === "host") {
+      writeStdout(`${JSON.stringify(parsedInput)}\n`);
+      return 0;
+    }
+
     const parsedInstall = parseInstallCommand(bashCommand);
     if (parsedInstall !== null) {
       const { blocked, reason } = await trivyScan(parsedInstall);
@@ -93,10 +119,12 @@ async function main(): Promise<number> {
   return 0;
 }
 
-try {
-  const exitCode = await main();
-  process.exit(exitCode);
-} catch (error) {
-  writeStderr(`${error instanceof Error ? error.message : String(error)}\n`);
-  process.exit(1);
+if (import.meta.main) {
+  try {
+    const exitCode = await main();
+    process.exit(exitCode);
+  } catch (error) {
+    writeStderr(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exit(1);
+  }
 }
