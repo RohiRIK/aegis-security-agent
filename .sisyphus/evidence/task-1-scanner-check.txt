@@ -1,0 +1,8 @@
+    "semgrep --version": allow
+    "trivy --version": allow
+    "trufflehog --version": allow
+semgrep --version
+trivy --version
+trufflehog --version
+If any scanner is missing (non-zero exit or command not found), add `⚠️ DEGRADED: <scanner> unavailable` to your verdict header and fall back to grep-based heuristics for that scanner's role. Never silently skip a scanner — always declare degradation.
+6. If a scanner is unavailable, declare `⚠️ DEGRADED` and fall back to grep heuristics — never skip silently.

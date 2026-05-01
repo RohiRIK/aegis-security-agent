@@ -1,0 +1,4 @@
+## Workflow
+| `@review` | Code quality audit (read-only) |
+| `@security` | Vulnerability scan (read-only) |
+| `@simplify` | Invoke code-simplifier on changed files |

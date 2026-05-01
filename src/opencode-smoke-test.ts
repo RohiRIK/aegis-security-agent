@@ -1,0 +1,164 @@
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+
+import type { HarnessPolicy } from "./opencode/index.ts";
+import { createAfterHandler } from "./opencode/handlers/after.ts";
+import { createBeforeHandler } from "./opencode/handlers/before.ts";
+import { createEnvHandler } from "./opencode/handlers/env.ts";
+import { DEFAULT_SENSITIVE_VARS } from "./core/security.ts";
+
+const ROOT = resolve(import.meta.dir, "..");
+const POLICY = JSON.parse(await Bun.file(join(ROOT, "harness-policy.json")).text()) as HarnessPolicy;
+
+type BeforeInput = {
+  tool: string;
+  sessionID: string;
+  callID: string;
+};
+
+type BeforeOutput = {
+  args?: {
+    command?: string;
+    filePath?: string;
+    path?: string;
+  };
+};
+
+type AfterInput = BeforeInput & {
+  args?: {
+    filePath?: string;
+    path?: string;
+  };
+};
+
+type AfterOutput = {
+  args?: {
+    filePath?: string;
+    path?: string;
+  };
+  output: string;
+};
+
+function makeBeforeHandler(getPreflightPromise: () => Promise<void> | null, getPreflightPassed: () => boolean) {
+  return createBeforeHandler(POLICY, getPreflightPromise, getPreflightPassed);
+}
+
+describe("OpenCode Plugin Smoke Tests", () => {
+  let tempDir = "";
+  let tempPythonFile = "";
+
+  beforeAll(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), "opencode-smoke-"));
+    tempPythonFile = join(tempDir, "semgrep-smoke.py");
+    await Bun.write(tempPythonFile, "import subprocess\nsubprocess.run(user_input, shell=True)\n");
+  });
+
+  afterAll(async () => {
+    if (tempDir) {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("OC-01: tool.execute.before HIGH-RISK bash throws", async () => {
+    const handler = makeBeforeHandler(() => Promise.resolve(), () => true);
+    const input: BeforeInput = { tool: "bash", sessionID: "s1", callID: "c1" };
+    const output: BeforeOutput = { args: { command: "rm -rf /" } };
+
+    await expect(handler(input, output)).rejects.toThrow();
+  });
+
+  it("OC-02: tool.execute.before safe bash resolves", async () => {
+    const handler = makeBeforeHandler(() => Promise.resolve(), () => true);
+    const input: BeforeInput = { tool: "bash", sessionID: "s1", callID: "c1" };
+    const output: BeforeOutput = { args: { command: "ls -la" } };
+
+    await expect(handler(input, output)).resolves.toBeUndefined();
+  });
+
+  it("OC-03: tool.execute.before reads .env throws", async () => {
+    const handler = createBeforeHandler(
+      {
+        ...POLICY,
+        actions: {
+          ...POLICY.actions,
+          read_file: {
+            ...POLICY.actions?.read_file,
+            deny_patterns: [...(POLICY.actions?.read_file?.deny_patterns ?? []), "/project/.env"],
+          },
+        },
+      },
+      () => Promise.resolve(),
+      () => true,
+    );
+    const input: BeforeInput = { tool: "read", sessionID: "s1", callID: "c1" };
+    const output: BeforeOutput = { args: { filePath: "/project/.env" } };
+
+    await expect(handler(input, output)).rejects.toThrow();
+  });
+
+  it("OC-04: tool.execute.before safe file read resolves", async () => {
+    const handler = makeBeforeHandler(() => Promise.resolve(), () => true);
+    const input: BeforeInput = { tool: "read", sessionID: "s1", callID: "c1" };
+    const output: BeforeOutput = { args: { filePath: "src/index.ts" } };
+
+    await expect(handler(input, output)).resolves.toBeUndefined();
+  });
+
+  it("OC-05: tool.execute.before sandbox routing wraps command in docker exec", async () => {
+    const handler = makeBeforeHandler(() => Promise.resolve(), () => true);
+    const input: BeforeInput = { tool: "bash", sessionID: "s1", callID: "c1" };
+    const output: BeforeOutput = { args: { command: "ls" } };
+
+    await handler(input, output);
+
+    expect(output.args?.command).toContain("docker exec harness-sandbox");
+  });
+
+  it("OC-06: tool.execute.after write with shell injection appends semgrep findings", async () => {
+    const handler = createAfterHandler();
+    const input: AfterInput = {
+      tool: "write",
+      sessionID: "s1",
+      callID: "c1",
+      args: { filePath: tempPythonFile },
+    };
+    const output: AfterOutput = {
+      args: { filePath: tempPythonFile },
+      output: "",
+    };
+
+    await handler(input, output);
+
+    expect(output.output).toContain("[HARNESS]");
+  });
+
+  it("OC-07: shell.env strips AWS_SECRET_ACCESS_KEY and keeps PATH", async () => {
+    const handler = createEnvHandler(DEFAULT_SENSITIVE_VARS);
+    const output = {
+      env: {
+        AWS_SECRET_ACCESS_KEY: "secret-value",
+        PATH: "/usr/bin",
+      },
+    };
+
+    await handler({}, output);
+
+    expect(output.env.AWS_SECRET_ACCESS_KEY).toBeUndefined();
+    expect(output.env.PATH).toBe("/usr/bin");
+  });
+
+  it("OC-08: preflight gate behavior enforces null, failed, and passed states", async () => {
+    const input: BeforeInput = { tool: "bash", sessionID: "s1", callID: "c1" };
+
+    const uninitializedHandler = makeBeforeHandler(() => null, () => false);
+    await expect(uninitializedHandler(input, { args: { command: "ls" } })).rejects.toThrow(/Preflight not initialized/i);
+
+    const failedHandler = makeBeforeHandler(() => Promise.resolve(), () => false);
+    await expect(failedHandler(input, { args: { command: "ls" } })).rejects.toThrow(/Preflight failed/i);
+
+    const passedHandler = makeBeforeHandler(() => Promise.resolve(), () => true);
+    await expect(passedHandler(input, { args: { command: "ls" } })).resolves.toBeUndefined();
+  });
+});

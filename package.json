@@ -1,0 +1,14 @@
+{
+  "name": "03-super-duper-security-agent",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "preflight": "bun run src/preflight.ts",
+    "smoke-test": "bun run src/smoke-test.ts",
+    "install-harness": "bun run src/install.ts"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "^1.14.30",
+    "@types/bun": "latest"
+  }
+}

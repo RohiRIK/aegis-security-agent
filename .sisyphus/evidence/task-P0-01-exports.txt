@@ -1,0 +1,4 @@
+exports: DEFAULT_SENSITIVE_VARS,checkSensitiveFile,makeLockfileContent,matchHighRiskPattern,parseInstallCommand,semgrepScan,stripSensitiveEnv,trivyScan
+tsc: CLEAN
+no-base-import: 1
+smoke: 10/10 PASS

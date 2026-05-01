@@ -1,0 +1,24 @@
+# AI-Agent Security Harness — .gitignore
+
+# Runtime state (never commit)
+.harness/
+
+# Secrets
+.env
+.env.*
+!.env.schema
+*.pem
+*.key
+*_rsa
+*_rsa.pub
+
+# Bun
+node_modules/
+bun.lockb
+
+# Machine-specific config (absolute paths)
+.claude/
+.sisyphus/boulder.json
+
+# macOS
+.DS_Store
