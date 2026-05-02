@@ -1,10 +1,13 @@
 import {
   checkSensitiveFile,
+  makeLockfileContent,
   matchHighRiskPattern,
   parseInstallCommand,
-  trivyScan,
 } from "../../core/security.ts";
-import { basename } from "node:path";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { basename, join } from "node:path";
+import { wrapTrivy } from "../../lib/scanner.ts";
 import type { HarnessPolicy } from "../index.ts";
 
 export function createBeforeHandler(
@@ -32,8 +35,35 @@ export function createBeforeHandler(
 
     const pkg = parseInstallCommand(command);
     if (pkg) {
-      const { blocked, reason } = await trivyScan(pkg);
-      if (blocked) throw new Error(`BLOCKED by Trivy: ${pkg.packageName} — ${reason}`);
+      const { filename, content } = makeLockfileContent(pkg);
+      const scanDir = mkdtempSync(join(tmpdir(), "harness-trivy-"));
+      try {
+        await Bun.write(join(scanDir, filename), content);
+        const result = await wrapTrivy([
+          "fs", "--scanners", "vuln",
+          "--severity", "HIGH,CRITICAL",
+          "--exit-code", "1",
+          "--quiet", "--format", "json",
+          scanDir,
+        ]);
+
+        if (result.degraded) {
+          // Fail-open on timeout — same behavior as "trivy not installed"
+          process.stderr.write("[HARNESS] ⚠️ Trivy DEGRADED: dep scan timed out\n");
+        } else if (result.status === "ok" && result.exitCode === 1) {
+          let vulnCount = 0;
+          try {
+            const parsed = JSON.parse(result.stdout) as { Results?: Array<{ Vulnerabilities?: unknown[] }> };
+            vulnCount = parsed.Results?.reduce((sum, r) => sum + (r.Vulnerabilities?.length ?? 0), 0) ?? 0;
+          } catch { /* exit code is authoritative */ }
+          throw new Error(`BLOCKED by Trivy: ${pkg.packageName} — ${vulnCount} HIGH/CRITICAL CVE(s) found — upgrade to a patched version`);
+        } else if (result.status === "error") {
+          // Fail-open on error — scanner unavailable
+          process.stderr.write("[HARNESS] ⚠️ Trivy unavailable: dep scan skipped\n");
+        }
+      } finally {
+        rmSync(scanDir, { recursive: true, force: true });
+      }
     }
 
     const escaped = command.replace(/'/g, "'\\''");
