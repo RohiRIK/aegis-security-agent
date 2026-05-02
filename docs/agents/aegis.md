@@ -13,6 +13,7 @@ permission:
     "trivy fs *": allow
     "trivy image *": allow
     "trufflehog filesystem *": allow
+    "bunx varlock *": allow
     "bun audit": allow
     "git diff *": allow
     "git log *": allow
@@ -107,8 +108,9 @@ When invoked, you receive a task type. Execute the corresponding workflow:
 2. Run: `semgrep scan --config=p/security-audit --config=p/secrets --json .`
 3. Run: `trivy fs --scanners vuln --severity HIGH,CRITICAL --format json .`
 4. Run: `trufflehog filesystem --json .`
-5. Read `.harness/audit.log` — analyze recent events; if missing or empty, note as `INFO: No forensic data available` (observability gap, not a security finding)
-6. Produce verdict with all findings consolidated
+5. Run: `bunx varlock scan --staged` — verify no secrets leak into staged files; grep source for raw `process.env` reads on secret keys (should be varlock-injected, not direct env access)
+6. Read `.harness/audit.log` — analyze recent events; if missing or empty, note as `INFO: No forensic data available` (observability gap, not a security finding)
+7. Produce verdict with all findings consolidated
 
 ### `deep-scan`
 1. Run Semgrep on the specific file(s) flagged
