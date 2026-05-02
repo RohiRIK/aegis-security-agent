@@ -10,7 +10,7 @@
     }
   },
   "bin": {
-    "aegis": "bin/aegis.js"
+    "aegis": "bin/aegis.ts"
   },
   "files": ["dist", "bin"],
   "scripts": {

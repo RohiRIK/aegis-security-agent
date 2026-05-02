@@ -1,0 +1,3 @@
+src/cli/index.ts exists
+bin/aegis.js exists
+TSC pending
