@@ -66,5 +66,10 @@
       "^bash "
     ]
   },
+  "degraded_mode": {
+    "allow_host_passthrough": true,
+    "block_sandbox_required": true,
+    "warn_on_degraded": true
+  },
   "hitl_timeout_seconds": 120
 }

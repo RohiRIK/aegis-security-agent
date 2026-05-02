@@ -4,6 +4,8 @@ import {
   matchHighRiskPattern,
   parseInstallCommand,
 } from "../../core/security.ts";
+import { routeCommand } from "../../core/router.ts";
+import { detectDockerState, formatDockerWarning, isDockerAvailable } from "../../sandbox/detect.ts";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
@@ -14,6 +16,7 @@ export function createBeforeHandler(
   policy: HarnessPolicy,
   getPreflightPromise: () => Promise<void> | null,
   preflightPassed: () => boolean,
+  getDegraded?: () => boolean,
 ): (input: any, output: any) => Promise<void> {
   return async (input: any, output: any) => {
     const pp = getPreflightPromise();
@@ -31,7 +34,13 @@ export function createBeforeHandler(
     if (input.tool !== "bash") return;
 
     const command = output.args?.command ?? "";
+
     const matched = matchHighRiskPattern(command, policy.high_risk_patterns ?? []);
+    if (matched) throw new Error(`BLOCKED: HIGH-RISK pattern matched — ${matched}`);
+
+    const route = routeCommand(command, policy);
+
+    if (route === "host") return;
 
     const pkg = parseInstallCommand(command);
     if (pkg) {
@@ -48,7 +57,6 @@ export function createBeforeHandler(
         ]);
 
         if (result.degraded) {
-          // Fail-open on timeout — same behavior as "trivy not installed"
           process.stderr.write("[AEGIS] ⚠️ Trivy DEGRADED: dep scan timed out\n");
         } else if (result.status === "ok" && result.exitCode === 1) {
           let vulnCount = 0;
@@ -58,7 +66,6 @@ export function createBeforeHandler(
           } catch { /* exit code is authoritative */ }
           throw new Error(`BLOCKED by Trivy: ${pkg.packageName} — ${vulnCount} HIGH/CRITICAL CVE(s) found — upgrade to a patched version`);
         } else if (result.status === "error") {
-          // Fail-open on error — scanner unavailable
           process.stderr.write("[AEGIS] ⚠️ Trivy unavailable: dep scan skipped\n");
         }
       } finally {
@@ -66,10 +73,30 @@ export function createBeforeHandler(
       }
     }
 
+    const degraded = getDegraded?.() ?? false;
+    let dockerAvailable = !degraded;
+
+    if (!degraded) {
+      const dockerState = await detectDockerState();
+      dockerAvailable = isDockerAvailable(dockerState);
+      if (!dockerAvailable) {
+        const warnOnDegraded = policy.degraded_mode?.warn_on_degraded !== false;
+        if (warnOnDegraded) {
+          process.stderr.write(`${formatDockerWarning(dockerState)}\n`);
+        }
+      }
+    }
+
+    if (!dockerAvailable) {
+      const blockSandbox = policy.degraded_mode?.block_sandbox_required !== false;
+      if (blockSandbox) {
+        throw new Error("[AEGIS] BLOCKED: sandbox-required command cannot run — Docker unavailable");
+      }
+      return;
+    }
+
     const escaped = command.replace(/'/g, "'\\''");
     output.args ??= {};
     output.args.command = `docker exec aegis-sandbox bash -c '${escaped}'`;
-
-    if (matched) throw new Error(`BLOCKED: HIGH-RISK pattern matched — ${matched}`);
   };
 }

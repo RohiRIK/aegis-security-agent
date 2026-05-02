@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { routeCommand } from "./pre-tool-use.ts";
+import { routeCommand } from "../core/router.ts";
 
 describe("routeCommand", () => {
   const policy = {

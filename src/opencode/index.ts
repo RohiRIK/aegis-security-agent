@@ -52,17 +52,21 @@ export const HarnessSecurityPlugin: Plugin = async ({ directory }) => {
 
   let preflightPassed = false;
   let preflightPromise: Promise<void> | null = null;
+  let degraded = false;
 
   const { handler: sessionHandler } = createSessionHandler(
     directory,
     (val) => { preflightPassed = val; },
     (p) => { preflightPromise = p; },
+    undefined,
+    (val) => { degraded = val; },
   );
 
   const beforeHandler = createBeforeHandler(
     policy,
     () => preflightPromise,
     () => preflightPassed,
+    () => degraded,
   );
 
   const afterHandler = createAfterHandler();

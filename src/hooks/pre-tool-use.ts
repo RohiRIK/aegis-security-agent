@@ -12,6 +12,7 @@ import {
   writeStdout,
 } from "../lib/base.ts";
 import { matchHighRiskPattern, parseInstallCommand, trivyScan } from "../core/security.ts";
+import { routeCommand } from "../core/router.ts";
 
 const AEGIS_DIR = resolve(import.meta.dir, "..", "..");
 const POLICY_PATH = join(AEGIS_DIR, "aegis-policy.json");
@@ -24,23 +25,6 @@ type HarnessPolicy = {
     sandbox_required?: string[];
   };
 };
-
-export function routeCommand(command: string, policy: HarnessPolicy): "host" | "sandbox" | "hitl" {
-  if (!command) return "sandbox";
-
-  const highRiskPatterns = Array.isArray(policy.high_risk_patterns) ? policy.high_risk_patterns : [];
-  if (matchHighRiskPattern(command, highRiskPatterns) !== null) return "hitl";
-
-  for (const pattern of policy.routing?.sandbox_required ?? []) {
-    if (new RegExp(pattern).test(command)) return "sandbox";
-  }
-
-  for (const pattern of policy.routing?.host_passthrough ?? []) {
-    if (new RegExp(pattern).test(command)) return "host";
-  }
-
-  return "sandbox";
-}
 
 async function main(): Promise<number> {
   const inputText = await readStdinText();

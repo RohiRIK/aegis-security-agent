@@ -1,7 +1,8 @@
 import { join, resolve } from "node:path";
 
-import { fileExists, runCommandCapture, runCommandInherit } from "./lib/base.ts";
-import { c, icon, print, printHeader, println, printStatusTable } from "./lib/ui.ts";
+import { fileExists, runCommandInherit } from "./lib/base.ts";
+import { detectDockerState, isDockerAvailable, isDegraded } from "./sandbox/detect.ts";
+import { c, icon, print, println, printHeader, printStatusTable } from "./lib/ui.ts";
 
 const AEGIS_DIR = resolve(import.meta.dir, "..");
 
@@ -20,17 +21,21 @@ async function runBunScript(scriptPath: string, args: string[] = []): Promise<nu
 }
 
 async function showStatus(): Promise<number> {
-  const [sandbox, hooks, policy, schema, precommit] = await Promise.all([
-    runCommandCapture(["docker", "ps", "--filter", "name=aegis-sandbox", "--filter", "status=running", "--format", "{{.Names}}"]),
+  const [dockerState, hooks, policy, schema, precommit] = await Promise.all([
+    detectDockerState(),
     fileExists(join(AEGIS_DIR, ".claude", "hooks.json")),
     fileExists(join(AEGIS_DIR, "aegis-policy.json")),
     fileExists(join(AEGIS_DIR, ".env.schema")),
     fileExists(join(AEGIS_DIR, ".git", "hooks", "pre-commit")),
   ]);
 
+  const dockerUp = isDockerAvailable(dockerState);
+  const degradedMode = isDegraded(dockerState);
+
   printHeader();
   printStatusTable([
-    { label: "Sandbox container", value: sandbox.stdout.includes("aegis-sandbox") ? "running" : "stopped", ok: sandbox.stdout.includes("aegis-sandbox") },
+    { label: "Sandbox container", value: dockerUp ? "running" : dockerState.replace(/_/g, " "), ok: dockerUp },
+    { label: "Routing mode", value: degradedMode ? "DEGRADED (host-only)" : "full (sandbox active)", ok: !degradedMode },
     { label: "Hooks config", value: hooks ? "present" : "missing", ok: hooks },
     { label: "Policy file", value: policy ? "present" : "missing", ok: policy },
     { label: ".env.schema", value: schema ? "present" : "missing", ok: schema },

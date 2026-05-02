@@ -136,6 +136,19 @@ async function main(): Promise<number> {
     return exitCode === 0 && !(await fileExists(dbPath));
   });
 
+  await runTest("T-011: routeCommand routes git to host", async () => {
+    const { routeCommand } = await import("./core/router.ts");
+    const policy = { routing: { host_passthrough: ["^git\\b"], sandbox_required: ["^node\\b"] } };
+    return routeCommand("git status", policy) === "host" && routeCommand("node index.js", policy) === "sandbox";
+  });
+
+  await runTest("T-012: detectDockerState returns valid state", async () => {
+    const { detectDockerState } = await import("./sandbox/detect.ts");
+    const state = await detectDockerState();
+    const validStates = ["running", "binary_missing", "daemon_unavailable", "container_absent", "container_stopped", "start_failure"];
+    return validStates.includes(state);
+  });
+
   writeStdout(`\nResults: ${passCount} passed, ${failCount} failed\n`);
   if (failCount === 0) {
     writeStdout("SMOKE TEST PASSED\n");
