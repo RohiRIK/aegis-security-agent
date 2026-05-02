@@ -108,9 +108,10 @@ When invoked, you receive a task type. Execute the corresponding workflow:
 2. Run: `semgrep scan --config=p/security-audit --config=p/secrets --json .`
 3. Run: `trivy fs --scanners vuln --severity HIGH,CRITICAL --format json .`
 4. Run: `trufflehog filesystem --json .`
-5. Run: `bunx varlock scan --staged` — verify no secrets leak into staged files; grep source for raw `process.env` reads on secret keys (should be varlock-injected, not direct env access)
-6. Read `.harness/audit.log` — analyze recent events; if missing or empty, note as `INFO: No forensic data available` (observability gap, not a security finding)
-7. Produce verdict with all findings consolidated
+5. Run: `bunx varlock scan --staged` — verify no secrets leak into staged files. ALWAYS report the result in Evidence, even when nothing is staged: `✅ varlock: no staged files` or `✅ varlock: 0 findings`. If varlock is unavailable, report `⚠️ varlock: not installed — skipped` and grep for raw `process.env` reads on secret keys as fallback.
+6. Grep source for raw `process.env` reads on known secret key names (`API_KEY`, `SECRET`, `TOKEN`, `PASSWORD`, `PRIVATE_KEY`). These should be varlock-injected, not direct env access. Report count in Evidence.
+7. Read `.harness/audit.log` — analyze recent events; if missing or empty, note as `INFO: No forensic data available` (observability gap, not a security finding)
+8. Produce verdict with all findings consolidated
 
 ### `deep-scan`
 1. Run Semgrep on the specific file(s) flagged
