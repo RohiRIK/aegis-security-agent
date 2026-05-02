@@ -14,6 +14,7 @@ permission:
     "trivy image *": allow
     "trufflehog filesystem *": allow
     "bunx varlock *": allow
+    "bun run */verdict-log.ts *": allow
     "bun audit": allow
     "git diff *": allow
     "git log *": allow
@@ -89,7 +90,17 @@ For scoped tasks, run scanners ONLY on the relevant files/paths — not the enti
 
 ## Verdict History
 
-When `.aegis/audit.log` contains `aegis_verdict` events, read the last 10 entries before producing your verdict. Note the trend:
+Use the verdict-log CLI to read past verdicts and write new ones:
+
+```bash
+# Read last 10 verdicts
+bun run src/lib/verdict-log.ts read 10
+
+# Append your verdict after every audit
+bun run src/lib/verdict-log.ts append '{"task":"full-audit","verdict":"SAFE","findings":{"critical":0,"high":0,"medium":0,"low":1,"info":3},"degraded":[],"commit":"abc1234","scope":"full repo"}'
+```
+
+When verdict history exists, note the trend before producing your verdict:
 - **Improving**: severity counts decreasing over recent verdicts
 - **Stable**: no significant change
 - **Degrading**: severity counts increasing or new CRITICAL findings
@@ -105,13 +116,15 @@ When invoked, you receive a task type. Execute the corresponding workflow:
 
 ### `full-audit`
 1. Read `harness-policy.json` — note current rules
-2. Run: `semgrep scan --config=p/security-audit --config=p/secrets --json .`
-3. Run: `trivy fs --scanners vuln --severity HIGH,CRITICAL --format json .`
-4. Run: `trufflehog filesystem --json .`
-5. Run: `bunx varlock scan --staged` — verify no secrets leak into staged files. ALWAYS report the result in Evidence, even when nothing is staged: `✅ varlock: no staged files` or `✅ varlock: 0 findings`. If varlock is unavailable, report `⚠️ varlock: not installed — skipped` and grep for raw `process.env` reads on secret keys as fallback.
-6. Grep source for raw `process.env` reads on known secret key names (`API_KEY`, `SECRET`, `TOKEN`, `PASSWORD`, `PRIVATE_KEY`). These should be varlock-injected, not direct env access. Report count in Evidence.
-7. Read `.aegis/audit.log` — analyze recent events; if missing or empty, note as `INFO: No forensic data available` (observability gap, not a security finding)
-8. Produce verdict with all findings consolidated
+2. Run: `bun run src/lib/verdict-log.ts read 10` — check verdict history for trend. If no history, note and continue.
+3. Run: `semgrep scan --config=p/security-audit --config=p/secrets --json .`
+4. Run: `trivy fs --scanners vuln --severity HIGH,CRITICAL --format json .`
+5. Run: `trufflehog filesystem --json .`
+6. Run: `bunx varlock scan --staged` — verify no secrets leak into staged files. ALWAYS report the result in Evidence, even when nothing is staged: `✅ varlock: no staged files` or `✅ varlock: 0 findings`. If varlock is unavailable, report `⚠️ varlock: not installed — skipped` and grep for raw `process.env` reads on secret keys as fallback.
+7. Grep source for raw `process.env` reads on known secret key names (`API_KEY`, `SECRET`, `TOKEN`, `PASSWORD`, `PRIVATE_KEY`). These should be varlock-injected, not direct env access. Report count in Evidence.
+8. Read `.aegis/audit.log` — analyze recent events; if missing or empty, note as `INFO: No forensic data available` (observability gap, not a security finding)
+9. Produce verdict with all findings consolidated
+10. Run: `bun run src/lib/verdict-log.ts append '<verdict-json>'` — persist your verdict. Use the current git HEAD as commit. ALWAYS run this step — every audit MUST be recorded.
 
 ### `deep-scan`
 1. Run Semgrep on the specific file(s) flagged

@@ -190,3 +190,20 @@ export async function wrapTrivy(args: string[]): Promise<ScannerResult> {
   await writeScannerCache("trivy", key, result);
   return result;
 }
+
+export async function wrapTrufflehog(targetPath: string): Promise<ScannerResult> {
+  const config = "--json|filesystem";
+  const { key, cached } = await readScannerCache("trufflehog", config, [targetPath]);
+
+  if (cached) {
+    return cached;
+  }
+
+  const result = await scannerRunner.runScannerWithTimeout(
+    ["trufflehog", "filesystem", "--json", targetPath],
+    SCANNER_BUDGETS.trufflehog,
+  );
+
+  await writeScannerCache("trufflehog", key, result);
+  return result;
+}
