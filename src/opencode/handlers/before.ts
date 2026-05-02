@@ -10,6 +10,9 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { wrapTrivy } from "../../lib/scanner.ts";
+import { logAegis } from "../../lib/aegis-log.ts";
+import { proxyResult } from "../../lib/output-proxy.ts";
+import type { PluginInput } from "@opencode-ai/plugin";
 import type { HarnessPolicy } from "../index.ts";
 
 export function createBeforeHandler(
@@ -17,6 +20,7 @@ export function createBeforeHandler(
   getPreflightPromise: () => Promise<void> | null,
   preflightPassed: () => boolean,
   getDegraded?: () => boolean,
+  client?: PluginInput["client"],
 ): (input: any, output: any) => Promise<void> {
   return async (input: any, output: any) => {
     const pp = getPreflightPromise();
@@ -57,16 +61,16 @@ export function createBeforeHandler(
         ]);
 
         if (result.degraded) {
-          process.stderr.write("[AEGIS] ⚠️ Trivy DEGRADED: dep scan timed out\n");
+          logAegis(client, "warn", "[AEGIS] ⚠️ Trivy DEGRADED: dep scan timed out");
         } else if (result.status === "ok" && result.exitCode === 1) {
-          let vulnCount = 0;
+          let parsed: { Results?: Array<{ Vulnerabilities?: unknown[] }> } = {};
           try {
-            const parsed = JSON.parse(result.stdout) as { Results?: Array<{ Vulnerabilities?: unknown[] }> };
-            vulnCount = parsed.Results?.reduce((sum, r) => sum + (r.Vulnerabilities?.length ?? 0), 0) ?? 0;
+            parsed = JSON.parse(result.stdout) as { Results?: Array<{ Vulnerabilities?: unknown[] }> };
           } catch { /* exit code is authoritative */ }
-          throw new Error(`BLOCKED by Trivy: ${pkg.packageName} — ${vulnCount} HIGH/CRITICAL CVE(s) found — upgrade to a patched version`);
+          const { summary } = proxyResult("trivy", parsed, { packageName: pkg.packageName });
+          throw new Error(`BLOCKED by Trivy: ${summary}`);
         } else if (result.status === "error") {
-          process.stderr.write("[AEGIS] ⚠️ Trivy unavailable: dep scan skipped\n");
+          logAegis(client, "warn", "[AEGIS] ⚠️ Trivy unavailable: dep scan skipped");
         }
       } finally {
         rmSync(scanDir, { recursive: true, force: true });
@@ -82,7 +86,7 @@ export function createBeforeHandler(
       if (!dockerAvailable) {
         const warnOnDegraded = policy.degraded_mode?.warn_on_degraded !== false;
         if (warnOnDegraded) {
-          process.stderr.write(`${formatDockerWarning(dockerState)}\n`);
+          logAegis(client, "warn", formatDockerWarning(dockerState));
         }
       }
     }

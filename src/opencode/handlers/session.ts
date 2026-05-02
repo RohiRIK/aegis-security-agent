@@ -1,10 +1,13 @@
 import { join } from "node:path";
+import type { PluginInput } from "@opencode-ai/plugin";
 import { DEFAULT_SENSITIVE_VARS } from "../../core/security.ts";
 import { detectDockerState, formatDockerWarning, isDegraded } from "../../sandbox/detect.ts";
+import { logAegis } from "../../lib/aegis-log.ts";
 
 async function runDefaultPreflight(
   directory: string,
   setDegraded: (val: boolean) => void,
+  client?: PluginInput["client"],
 ): Promise<void> {
   const c = Bun.spawn(["bunx", "varlock", "--version"], { stdout: "ignore", stderr: "ignore" });
   if ((await c.exited) !== 0) throw new Error("varlock unavailable");
@@ -22,7 +25,7 @@ async function runDefaultPreflight(
   const dockerState = await detectDockerState();
   if (isDegraded(dockerState)) {
     const warning = formatDockerWarning(dockerState);
-    process.stderr.write(`${warning}\n`);
+    logAegis(client, "warn", warning);
     setDegraded(true);
   }
 
@@ -36,6 +39,7 @@ export function createSessionHandler(
   setPreflightPromise?: (p: Promise<void>) => void,
   runPreflight?: (setDegraded: (val: boolean) => void) => Promise<void>,
   setDegraded?: (val: boolean) => void,
+  client?: PluginInput["client"],
 ): { handler: (input: { event: { type: string; sessionID?: string } }) => Promise<void> } {
   const handler = async (input: { event: { type: string; sessionID?: string } }) => {
     if (input.event.type !== "session.created") return;
@@ -45,11 +49,12 @@ export function createSessionHandler(
         if (runPreflight) {
           await runPreflight(setDegraded ?? (() => {}));
         } else {
-          await runDefaultPreflight(directory, setDegraded ?? (() => {}));
+          await runDefaultPreflight(directory, setDegraded ?? (() => {}), client);
         }
         setPreflightPassed(true);
       } catch (err) {
-        process.stderr.write(`[AEGIS] preflight failed: ${err instanceof Error ? err.message : String(err)}\n`);
+        const message = `[AEGIS] preflight failed: ${err instanceof Error ? err.message : String(err)}`;
+        logAegis(client, "error", message);
         setPreflightPassed(false);
       }
     })();

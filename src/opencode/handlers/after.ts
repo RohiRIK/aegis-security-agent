@@ -1,5 +1,7 @@
 import { parseSemgrepFindings, type SemgrepFinding } from "../../core/security.ts";
 import { wrapSemgrep } from "../../lib/scanner.ts";
+import { proxyResult } from "../../lib/output-proxy.ts";
+import { basename } from "node:path";
 
 export function createAfterHandler(): (input: any, output: any) => Promise<void> {
   return async (input: any, output: any) => {
@@ -11,7 +13,8 @@ export function createAfterHandler(): (input: any, output: any) => Promise<void>
     const findings = result.status === "ok" ? parseSemgrepFindings(result.stdout) : [];
 
     if (findings.length > 0) {
-      output.output += `\n\n[AEGIS] Semgrep found ${findings.length} issue(s):\n` + JSON.stringify(findings, null, 2);
+      const { summary } = proxyResult("semgrep", findings, { filename: basename(filePath) });
+      output.output += `\n\n${summary}`;
     }
 
     if (result.degraded) {

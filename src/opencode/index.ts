@@ -3,6 +3,7 @@ import type { Plugin } from "@opencode-ai/plugin";
 import { createBeforeHandler } from "./handlers/before.ts";
 import { createAfterHandler } from "./handlers/after.ts";
 import { createSessionHandler } from "./handlers/session.ts";
+import { createCompactionHandler } from "./handlers/compaction.ts";
 import { createEnvHandler } from "./handlers/env.ts";
 import { createPermissionHandler } from "./handlers/permission.ts";
 import { DEFAULT_SENSITIVE_VARS } from "../core/security.ts";
@@ -45,7 +46,7 @@ function safe(handler: AnyHandler, opts?: { swallow?: boolean; onError?: () => v
   };
 }
 
-export const AegisSecurityPlugin: Plugin = async ({ directory }) => {
+export const AegisSecurityPlugin: Plugin = async ({ directory, client }) => {
   const policy = JSON.parse(
     await Bun.file(join(directory, "aegis-policy.json")).text(),
   ) as HarnessPolicy;
@@ -60,6 +61,7 @@ export const AegisSecurityPlugin: Plugin = async ({ directory }) => {
     (p) => { preflightPromise = p; },
     undefined,
     (val) => { degraded = val; },
+    client,
   );
 
   const beforeHandler = createBeforeHandler(
@@ -67,15 +69,22 @@ export const AegisSecurityPlugin: Plugin = async ({ directory }) => {
     () => preflightPromise,
     () => preflightPassed,
     () => degraded,
+    client,
   );
 
   const afterHandler = createAfterHandler();
+  const compactionHandler = createCompactionHandler(
+    () => preflightPassed,
+    () => degraded,
+    policy,
+  );
   const envHandler = createEnvHandler(DEFAULT_SENSITIVE_VARS);
   const permissionHandler = createPermissionHandler(policy);
 
   return {
     "tool.execute.before": safe(beforeHandler as AnyHandler),
     "tool.execute.after": safe(afterHandler as AnyHandler),
+    "experimental.session.compacting": safe(compactionHandler as AnyHandler),
     "event": safe(sessionHandler as AnyHandler, { swallow: true, onError: () => { preflightPassed = false; } }),
     "shell.env": safe(envHandler as AnyHandler),
     "permission.ask": safe(permissionHandler as AnyHandler),
