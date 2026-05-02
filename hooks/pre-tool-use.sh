@@ -9,7 +9,7 @@ set -euo pipefail
 
 HARNESS_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 POLICY="$HARNESS_DIR/harness-policy.json"
-AUDIT_LOG="$HARNESS_DIR/.harness/audit.log"
+AUDIT_LOG="$HARNESS_DIR/.aegis/audit.log"
 
 INPUT=$(cat)
 TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // .tool // ""')

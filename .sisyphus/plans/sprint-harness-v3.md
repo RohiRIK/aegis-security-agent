@@ -1662,7 +1662,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ### ═══ WAVE 7 — Track D: Aegis Agent Mode ═══
 
-- [ ] T-26. Update `docs/agents/aegis.md` — `mode: subagent` → `mode: agent`
+- [x] T-26. Update `docs/agents/aegis.md` — `mode: subagent` → `mode: agent`
 
   **What to do**:
   - Line 6: Change `mode: subagent` to `mode: agent`
@@ -1707,7 +1707,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ---
 
-- [ ] T-27. Update `~/.config/opencode/agents/aegis.md` — `mode: subagent` → `mode: agent`
+- [x] T-27. Update `~/.config/opencode/agents/aegis.md` — `mode: subagent` → `mode: agent`
 
   **What to do**:
   - Line 6: Change `mode: subagent` to `mode: agent`
@@ -1752,7 +1752,7 @@ Max Concurrent: 5 (Wave 1) / 6 (Wave 4)
 
 ---
 
-- [ ] T-28. Track D Verification — Confirm Aegis Agent Configuration
+- [x] T-28. Track D Verification — Confirm Aegis Agent Configuration
 
   **What to do**:
   - Verify both copies are updated:

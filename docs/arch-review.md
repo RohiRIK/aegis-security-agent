@@ -49,7 +49,7 @@ The external-gate design (`harness start` = `preflight && claude`) is architectu
 
 - Fires on `Write`/`Edit`/`write`/`edit` tool calls (FR-012).
 - Invokes `semgrep scan --config=p/security-audit --config=p/secrets` (FR-013, partial — see Gap G-04).
-- Logs ERROR-severity findings to `.harness/audit.log` in NDJSON format (NFR-010).
+- Logs ERROR-severity findings to `.aegis/audit.log` in NDJSON format (NFR-010).
 - Returns findings to the agent for self-correction (SPEC §11.3).
 
 ### 1.5 HITL Gateway
@@ -59,7 +59,7 @@ The external-gate design (`harness start` = `preflight && claude`) is architectu
 - Presents a structured ASCII approval prompt with tool, command, risk reason, and reversibility (FR-028).
 - Reads user input with configurable timeout (default 120s) from `HITL_TIMEOUT_SECONDS` env var (FR-030).
 - Auto-denies on timeout (FR-030).
-- Logs every decision (approve/deny/timeout-deny) with timestamp, request ID, and user to `.harness/audit.log` (FR-029).
+- Logs every decision (approve/deny/timeout-deny) with timestamp, request ID, and user to `.aegis/audit.log` (FR-029).
 
 ### 1.6 MCP Configuration
 
@@ -146,7 +146,7 @@ SPEC §11.8 states: "The `harness install` command reads `harness-policy.json` a
 
 **FR affected:** NFR-010, SPEC §11.6
 
-SPEC §11.6 requires: "Every MCP tool call is logged by the `PostToolUse` hook to `.harness/audit.log` with: `timestamp`, `server`, `tool`, `input_hash`, `output_length`." The `post-tool-use.sh` implementation only logs Semgrep findings. General MCP tool calls (lean-ctx reads, Snyk checks) are not logged.
+SPEC §11.6 requires: "Every MCP tool call is logged by the `PostToolUse` hook to `.aegis/audit.log` with: `timestamp`, `server`, `tool`, `input_hash`, `output_length`." The `post-tool-use.sh` implementation only logs Semgrep findings. General MCP tool calls (lean-ctx reads, Snyk checks) are not logged.
 
 ### G-07: Three P0 Tools Not Installed
 
@@ -234,7 +234,7 @@ This is not a vulnerability per se, but it means: (a) two separate Semgrep insta
 
 **NFR affected:** NFR-010
 
-Both `hitl-gateway.sh` and `post-tool-use.sh` append to `.harness/audit.log` using `>>` without advisory locking (`flock`). If two hooks fire concurrently (possible if the agent issues rapid tool calls), the NDJSON log could get interleaved or corrupted.
+Both `hitl-gateway.sh` and `post-tool-use.sh` append to `.aegis/audit.log` using `>>` without advisory locking (`flock`). If two hooks fire concurrently (possible if the agent issues rapid tool calls), the NDJSON log could get interleaved or corrupted.
 
 **Practical risk:** LOW for a solo developer. Becomes relevant with concurrent agent sessions in Phase 2.
 

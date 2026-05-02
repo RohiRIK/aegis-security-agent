@@ -114,7 +114,7 @@ Every task references the SPEC requirement ID(s) it implements. Tasks are ordere
 | # | Task | Implements | Source | Acceptance Criteria |
 |---|------|-----------|--------|---------------------|
 | 3A-01 | Add `semgrep` MCP entry to `.claude/mcp.json` (stdio transport) | FR-011, FR-033 | | `npx @semgrep/mcp` starts without error; config is valid |
-| 3A-02 | Write `hooks/post-tool-use.sh` block: invoke `semgrep scan` on every written file; append ERROR findings to `.harness/audit.log` | FR-012, FR-013, NFR-010 | Spec §11.3 (script included) | Writing `api_key = "sk-1234567890abcdef"` triggers a Semgrep ERROR logged to audit.log |
+| 3A-02 | Write `hooks/post-tool-use.sh` block: invoke `semgrep scan` on every written file; append ERROR findings to `.aegis/audit.log` | FR-012, FR-013, NFR-010 | Spec §11.3 (script included) | Writing `api_key = "sk-1234567890abcdef"` triggers a Semgrep ERROR logged to audit.log |
 | 3A-03 | Register `PostToolUse` hook in `.claude/hooks.json` | FR-031 | | Hook fires after every write/edit tool call |
 | 3A-04 | Add T-005 (Semgrep detects hardcoded API key) to smoke test | FR-039 | | T-005 passes |
 
@@ -150,7 +150,7 @@ Every task references the SPEC requirement ID(s) it implements. Tasks are ordere
 
 | # | Task | Implements | Source | Acceptance Criteria |
 |---|------|-----------|--------|---------------------|
-| 4A-01 | Write `scripts/hitl-gateway.sh` (copy from SPEC verbatim, adapt paths) | FR-026, FR-028, FR-029, FR-030 | Spec §11.7 (full script included) | `echo "deny" | bash hitl-gateway.sh ...` exits 1; `echo "approve" | bash hitl-gateway.sh ...` exits 0; timeout exits 1; all decisions logged to `.harness/audit.log` |
+| 4A-01 | Write `scripts/hitl-gateway.sh` (copy from SPEC verbatim, adapt paths) | FR-026, FR-028, FR-029, FR-030 | Spec §11.7 (full script included) | `echo "deny" | bash hitl-gateway.sh ...` exits 1; `echo "approve" | bash hitl-gateway.sh ...` exits 0; timeout exits 1; all decisions logged to `.aegis/audit.log` |
 | 4A-02 | Integrate HITL call into `hooks/pre-tool-use.sh` for HIGH-RISK commands | FR-027, FR-031 | | `DROP TABLE users` triggers HITL prompt; `SELECT * FROM sessions` does not |
 
 ---
@@ -169,8 +169,8 @@ Every task references the SPEC requirement ID(s) it implements. Tasks are ordere
 
 | # | Task | Implements | Source | Acceptance Criteria |
 |---|------|-----------|--------|---------------------|
-| 4C-01 | Write `scripts/shred.sh` (copy from SPEC verbatim) + wire to `harness shred` CLI | FR-024, FR-025, §10.3 | Spec §10.3 | `harness shred` deletes `.harness/lean-ctx.db` and `.harness/audit.log`; `harness shred --audit` scans before deletion |
-| 4C-02 | Register `SessionEnd` hook in `.claude/hooks.json`; append session-end event to `.harness/audit.log` | FR-029, NFR-010 | | After session, audit.log contains `{"event":"session_end",...}` entry |
+| 4C-01 | Write `scripts/shred.sh` (copy from SPEC verbatim) + wire to `harness shred` CLI | FR-024, FR-025, §10.3 | Spec §10.3 | `harness shred` deletes `.harness/lean-ctx.db` and `.aegis/audit.log`; `harness shred --audit` scans before deletion |
+| 4C-02 | Register `SessionEnd` hook in `.claude/hooks.json`; append session-end event to `.aegis/audit.log` | FR-029, NFR-010 | | After session, audit.log contains `{"event":"session_end",...}` entry |
 | 4C-03 | Add T-010 (shred removes lean-ctx.db) to smoke test | FR-039 | | T-010 passes |
 
 ---

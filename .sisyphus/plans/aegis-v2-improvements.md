@@ -31,7 +31,7 @@ Batch of targeted improvements to the Aegis security analyst agent based on find
 
 **First audit findings (6 improvements identified)**:
 1. 3 false-positive AKIA patterns in docs (test fixtures described in documentation) — Aegis flagged them as HIGH
-2. Missing `.harness/audit.log` reported as finding — install.ts creates `.harness/` but not the log file
+2. Missing `.aegis/audit.log` reported as finding — install.ts creates `.harness/` but not the log file
 3. No scanner timeout protection — scanners can hang indefinitely
 4. Full-repo scans only — no incremental/changed-files-only mode
 5. Design doc Section 6 mentions `.harness/scan-cache/` but directory doesn't exist
@@ -40,7 +40,7 @@ Batch of targeted improvements to the Aegis security analyst agent based on find
 **Infrastructure state**:
 - `src/install.ts` creates `.harness/` dir (empty), `.claude/`, copies policy files — does NOT create audit.log, scan-cache, or copy aegis.md
 - `.harness/` is currently empty in the repo
-- Audit logging implemented in hooks (`post-tool-use.sh` writes NDJSON to `.harness/audit.log`)
+- Audit logging implemented in hooks (`post-tool-use.sh` writes NDJSON to `.aegis/audit.log`)
 - Test infrastructure: `src/smoke-test.ts` (10 tests, custom runner), `src/opencode-smoke-test.ts` (8 tests, `bun:test`)
 
 ### Gap Analysis (self-review, Metis timed out)
@@ -72,7 +72,7 @@ Upgrade Aegis from v1 to v2 with 6 targeted improvements that address false posi
 - [ ] `bun run src/smoke-test.ts` passes (10/10 existing + no regressions)
 - [ ] `bun test ./src/opencode-smoke-test.ts` passes (8/8 existing + no regressions)
 - [ ] `bun test ./src/install.test.ts` passes (new tests)
-- [ ] After `bun run src/install.ts -- --opencode`, `.harness/audit.log` exists
+- [ ] After `bun run src/install.ts -- --opencode`, `.aegis/audit.log` exists
 - [ ] After install, `.harness/scan-cache/` directory exists
 - [ ] After install with `--opencode`, `~/.config/opencode/agents/aegis.md` exists
 - [ ] Aegis v2 prompt contains all 5 improvement sections
@@ -167,7 +167,7 @@ Max Concurrent: 3 (Wave 1)
 
   **What to do**:
   1. **Write tests first** (`src/install.test.ts`) using `bun:test` pattern from `src/opencode-smoke-test.ts`:
-     - Test: `install()` creates `.harness/audit.log` as an empty file if it doesn't exist
+     - Test: `install()` creates `.aegis/audit.log` as an empty file if it doesn't exist
      - Test: `install()` creates `.harness/scan-cache/` directory if it doesn't exist
      - Test: `install() --opencode` copies `docs/agents/aegis.md` to `~/.config/opencode/agents/aegis.md`
      - Test: `install()` skips audit.log creation if file already exists (idempotent)
@@ -348,7 +348,7 @@ Max Concurrent: 3 (Wave 1)
      **Previous Verdict**: <last verdict for same task-type, or "N/A — first scan">
      **Delta**: <+N new findings / -N resolved / unchanged>
      ```
-  2. Instruct Aegis: "Before producing your verdict, read `.harness/audit.log` and grep for previous Aegis verdict entries. If a previous verdict exists for the same task type, include it as `Previous Verdict` and compute the delta (new findings vs resolved findings)."
+  2. Instruct Aegis: "Before producing your verdict, read `.aegis/audit.log` and grep for previous Aegis verdict entries. If a previous verdict exists for the same task type, include it as `Previous Verdict` and compute the delta (new findings vs resolved findings)."
   3. If audit.log is empty or has no Aegis entries: `**Previous Verdict**: N/A — first scan`
 
   **Improvement F — Version Bump**:
@@ -639,7 +639,7 @@ Max Concurrent: 3 (Wave 1)
      - `bun test ./src/install.test.ts` — new install tests (from A2-01)
   2. Run the installer and verify new behaviors:
      - Execute `bun run src/install.ts -- --opencode` in a test context
-     - Verify `.harness/audit.log` exists (empty)
+     - Verify `.aegis/audit.log` exists (empty)
      - Verify `.harness/scan-cache/` directory exists
      - Verify `~/.config/opencode/agents/aegis.md` exists and matches `docs/agents/aegis.md`
   3. Verify aegis.md prompt content (cross-check with A2-02):
@@ -714,7 +714,7 @@ Max Concurrent: 3 (Wave 1)
     Tool: Bash
     Preconditions: Install changes from A2-01 applied
     Steps:
-      1. Run: test -f .harness/audit.log && echo "EXISTS" || echo "MISSING"
+      1. Run: test -f .aegis/audit.log && echo "EXISTS" || echo "MISSING"
       2. Assert "EXISTS"
       3. Run: test -d .harness/scan-cache && echo "EXISTS" || echo "MISSING"
       4. Assert "EXISTS"
@@ -801,7 +801,7 @@ bun test ./src/install.test.ts            # Expected: all pass
 
 # Install creates required files
 bun run src/install.ts -- --opencode      # Then verify:
-test -f .harness/audit.log               # Expected: exists (empty)
+test -f .aegis/audit.log               # Expected: exists (empty)
 test -d .harness/scan-cache              # Expected: exists
 test -f ~/.config/opencode/agents/aegis.md # Expected: exists
 

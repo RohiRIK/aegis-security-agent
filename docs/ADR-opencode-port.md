@@ -630,7 +630,7 @@ type TrivyDeps = {
 | Output/blocking | `writeStdout(JSON)` + `process.exit(1)` | `throw new Error(reason)` |
 | Command rewriting | Mutate `tool_input.command` in JSON | Not available (see Risk #1) |
 | HITL | Spawn `hitl-gateway.ts` subprocess | `throw` with descriptive message |
-| Audit write target | `appendText()` to `.harness/audit.log` | Same (shared via audit.ts) |
+| Audit write target | `appendText()` to `.aegis/audit.log` | Same (shared via audit.ts) |
 | State management | None (stateless per invocation) | `preflightPassed` in closure |
 
 ---

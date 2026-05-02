@@ -50,7 +50,7 @@ Aegis differs from the existing `security.md` agent:
 
 **Identified Gaps** (addressed in plan):
 1. **Scanner unavailability** — Aegis must check scanner availability at task start and degrade gracefully with `DEGRADED` warning (Design doc Risk 1)
-2. **Missing audit log** — Aegis must detect missing/empty `.harness/audit.log` and report it as a finding itself
+2. **Missing audit log** — Aegis must detect missing/empty `.aegis/audit.log` and report it as a finding itself
 3. **Missing policy file** — Aegis must report if `harness-policy.json` is absent
 4. **AGENTS.md location** — Design doc says "AGENTS.md"; the OpenCode global rules file is at `~/.config/opencode/AGENTS.md`. Triggers go there, not in project CLAUDE.md
 5. **Smoke test execution** — `opencode` CLI may not support `run --agent` syntax. Tests are documented as manual verification steps
@@ -87,7 +87,7 @@ Deliver a production-ready Aegis agent definition that any OpenCode user can ins
 - Structured verdict format (SAFE/RISKY/BLOCKED) with findings table
 - Scanner availability check with graceful degradation
 - `harness-policy.json` reading before every analysis
-- `.harness/audit.log` reading for forensic tasks
+- `.aegis/audit.log` reading for forensic tasks
 
 ### Must NOT Have (Guardrails)
 
@@ -194,7 +194,7 @@ Max Concurrent: 3 (Wave 1)
      - **Response format**: EXACTLY matching design doc Section 4 — `## 🛡️ Aegis Security Assessment` header, Verdict (SAFE/RISKY/BLOCKED), Task, Scope, Findings table (# | Severity | Category | Location | Description), Evidence section, Remediation section, Policy Recommendation section, footer with scanner list
      - **Verdict definitions**: SAFE (no findings above LOW), RISKY (HIGH/MEDIUM exist, no CRITICAL), BLOCKED (CRITICAL or active secret exposure) — from design doc Section 4
      - **Rules section**: 7 rules from design doc Section 7 draft skeleton (never edit, never run unauthorized commands, always read policy first, always check audit.log for forensic tasks, always produce verdict, handle missing scanners gracefully, findings require evidence)
-     - **Edge case handling**: Missing `.harness/audit.log` → report as finding. Missing `harness-policy.json` → report inability to validate against policy. Empty scan results → SAFE verdict with "no findings" note.
+     - **Edge case handling**: Missing `.aegis/audit.log` → report as finding. Missing `harness-policy.json` → report inability to validate against policy. Empty scan results → SAFE verdict with "no findings" note.
   4. Keep the system prompt **concise but complete** — match the tone of existing agents (imperative, direct, no filler). Target 120-180 lines total for the markdown body (similar density to design doc Section 7 but with scanner availability check and edge case handling added).
 
   **Must NOT do**:

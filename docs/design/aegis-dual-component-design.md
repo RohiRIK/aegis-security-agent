@@ -21,7 +21,7 @@ Three security layers, each with a distinct role. No overlap in responsibility.
 | **TruffleHog secrets** | ❌ (preflight only) | ✅ Full repo secrets scan | ❌ |
 | **Threat modeling** | ❌ | ✅ STRIDE analysis of architecture | ❌ |
 | **Dependency audit** | ❌ (Trivy per-install only) | ✅ Full dependency tree audit | ❌ |
-| **Audit log analysis** | ❌ (writes to log) | ✅ Reads + analyzes `.harness/audit.log` | ❌ |
+| **Audit log analysis** | ❌ (writes to log) | ✅ Reads + analyzes `.aegis/audit.log` | ❌ |
 | **Policy review** | ❌ (consumes policy) | ✅ Reviews + recommends policy changes | ❌ |
 | **Remediation** | ❌ (blocks only) | ✅ Suggests fixes (read-only output) | ✅ Suggests fixes |
 | **HITL gateway** | ✅ Invokes gateway | ❌ | ❌ |
@@ -248,7 +248,7 @@ harness-policy.json        # Source of truth (repo root)
 | Artifact | Plugin | Aegis | Format |
 |----------|--------|-------|--------|
 | `harness-policy.json` | Reads (enforce rules) | Reads (review rules, recommend changes) | JSON schema v1 |
-| `.harness/audit.log` | Appends (semgrep_finding, hitl_decision) | Reads (pattern analysis, override tracking) | NDJSON |
+| `.aegis/audit.log` | Appends (semgrep_finding, hitl_decision) | Reads (pattern analysis, override tracking) | NDJSON |
 | Semgrep results | Runs + logs per-file | Runs full-repo + reads cached | JSON |
 | Trivy results | Runs per-install + blocks | Runs full-lockfile + reports | JSON |
 | TruffleHog results | Preflight only | Runs on-demand | JSON |
@@ -294,7 +294,7 @@ and audit log forensics.
 
 - You are a **read-only analyst**. You NEVER edit files.
 - You produce **structured verdicts**: SAFE, RISKY, or BLOCKED.
-- You are **harness-aware**: you know about harness-policy.json, .harness/audit.log,
+- You are **harness-aware**: you know about harness-policy.json, .aegis/audit.log,
   and the plugin's real-time guardrails.
 - You complement the plugin — you don't duplicate it.
 
@@ -303,7 +303,7 @@ and audit log forensics.
 1. **Full-repo Semgrep scan** — not just single files
 2. **Full dependency audit** — entire lockfile, not just new installs
 3. **TruffleHog secrets scan** — full repo history
-4. **Audit log analysis** — read .harness/audit.log for patterns (repeated blocks,
+4. **Audit log analysis** — read .aegis/audit.log for patterns (repeated blocks,
    override abuse, recurring findings)
 5. **Threat modeling** — STRIDE analysis of architecture changes
 6. **Policy review** — recommend harness-policy.json improvements
@@ -318,7 +318,7 @@ When invoked, you receive a task type. Execute the corresponding workflow:
 2. Run: `semgrep scan --config=p/security-audit --config=p/secrets --json .`
 3. Run: `trivy fs --scanners vuln --severity HIGH,CRITICAL --format json .`
 4. Run: `trufflehog filesystem --json .`
-5. Read .harness/audit.log — analyze recent events
+5. Read .aegis/audit.log — analyze recent events
 6. Produce verdict with all findings consolidated
 
 ### `deep-scan`
@@ -342,11 +342,11 @@ When invoked, you receive a task type. Execute the corresponding workflow:
 ### `pre-merge-review`
 1. `git diff main...HEAD` — identify all changes
 2. Run full-audit workflow on changed files only
-3. Check .harness/audit.log for any overrides during this branch
+3. Check .aegis/audit.log for any overrides during this branch
 4. Produce verdict with merge recommendation
 
 ### `audit-override`
-1. Read .harness/audit.log — find recent hitl_decision events
+1. Read .aegis/audit.log — find recent hitl_decision events
 2. Identify what was overridden and why
 3. Assess risk of the override
 4. Recommend whether to revert or accept
@@ -388,7 +388,7 @@ ALWAYS respond with this structure:
 1. NEVER edit files. You are read-only.
 2. NEVER run commands outside your allowed list.
 3. ALWAYS read harness-policy.json before making recommendations.
-4. ALWAYS check .harness/audit.log when doing full-audit or audit-override tasks.
+4. ALWAYS check .aegis/audit.log when doing full-audit or audit-override tasks.
 5. ALWAYS produce a verdict. Never end without SAFE/RISKY/BLOCKED.
 6. If scanners are unavailable (not installed), note it in findings and proceed with
    what you can check via grep/git.
@@ -409,7 +409,7 @@ ALWAYS respond with this structure:
 
 ### Risk 2: Audit Log as Single Point of Truth
 
-**Problem**: `.harness/audit.log` is append-only NDJSON with no rotation, no integrity checks, and `shred.sh` can delete it. If the log is corrupted or deleted, Aegis `audit-override` task produces garbage.
+**Problem**: `.aegis/audit.log` is append-only NDJSON with no rotation, no integrity checks, and `shred.sh` can delete it. If the log is corrupted or deleted, Aegis `audit-override` task produces garbage.
 
 **Mitigation**: 
 - Add a `log_hash` field to each NDJSON line (SHA-256 of previous line → chain integrity).
@@ -438,9 +438,9 @@ ALWAYS respond with this structure:
 When implementing, verify these integration points:
 
 - [ ] Plugin reads `harness-policy.json` at `tool.execute.before`
-- [ ] Plugin writes to `.harness/audit.log` at `tool.execute.after`
+- [ ] Plugin writes to `.aegis/audit.log` at `tool.execute.after`
 - [ ] Aegis reads `harness-policy.json` at task start
-- [ ] Aegis reads `.harness/audit.log` for `audit-override` and `full-audit`
+- [ ] Aegis reads `.aegis/audit.log` for `audit-override` and `full-audit`
 - [ ] Aegis can run all whitelisted scanners from the host (not sandboxed — scanners need host filesystem access)
 - [ ] Sisyphus trigger conditions are in AGENTS.md
 - [ ] `aegis.md` is at `~/.config/opencode/agents/aegis.md`

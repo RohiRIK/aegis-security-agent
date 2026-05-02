@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # hooks/post-tool-use.sh
 # PostToolUse hook — runs Semgrep on every file written/edited by the agent.
-# Findings are logged to .harness/audit.log and returned to the agent for self-correction.
+# Findings are logged to .aegis/audit.log and returned to the agent for self-correction.
 #
 # Input (stdin): JSON with tool_name and tool_result from Claude Code hook protocol
 set -euo pipefail
 
 HARNESS_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-AUDIT_LOG="$HARNESS_DIR/.harness/audit.log"
+AUDIT_LOG="$HARNESS_DIR/.aegis/audit.log"
 
 INPUT=$(cat)
 TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // .tool // ""')

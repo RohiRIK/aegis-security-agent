@@ -2,7 +2,7 @@
 
 ## Overview
 
-Aegis is the on-demand security analyst for the harness system. Where the silent plugin acts as a real-time immune system — blocking dangerous tool calls in <500ms — Aegis is the specialist called in for deep diagnosis: whole-repo scans, dependency audits, threat modeling, and audit log forensics. Aegis is harness-aware (reads `harness-policy.json` and `.harness/audit.log`) and produces structured `SAFE/RISKY/BLOCKED` verdicts with evidence and remediation. It is strictly read-only; it never edits files.
+Aegis is the on-demand security analyst for the harness system. Where the silent plugin acts as a real-time immune system — blocking dangerous tool calls in <500ms — Aegis is the specialist called in for deep diagnosis: whole-repo scans, dependency audits, threat modeling, and audit log forensics. Aegis is harness-aware (reads `harness-policy.json` and `.aegis/audit.log`) and produces structured `SAFE/RISKY/BLOCKED` verdicts with evidence and remediation. It is strictly read-only; it never edits files.
 
 ---
 
@@ -67,7 +67,7 @@ Sisyphus calls `@aegis` when any of these trigger conditions are met (see `~/.co
 | `dependency-audit` | Full lockfile Trivy scan + `bun audit` + cross-reference with policy. |
 | `pre-merge-review` | Diffs the branch, runs full-audit on changed files, checks for override abuse. |
 | `auth-review` | Grep + Semgrep focused on auth/crypto patterns in changed files. |
-| `audit-override` | Reads `.harness/audit.log` to assess risk of a user-approved plugin override. |
+| `audit-override` | Reads `.aegis/audit.log` to assess risk of a user-approved plugin override. |
 | `infra-review` | Trivy config scan on Dockerfiles, compose, k8s, and terraform files. |
 
 ---
@@ -124,5 +124,5 @@ Scanned by: Aegis v1 | Scanners: semgrep, trivy, trufflehog
 
 - **No approve path** — Aegis never edits files; all fixes flow through Sisyphus → normal edit path → plugin Semgrep check.
 - **Scanners not bundled** — `semgrep`, `trivy`, and `trufflehog` must be installed separately on the host.
-- **Audit log forensics degrade** — if `.harness/audit.log` is missing or empty, `audit-override` and `full-audit` tasks produce incomplete results.
+- **Audit log forensics degrade** — if `.aegis/audit.log` is missing or empty, `audit-override` and `full-audit` tasks produce incomplete results.
 - **`bun audit` requires lockfile** — dependency audit degrades if `bun.lockb` is absent.

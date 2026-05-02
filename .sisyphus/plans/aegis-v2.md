@@ -9,7 +9,7 @@
 > - `src/lib/scanner.test.ts` — Unit tests for scanner timeout + DEGRADED behavior
 > - `src/lib/scan-cache.ts` — File-based scan result cache with TTL + key hashing
 > - `src/lib/scan-cache.test.ts` — Unit tests for cache hit/miss/expiry/skip logic
-> - `src/lib/verdict-log.ts` — NDJSON verdict event appender for `.harness/audit.log`
+> - `src/lib/verdict-log.ts` — NDJSON verdict event appender for `.aegis/audit.log`
 > - `src/lib/verdict-log.test.ts` — Unit tests for verdict event formatting + append
 > - `src/types/aegis.ts` — `AegisHandoffEvent` TypeScript interface
 > - Updated `src/opencode/handlers/after.ts` — Uses scanner wrapper instead of raw `semgrepScan`
@@ -32,7 +32,7 @@ Implement the remaining "needs a plan" improvements for Aegis v2 — four atomic
 ### Prior Work (DO NOT re-implement)
 
 - False-positive triage rules (docs/agents/aegis.md updated) ✅
-- `.harness/audit.log` auto-creation in install.ts ✅
+- `.aegis/audit.log` auto-creation in install.ts ✅
 - Scope strategy table in agent prompt ✅
 - TAB accessibility (confirmed working) ✅
 
@@ -68,7 +68,7 @@ Harden the scanner infrastructure that backs the Aegis agent and the OpenCode pl
 - [ ] `bun test ./src/opencode-smoke-test.ts` stays 7+/8
 - [ ] Scanner timeout fires after configured budget and reports DEGRADED
 - [ ] Cache prevents redundant scans within TTL window
-- [ ] Verdict events appear in `.harness/audit.log` as valid NDJSON
+- [ ] Verdict events appear in `.aegis/audit.log` as valid NDJSON
 - [ ] `AegisHandoffEvent` interface compiles and is importable
 
 ### Must Have
@@ -484,7 +484,7 @@ Max Concurrent: 3 (Wave 1)
      ```markdown
      ## Verdict History
 
-     When `.harness/audit.log` contains `aegis_verdict` events, read the last 10 entries
+     When `.aegis/audit.log` contains `aegis_verdict` events, read the last 10 entries
      before producing your verdict. Note the trend:
      - **Improving**: severity counts decreasing over recent verdicts
      - **Stable**: no significant change
@@ -530,7 +530,7 @@ Max Concurrent: 3 (Wave 1)
 
   **API/Type References**:
   - User specification: exact NDJSON schema `{"type":"aegis_verdict","ts":"...","task":"full-audit","verdict":"RISKY","findings":{"critical":0,"high":0,"medium":3,"low":1,"info":2},"degraded":[],"commit":"abc123","scope":"full"}`
-  - `docs/agents/aegis.md:93-99` — `full-audit` task type: line 98 reads `.harness/audit.log`. The new verdict history section enhances what Aegis looks for in the log.
+  - `docs/agents/aegis.md:93-99` — `full-audit` task type: line 98 reads `.aegis/audit.log`. The new verdict history section enhances what Aegis looks for in the log.
   - `docs/agents/aegis.md:138-165` — Response format: the Trend line goes in the verdict header.
 
   **Test References**:

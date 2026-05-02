@@ -9,11 +9,12 @@ import {
 } from "./lib/base.ts";
 
 const HARNESS_DIR = join(resolve(import.meta.dir, ".."), ".harness");
+const AEGIS_DIR = join(resolve(import.meta.dir, ".."), ".aegis");
 
 async function main(): Promise<number> {
   const auditFlag = Bun.argv[2] ?? "";
   const leanCtxPath = join(HARNESS_DIR, "lean-ctx.db");
-  const auditLogPath = join(HARNESS_DIR, "audit.log");
+  const auditLogPath = join(AEGIS_DIR, "audit.log");
 
   if (auditFlag === "--audit") {
     writeStdout("[shred] Scanning .harness/ for sensitive patterns before deletion...\n");

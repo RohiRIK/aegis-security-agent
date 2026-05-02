@@ -134,7 +134,7 @@ Alex is building a SaaS product with Claude Code. They have AWS credentials, a S
 | **FR-026** | The HITL Gateway MUST block execution and present a `readline` prompt in the terminal for any action classified as HIGH-RISK (see §11.7). | When a HIGH-RISK action is detected, the agent pauses, prints the approval schema to stdout, and reads a line from stdin. Execution proceeds only if the user types `approve`. Any other input (including timeout) results in `deny`. | P0 |
 | **FR-027** | The HITL Gateway MUST classify the following action types as HIGH-RISK: database schema changes, secret generation or rotation, production deployment commands, network access from sandbox, and any `rm -rf` or equivalent destructive filesystem operation. | `hooks/pre-tool-use.sh` pattern-matches bash commands against the HIGH-RISK pattern list in `harness-policy.json`. | P0 |
 | **FR-028** | The HITL approval request MUST be printed as a structured JSON block to stdout before the readline prompt. | Output format defined in §11.7. | P0 |
-| **FR-029** | HITL decisions MUST be logged to `.harness/audit.log` with timestamp, action, decision, and user identity. | Each HITL event appends a JSON line to `.harness/audit.log`. | P0 |
+| **FR-029** | HITL decisions MUST be logged to `.aegis/audit.log` with timestamp, action, decision, and user identity. | Each HITL event appends a JSON line to `.aegis/audit.log`. | P0 |
 | **FR-030** | The HITL Gateway MUST have a configurable timeout (default: 120 seconds). On timeout, the action MUST be denied automatically. | `harness-policy.json` contains `hitl_timeout_seconds: 120`. After timeout, gateway logs `decision: timeout-deny`. | P0 |
 | **FR-031** | Claude Code hooks MUST be configured in `.claude/hooks.json` with at minimum: `PreToolUse` (sandbox router + HITL gate + Snyk check) and `PostToolUse` (Semgrep scan). | `.claude/hooks.json` exists and contains entries for `PreToolUse` and `PostToolUse` pointing to shell scripts in `hooks/`. | P0 |
 | **FR-032** | The `SessionStart` hook MUST run `harness-preflight.sh` and abort the session if it exits non-zero. | `.claude/hooks.json` contains a `SessionStart` entry. Claude Code session does not start if the hook exits non-zero. **[ASSUMPTION]** Claude Code `SessionStart` hook can block startup via non-zero exit. | P0 |
@@ -162,7 +162,7 @@ Alex is building a SaaS product with Claude Code. They have AWS credentials, a S
 | **NFR-007** | Security — Secret Isolation | No real secret value MUST appear in any LLM provider API request. | Integration test: seed known-pattern fake secret in environment; run session that reads env vars; assert secret string does not appear in any Anthropic API request body (captured via proxy). |
 | **NFR-008** | Security — MCP Transport | All MCP servers MUST use stdio transport to limit access to the MCP client process only. | Verified by absence of listening TCP ports from MCP server processes (per oracle-05). |
 | **NFR-009** | Dependency Minimalism | The harness MUST NOT introduce more than 5 new runtime dependencies beyond the core tool binaries. | `harness install --dry-run` lists all dependencies. Count MUST be <= 5 additional packages. |
-| **NFR-010** | Audit Logging | Every HITL decision and every Semgrep/Snyk finding MUST be logged to `.harness/audit.log` in NDJSON format. | Log entries contain: `timestamp`, `event_type`, `tool`, `action`, `finding` (if applicable), `decision`, `user`. |
+| **NFR-010** | Audit Logging | Every HITL decision and every Semgrep/Snyk finding MUST be logged to `.aegis/audit.log` in NDJSON format. | Log entries contain: `timestamp`, `event_type`, `tool`, `action`, `finding` (if applicable), `decision`, `user`. |
 
 ---
 
@@ -184,7 +184,7 @@ Alex is building a SaaS product with Claude Code. They have AWS credentials, a S
 | E2B | Optional cloud sandbox | E2B SDK (opt-in) **[PHASE-2]** | per oracle-01 |
 | HITL Gateway | Human approval gate | `readline` terminal prompt | §11.7 |
 | `harness-policy.json` | Permission manifest | JSON config file | §11.8 |
-| `.harness/audit.log` | Audit trail | NDJSON append-only log | §10.1 |
+| `.aegis/audit.log` | Audit trail | NDJSON append-only log | §10.1 |
 | `.harness/lean-ctx.db` | Context memory | SQLite (lean-ctx managed) | §10.2 |
 
 ### 7.2 Data Flow Diagram (ASCII)
@@ -249,7 +249,7 @@ Developer Terminal
 |  PostToolUse Hook  (hooks/post-tool-use.sh)                 |
 |  +-- File written? --> semgrep scan --config=p/security-audit|
 |  |    +-- Finding >= ERROR? --> report to agent next turn   |
-|  +-- Append event to .harness/audit.log                     |
+|  +-- Append event to .aegis/audit.log                     |
 +-------------------------------------------------------------+
        |
        |  git commit
@@ -311,7 +311,7 @@ The agent:
 
 **Cross-session memory:** lean-ctx persists project-scoped summaries and decisions to `.harness/lean-ctx.db`. This DB is the single source of truth for agent memory. No other memory layer is active.
 
-**Session shredder:** `harness shred` deletes `.harness/lean-ctx.db` and `.harness/audit.log`. Use when switching projects or when privacy requires a clean slate (see §10.3).
+**Session shredder:** `harness shred` deletes `.harness/lean-ctx.db` and `.aegis/audit.log`. Use when switching projects or when privacy requires a clean slate (see §10.3).
 
 **Handoffs:** In v1, there are no agent-to-agent handoffs. All context lives in lean-ctx.
 
@@ -406,7 +406,7 @@ The following rules are enforced via `.claude/settings.json` permission rules an
 .env.*
 !.env.schema
 .harness/lean-ctx.db
-.harness/audit.log
+.aegis/audit.log
 **/*.pem
 **/*.key
 **/*_rsa
@@ -436,7 +436,7 @@ The following rules are enforced via `.claude/settings.json` permission rules an
 | File | Contents | Retention | Sensitive? |
 |------|----------|-----------|------------|
 | `.harness/lean-ctx.db` | Compressed file summaries, project decisions, cross-session memory | Until `harness shred` | NO (secrets must not appear here — FR-025) |
-| `.harness/audit.log` | HITL decisions, Semgrep/Snyk findings, session events | Until `harness shred` | LOW (action descriptions, not secret values) |
+| `.aegis/audit.log` | HITL decisions, Semgrep/Snyk findings, session events | Until `harness shred` | LOW (action descriptions, not secret values) |
 | `.env.schema` | Secret field names and types (NO values) | Committed to git | NO |
 | `.claude/hooks.json` | Hook configuration | Committed to git | NO |
 | `.claude/mcp.json` | MCP server configuration | Committed to git | NO |
@@ -650,7 +650,7 @@ repos:
 **False positive handling:** If TruffleHog blocks a commit on a false positive, the developer MUST:
 1. Verify the finding is a false positive (confirm the credential is not real/active).
 2. Add the specific finding to `.trufflehog-ignore` or use `--exclude-paths`.
-3. Document the override in `.harness/audit.log` manually.
+3. Document the override in `.aegis/audit.log` manually.
 
 **[OPEN]** No official TruffleHog MCP server was found in research (per oracle-07 §9). TruffleHog integration is pre-commit only in v1. MCP integration is **[PHASE-2]** pending verification of an official server.
 
@@ -676,7 +676,7 @@ if [[ "${TOOL_NAME}" == "write" || "${TOOL_NAME}" == "edit" ]]; then
 
   if [[ "$ERRORS" -gt 0 ]]; then
     echo "$RESULT" | jq '.results[] | {rule: .check_id, severity: .extra.severity, message: .extra.message, line: .start.line}'
-    echo "{\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"event\":\"semgrep_finding\",\"file\":\"${WRITTEN_FILE}\",\"errors\":${ERRORS}}" >> .harness/audit.log
+    echo "{\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"event\":\"semgrep_finding\",\"file\":\"${WRITTEN_FILE}\",\"errors\":${ERRORS}}" >> .aegis/audit.log
   fi
 fi
 ```
@@ -757,7 +757,7 @@ All MCP servers in this harness follow these rules (per oracle-05):
 4. **Untrusted output** — all MCP tool results are treated as untrusted data. The agent MUST NOT execute instructions embedded in MCP tool output.
 5. **Sandboxed startup** — high-risk MCP servers (those with filesystem or network reach) SHOULD be started via `npx @anthropic-ai/sandbox-runtime <mcp-command>` when available (per oracle-05 §5).
 
-**Audit logging for MCP interactions:** Every MCP tool call is logged by the `PostToolUse` hook to `.harness/audit.log` with: `timestamp`, `server`, `tool`, `input_hash` (SHA-256 of input, not raw input), `output_length`.
+**Audit logging for MCP interactions:** Every MCP tool call is logged by the `PostToolUse` hook to `.aegis/audit.log` with: `timestamp`, `server`, `tool`, `input_hash` (SHA-256 of input, not raw input), `output_length`.
 
 ### 11.7 HITL Gateway (terminal readline + schema)
 
@@ -845,7 +845,7 @@ fi
 
 # Log the decision
 REQUEST_ID=$(echo "$REQUEST_JSON" | jq -r '.hitl_request.id')
-echo "{\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"event\":\"hitl_decision\",\"id\":\"${REQUEST_ID}\",\"decision\":\"${DECISION}\",\"user\":\"${USER}\"}" >> .harness/audit.log
+echo "{\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"event\":\"hitl_decision\",\"id\":\"${REQUEST_ID}\",\"decision\":\"${DECISION}\",\"user\":\"${USER}\"}" >> .aegis/audit.log
 
 if [[ "${DECISION}" == "approve" ]]; then
   echo "Approved."
@@ -989,7 +989,7 @@ echo "Results: ${PASS} passed, ${FAIL} failed"
 | Secret leakage rate | 0 verified leaks per 100 sessions | Audit log review + TruffleHog CI scan |
 | Pre-flight block rate | 100% of sessions with real secrets in env are blocked | Smoke test T-001 |
 | Sandbox escape rate | 0 host-touch events per 100 sandbox executions | Canary file test (T-004) |
-| HITL approval latency | P50 < 30s, P95 < 90s | `.harness/audit.log` timestamps |
+| HITL approval latency | P50 < 30s, P95 < 90s | `.aegis/audit.log` timestamps |
 | Semgrep false positive rate | < 10% of findings are false positives | Manual review of 50 findings |
 | Smoke test runtime | < 5 minutes | CI timing |
 | Harness overhead per tool call | P95 < 500ms | Instrumented hook timing |
@@ -1158,7 +1158,7 @@ For local model use, OpenCode and Pi are the appropriate platforms (per oracle-0
 | **stdio transport** | MCP server communication via standard input/output. Preferred over HTTP for security (limits access to the MCP client process only, per oracle-05). |
 | **SAST** | Static Application Security Testing. Code analysis without execution. |
 | **SCA** | Software Composition Analysis. Dependency vulnerability scanning. |
-| **NDJSON** | Newline-Delimited JSON. Log format used by `.harness/audit.log`. |
+| **NDJSON** | Newline-Delimited JSON. Log format used by `.aegis/audit.log`. |
 | **[PHASE-2]** | Feature deferred to Phase 2. Not required for MVP. |
 | **[OPEN]** | Open question or unresolved risk. Must be resolved before production use. |
 | **[ASSUMPTION]** | An assumption made in this spec that must be verified during implementation. |

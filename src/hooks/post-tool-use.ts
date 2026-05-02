@@ -14,7 +14,7 @@ import { wrapSemgrep } from "../lib/scanner.ts";
 import { parseSemgrepFindings, type SemgrepFinding } from "../core/security.ts";
 
 const HARNESS_DIR = resolve(import.meta.dir, "..", "..");
-const AUDIT_LOG = join(HARNESS_DIR, ".harness", "audit.log");
+const AUDIT_LOG = join(HARNESS_DIR, ".aegis", "audit.log");
 
 async function main(): Promise<number> {
   const inputText = await readStdinText();
@@ -28,6 +28,7 @@ async function main(): Promise<number> {
   const writtenFile = toolInput ? getString(toolInput, "path") ?? getString(toolInput, "file_path") ?? "" : "";
 
   await ensureDir(join(HARNESS_DIR, ".harness"));
+  await ensureDir(join(HARNESS_DIR, ".aegis"));
 
   if (["Write", "Edit", "write", "edit"].includes(toolName) && writtenFile.length > 0 && (await Bun.file(writtenFile).exists())) {
     const semgrepResult = await wrapSemgrep(writtenFile);

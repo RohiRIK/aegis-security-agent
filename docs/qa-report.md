@@ -280,11 +280,11 @@ run_test_if_available "T-015: PostToolUse hook emits Semgrep finding" \
   "command -v semgrep && command -v jq" \
   "tmp=\$(mktemp -t posttoolXXXXXX.py 2>/dev/null || mktemp) && \
    printf 'import subprocess\nsubprocess.run(user_input, shell=True)\n' > \"$tmp\" && \
-   rm -f '$ROOT/.harness/audit.log' && \
+   rm -f '$ROOT/.aegis/audit.log' && \
    out=\$(printf '%s' '{\"tool_name\":\"Write\",\"tool_input\":{\"path\":\"'\"$tmp\"'\"}}' | bash '$ROOT/hooks/post-tool-use.sh') && \
    rm -f \"$tmp\" && \
    printf '%s' \"$out\" | grep -q '\"rule\"' && \
-   grep -q '\"event\":\"semgrep_finding\"' '$ROOT/.harness/audit.log'"
+   grep -q '\"event\":\"semgrep_finding\"' '$ROOT/.aegis/audit.log'"
 ```
 
 ### T-016 — HITL approve path
@@ -306,9 +306,9 @@ run_test "T-016: HITL gateway approves on approve" \
 
 ```bash
 run_test "T-017: HITL gateway auto-denies on timeout" \
-  "rm -f '$ROOT/.harness/audit.log' && \
+  "rm -f '$ROOT/.aegis/audit.log' && \
    ! HITL_TIMEOUT_SECONDS=1 bash '$ROOT/scripts/hitl-gateway.sh' '{\"hitl_request\":{\"id\":\"t017\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"session_id\":\"test\",\"action\":{\"tool\":\"bash\",\"command\":\"rm -rf /tmp/demo\",\"risk_reason\":\"test\",\"risk_level\":\"HIGH\",\"reversible\":false},\"context\":{\"current_task\":\"test\",\"working_directory\":\"/tmp\"},\"instructions\":\"test\"}}' </dev/null && \
-   grep -q '\"decision\":\"timeout-deny\"' '$ROOT/.harness/audit.log'"
+   grep -q '\"decision\":\"timeout-deny\"' '$ROOT/.aegis/audit.log'"
 ```
 
 ### T-018 — HIGH-RISK command triggers HITL in PreToolUse
@@ -319,9 +319,9 @@ run_test "T-017: HITL gateway auto-denies on timeout" \
 
 ```bash
 run_test "T-018: DROP TABLE triggers HITL gate" \
-  "rm -f '$ROOT/.harness/audit.log' && \
+  "rm -f '$ROOT/.aegis/audit.log' && \
    ! printf '%s' '{\"tool_name\":\"bash\",\"tool_input\":{\"command\":\"DROP TABLE users\"}}' | HITL_TIMEOUT_SECONDS=1 bash '$ROOT/hooks/pre-tool-use.sh' >/dev/null 2>&1 && \
-   grep -q '\"event\":\"hitl_decision\"' '$ROOT/.harness/audit.log'"
+   grep -q '\"event\":\"hitl_decision\"' '$ROOT/.aegis/audit.log'"
 ```
 
 ### T-019 — LOW-RISK query bypasses HITL and is sandbox-routed

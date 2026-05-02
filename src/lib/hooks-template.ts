@@ -28,7 +28,7 @@ export const HOOKS_TEMPLATE = `{
         "hooks": [
           {
             "type": "command",
-            "command": "echo \\\"{\\\\\\\"timestamp\\\\\\\":\\\\\\\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\\\\\\\",\\\\\\\"event\\\\\\\":\\\\\\\"session_end\\\\\\\"}\\\" >> \\\"__HARNESS_DIR__/.harness/audit.log\\\""
+            "command": "echo \\\"{\\\\\\\"timestamp\\\\\\\":\\\\\\\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\\\\\\\",\\\\\\\"event\\\\\\\":\\\\\\\"session_end\\\\\\\"}\\\" >> \\\"__HARNESS_DIR__/.aegis/audit.log\\\""
           }
         ]
       }

@@ -16,7 +16,7 @@ The OpenCode plugin (`src/opencode/`) is a silent, always-on security layer that
 | R4 | Preflight is soft gate | Medium | `preflight.ts` runs as blocking subprocess before Claude Code launches | `session.created` is fire-and-forget event (consumed via generic `event` hook, not a named hook); cannot block session start | `tool.execute.before` blocks ALL tools until `preflightPassed` promise resolves to `true` | Implemented; tested in OC-08 |
 | R5 | Preflight race condition | Low | Sequential subprocess — no race | Async `session.created` event handler + concurrent `tool.execute.before` calls | Promise-based async mutex; `preflightPassed` is a shared `Promise<boolean>` resolved once | Implemented |
 | R6 | In-process crash propagation | High | Separate process per hook — crash is isolated | In-process handlers — unhandled throw crashes entire plugin | try/catch fail-closed in EVERY handler via `safe()` wrapper; error → block tool (throw) | Implemented in P1-07 |
-| R7 | No audit trail in permission dialog | Low | HITL gateway writes to `.harness/audit.log` with decision, user, timestamp | Native dialog has no callback for logging | Log audit event from `tool.execute.before` (pre-dialog) + `permission.ask` handler | Implemented |
+| R7 | No audit trail in permission dialog | Low | HITL gateway writes to `.aegis/audit.log` with decision, user, timestamp | Native dialog has no callback for logging | Log audit event from `tool.execute.before` (pre-dialog) + `permission.ask` handler | Implemented |
 | R8 | No sandbox for non-bash tools | Low | Only bash commands sandboxed (same) | Same limitation | Out of scope for v1; documented | Documented |
 
 ---
@@ -39,7 +39,7 @@ The OpenCode plugin (`src/opencode/`) is a silent, always-on security layer that
 
 **Known Gap**: No timeout, no custom UI, no audit trail in the dialog itself. Compensated by:
 1. `tool.execute.before` always hard-blocks HIGH-RISK regardless of dialog outcome — there is no approve path. The dialog is UX notification only.
-2. Audit logging in `permission.ask` handler records every HIGH-RISK match to `.harness/audit.log`.
+2. Audit logging in `permission.ask` handler records every HIGH-RISK match to `.aegis/audit.log`.
 
 ---
 

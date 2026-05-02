@@ -1,0 +1,7 @@
+Task: T-28
+Checks:
+- docs/agents/aegis.md mode: agent
+- ~/.config/opencode/agents/aegis.md mode: agent
+- review.md and security.md remain mode: subagent
+- bun tsc --noEmit: pass
+- bun test: 66 pass, 0 fail

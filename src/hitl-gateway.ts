@@ -4,7 +4,7 @@ import { createInterface } from "node:readline/promises";
 import { appendText, ensureDir, formatTimestamp, writeStderr, writeStdout } from "./lib/base.ts";
 
 const HARNESS_DIR = resolve(import.meta.dir, "..");
-const AUDIT_LOG = join(HARNESS_DIR, ".harness", "audit.log");
+const AUDIT_LOG = join(HARNESS_DIR, ".aegis", "audit.log");
 
 type HitlRequest = {
   hitl_request?: {
@@ -64,6 +64,7 @@ async function main(): Promise<number> {
   const reversible = parsed.hitl_request?.action?.reversible ? "YES" : "NO";
 
   await ensureDir(join(HARNESS_DIR, ".harness"));
+  await ensureDir(join(HARNESS_DIR, ".aegis"));
 
   writeStdout("+--------------------------------------------------------------+\n");
   writeStdout("|  WARNING: HITL GATEWAY -- HIGH-RISK ACTION REQUIRES APPROVAL |\n");

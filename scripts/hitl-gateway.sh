@@ -7,9 +7,10 @@ set -euo pipefail
 REQUEST_JSON="${1:?Usage: hitl-gateway.sh '<hitl_request_json>'}"
 TIMEOUT="${HITL_TIMEOUT_SECONDS:-120}"
 HARNESS_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-AUDIT_LOG="$HARNESS_DIR/.harness/audit.log"
+AUDIT_LOG="$HARNESS_DIR/.aegis/audit.log"
 
 mkdir -p "$HARNESS_DIR/.harness"
+mkdir -p "$HARNESS_DIR/.aegis"
 
 echo "+--------------------------------------------------------------+"
 echo "|  WARNING: HITL GATEWAY -- HIGH-RISK ACTION REQUIRES APPROVAL |"

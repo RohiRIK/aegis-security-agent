@@ -86,7 +86,7 @@ async function main(): Promise<number> {
   const gitignoreText = gitignoreExists ? await Bun.file(gitignorePath).text() : "";
   if (!gitignoreText.includes(".harness/")) {
     const prefix = gitignoreText.length > 0 ? `${gitignoreText}\n` : "\n";
-    const updatedGitignore = `${prefix}# Harness runtime (added by harness install)\n.harness/\n.env\n.env.*\n!.env.schema\n`;
+    const updatedGitignore = `${prefix}# Harness runtime (added by harness install)\n.harness/\n.aegis/\n.env\n.env.*\n!.env.schema\n`;
     await Bun.write(gitignorePath, updatedGitignore);
     writeStdout(`  [UPDATED] ${gitignorePath} (added harness entries)\n`);
   } else {
@@ -99,7 +99,10 @@ async function main(): Promise<number> {
   await ensureDir(join(targetDir, ".harness", "scan-cache"));
   writeStdout(`  [CREATED] ${join(targetDir, ".harness", "scan-cache")}/\n`);
 
-  const auditLogPath = join(targetDir, ".harness", "audit.log");
+  await ensureDir(join(targetDir, ".aegis"));
+  writeStdout(`  [CREATED] ${join(targetDir, ".aegis")}/\n`);
+
+  const auditLogPath = join(targetDir, ".aegis", "audit.log");
   if (!(await fileExists(auditLogPath))) {
     await Bun.write(auditLogPath, "");
     writeStdout(`  [CREATED] ${auditLogPath}\n`);
