@@ -13,8 +13,8 @@ import {
 } from "../lib/base.ts";
 import { matchHighRiskPattern, parseInstallCommand, trivyScan } from "../core/security.ts";
 
-const HARNESS_DIR = resolve(import.meta.dir, "..", "..");
-const POLICY_PATH = join(HARNESS_DIR, "harness-policy.json");
+const AEGIS_DIR = resolve(import.meta.dir, "..", "..");
+const POLICY_PATH = join(AEGIS_DIR, "aegis-policy.json");
 
 type HarnessPolicy = {
   high_risk_patterns?: string[];
@@ -53,7 +53,7 @@ async function main(): Promise<number> {
   const toolInput = isRecord(parsedInput.tool_input) ? parsedInput.tool_input : undefined;
   const bashCommand = toolInput ? getString(toolInput, "command") ?? "" : "";
 
-  await ensureDir(join(HARNESS_DIR, ".harness"));
+  await ensureDir(join(AEGIS_DIR, ".aegis"));
 
   if ((toolName === "Bash" || toolName === "bash") && bashCommand.length > 0) {
     const policy = (await Bun.file(POLICY_PATH).json()) as HarnessPolicy;
@@ -67,7 +67,7 @@ async function main(): Promise<number> {
         hitl_request: {
           id: requestId,
           timestamp: formatTimestamp(),
-          session_id: "harness",
+          session_id: "aegis",
           action: {
             tool: "bash",
             command: bashCommand,
@@ -84,7 +84,7 @@ async function main(): Promise<number> {
       });
 
       const hitlExitCode = await runCommandInherit(
-        ["bun", "run", join(HARNESS_DIR, "src", "hitl-gateway.ts"), hitlJson],
+        ["bun", "run", join(AEGIS_DIR, "src", "hitl-gateway.ts"), hitlJson],
         { env: { HITL_TIMEOUT_SECONDS: String(timeoutSeconds) } },
       );
       if (hitlExitCode !== 0) {
@@ -109,7 +109,7 @@ async function main(): Promise<number> {
 
     const rewrittenInput: Record<string, unknown> = structuredClone(parsedInput);
     const rewrittenToolInput = isRecord(rewrittenInput.tool_input) ? rewrittenInput.tool_input : {};
-    rewrittenToolInput.command = `bun run \"${join(HARNESS_DIR, "src", "sandbox", "exec.ts")}\" ${shellQuote(bashCommand)}`;
+    rewrittenToolInput.command = `bun run \"${join(AEGIS_DIR, "src", "sandbox", "exec.ts")}\" ${shellQuote(bashCommand)}`;
     rewrittenInput.tool_input = rewrittenToolInput;
     writeStdout(`${JSON.stringify(rewrittenInput)}\n`);
     return 0;

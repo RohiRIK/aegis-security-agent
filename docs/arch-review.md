@@ -1,4 +1,4 @@
-# Architecture Review: AI-Agent Security Harness MVP
+# Architecture Review: AI-Agent Aegis Security MVP
 
 **Date:** 2026-04-29
 **Reviewer:** Architecture Review (automated)
@@ -9,9 +9,9 @@
 
 ## 1. What Is Correctly Implemented
 
-### 1.1 External Hard Gate (`harness-preflight.sh`)
+### 1.1 External Hard Gate (`aegis-preflight.sh`)
 
-The 7-check preflight script is the strongest control in the harness. It correctly:
+The 7-check preflight script is the strongest control in Aegis. It correctly:
 
 - **Blocks on real secrets** (Check 3): Iterates `SENSITIVE_VARS` and fails if any are set in the shell environment. This is the safety net against Varlock fail-open (FR-001, SPEC §11.1).
 - **Verifies toolchain presence** (Check 1): `bunx varlock --version` confirms bun + varlock availability (FR-005).
@@ -20,7 +20,7 @@ The 7-check preflight script is the strongest control in the harness. It correct
 - **Runs `varlock scan --staged`** (Check 6): Catches plaintext secrets in staged files (FR-009).
 - **Warns on conflicting context tools** (Check 7): Detects RTK/context-mode processes (FR-022).
 
-The external-gate design (`harness start` = `preflight && claude`) is architecturally sound — see ADR-01 below.
+The external-gate design (`aegis start` = `preflight && claude`) is architecturally sound — see ADR-01 below.
 
 ### 1.2 Warm Docker Sandbox
 
@@ -39,7 +39,7 @@ The external-gate design (`harness start` = `preflight && claude`) is architectu
 `hooks/pre-tool-use.sh` correctly:
 
 - Intercepts all `bash`/`Bash` tool calls and rewrites them to route through `sandbox-exec.sh` (FR-016).
-- Pattern-matches commands against `high_risk_patterns` from `harness-policy.json` (FR-027).
+- Pattern-matches commands against `high_risk_patterns` from `aegis-policy.json` (FR-027).
 - Invokes `hitl-gateway.sh` with a structured JSON approval schema before executing HIGH-RISK commands (FR-026, FR-028).
 - Blocks execution on HITL denial (FR-026).
 
@@ -80,10 +80,10 @@ The external-gate design (`harness start` = `preflight && claude`) is architectu
 
 ### 1.8 Supporting Controls
 
-- `.claudeignore`: Correctly blocks `.env`, `.env.*`, `*.pem`, `*.key`, `*_rsa`, `*_ed25519`, and `.harness/` runtime files. Correctly exempts `.env.schema` (FR-002).
+- `.claudeignore`: Correctly blocks `.env`, `.env.*`, `*.pem`, `*.key`, `*_rsa`, `*_ed25519`, and `.aegis/` runtime files. Correctly exempts `.env.schema` (FR-002).
 - `.env.schema`: All 11 sensitive fields have `@sensitive` annotations (FR-004).
-- `harness-policy.json`: All 6 action types defined, 14 HIGH-RISK patterns, 120s HITL timeout (FR-038).
-- `harness` CLI: `start`, `stop`, `install`, `shred` subcommands delegate to component scripts (FR-034).
+- `aegis-policy.json`: All 6 action types defined, 14 HIGH-RISK patterns, 120s HITL timeout (FR-038).
+- `aegis` CLI: `start`, `stop`, `install`, `shred` subcommands delegate to component scripts (FR-034).
 - `security-smoke-test.sh`: 10 tests with `run_test_if_available` for optional tools (FR-039).
 
 ---
@@ -105,18 +105,18 @@ Section 4: if bash tool → check package install → snyk test     ← DEAD COD
 
 **Fix:** Move the package-install intercept (Section 4) ABOVE the sandbox routing (Section 3), or merge it into the Section 1–3 block before the `exit 0`.
 
-### G-02: `harness install` Does Not Copy hooks.json or mcp.json (INCOMPLETE)
+### G-02: `aegis install` Does Not Copy hooks.json or mcp.json (INCOMPLETE)
 
 **FR affected:** FR-034 ("installs all hooks, MCP configs, and pre-commit entries")
 
-`scripts/install.sh` copies only 3 files: `.env.schema`, `harness-policy.json`, `CLAUDE.md`. It does NOT copy or generate:
+`scripts/install.sh` copies only 3 files: `.env.schema`, `aegis-policy.json`, `CLAUDE.md`. It does NOT copy or generate:
 
 - `.claude/hooks.json` — the hook registration that makes PreToolUse/PostToolUse work.
 - `.claude/mcp.json` — the MCP server configuration.
 - `.claudeignore` — the file read protection.
 - `.pre-commit-config.yaml` — the TruffleHog hook entry.
 
-Without these files, `harness start` on a target project will launch Claude Code with no security hooks active.
+Without these files, `aegis start` on a target project will launch Claude Code with no security hooks active.
 
 ### G-03: Hardcoded Absolute Paths in hooks.json (PORTABILITY)
 
@@ -128,7 +128,7 @@ Without these files, `harness start` on a target project will launch Claude Code
 <project-root>/src/hooks/pre-tool-use.ts  (and 2 other absolute paths)
 ```
 
-This file only works on this specific machine. Any other developer cloning the repo, or this developer using a different machine, will get broken hooks. `harness install` must generate hooks.json with paths relative to the project root or use `$PWD`-based resolution.
+This file only works on this specific machine. Any other developer cloning the repo, or this developer using a different machine, will get broken hooks. `aegis install` must generate hooks.json with paths relative to the project root or use `$PWD`-based resolution.
 
 ### G-04: Missing `p/owasp-top-ten` Semgrep Ruleset
 
@@ -140,7 +140,7 @@ SPEC §11.3 lists three required rulesets: `p/security-audit`, `p/secrets`, **an
 
 **FR affected:** FR-038, SPEC §9.5, §11.8
 
-SPEC §11.8 states: "The `harness install` command reads `harness-policy.json` and generates `.claude/settings.json` permission rules." No `.claude/settings.json` exists in the project. The `read_file.deny_patterns` and `bash.ask` patterns from SPEC §9.5 are not enforced at the Claude Code permission layer — they rely entirely on `.claudeignore` and the hook scripts.
+SPEC §11.8 states: "The `aegis install` command reads `aegis-policy.json` and generates `.claude/settings.json` permission rules." No `.claude/settings.json` exists in the project. The `read_file.deny_patterns` and `bash.ask` patterns from SPEC §9.5 are not enforced at the Claude Code permission layer — they rely entirely on `.claudeignore` and the hook scripts.
 
 ### G-06: No MCP Tool Call Audit Logging
 
@@ -156,7 +156,7 @@ SPEC §11.6 requires: "Every MCP tool call is logged by the `PostToolUse` hook t
 | Semgrep | FR-012, FR-013 | Not installed. PostToolUse hook silently falls through (`semgrep scan` returns `{"results":[]}` fallback). T-005 SKIPs. |
 | lean-ctx | FR-021, FR-023 | Binary presence unverified. `lean-ctx serve` command may not exist. MCP entry in mcp.json will fail silently at session start. |
 
-All three are P0 requirements in the SPEC. The harness is structurally complete but operationally degraded without them.
+All three are P0 requirements in the SPEC. The aegis is structurally complete but operationally degraded without them.
 
 ### G-08: SNYK_TOKEN Not Wired via Varlock
 
@@ -204,7 +204,7 @@ SPEC §11.5 says "Rootless Docker daemon" — this refers to the Docker daemon c
 `hooks/pre-tool-use.sh` line 75:
 ```bash
 SANDBOXED=$(echo "$INPUT" | jq \
-  --arg cmd "bash $HARNESS_DIR/scripts/sandbox-exec.sh $(printf '%q' "$BASH_CMD")" \
+  --arg cmd "bash $AEGIS_DIR/scripts/sandbox-exec.sh $(printf '%q' "$BASH_CMD")" \
   '.tool_input.command = $cmd')
 ```
 
@@ -242,7 +242,7 @@ Both `hitl-gateway.sh` and `post-tool-use.sh` append to `.aegis/audit.log` using
 
 **NFR affected:** NFR-001 (≤500ms overhead per tool call)
 
-`bunx varlock --version` (preflight Check 1) and `bunx varlock scan --staged` (Check 6) both invoke `bunx`, which has a cold-start penalty when the package is not cached. This penalty (~1-3s on first run) applies to every `harness start` invocation. While the preflight only runs once per session (not per tool call), `bunx` startup time should be benchmarked to ensure it doesn't create a frustrating developer experience.
+`bunx varlock --version` (preflight Check 1) and `bunx varlock scan --staged` (Check 6) both invoke `bunx`, which has a cold-start penalty when the package is not cached. This penalty (~1-3s on first run) applies to every `aegis start` invocation. While the preflight only runs once per session (not per tool call), `bunx` startup time should be benchmarked to ensure it doesn't create a frustrating developer experience.
 
 ### S-07: Snyk Intercept Uses CLI, Not MCP Tool
 
@@ -258,15 +258,15 @@ The SPEC requires invoking `snyk_package_health_check` via the Snyk MCP server. 
 
 **Context:** SPEC FR-032 assumed Claude Code's `SessionStart` hook would block agent startup on non-zero exit. Week 0 risk discovery (W0-03) proved this assumption false — `SessionStart` is deferred (non-blocking). The agent starts before the hook completes.
 
-**Decision:** Move the hard gate outside Claude Code entirely. `harness start` runs `harness-preflight.sh && claude`. If preflight exits non-zero, `claude` never starts. The `&&` operator is the gate.
+**Decision:** Move the hard gate outside Claude Code entirely. `aegis start` runs `aegis-preflight.sh && claude`. If preflight exits non-zero, `claude` never starts. The `&&` operator is the gate.
 
 **Consequences:**
 - (+) **Fail-closed guarantee**: If preflight fails, the agent process never starts. No race condition.
 - (+) **No dependency on Claude Code internals**: The gate works regardless of how Claude Code implements hook lifecycle.
 - (+) **Debuggable**: The preflight runs as a standalone script. Failures are visible in the terminal before any agent output.
-- (−) **Bypass risk**: A developer who runs `claude` directly (without `harness start`) gets no preflight checks. There is no enforcement that `claude` must be invoked via `harness`.
+- (−) **Bypass risk**: A developer who runs `claude` directly (without `aegis start`) gets no preflight checks. There is no enforcement that `claude` must be invoked via `aegis`.
 - (−) **FR-032 not implemented**: The SPEC requirement for a SessionStart hook is formally unmet, even though the security intent is achieved by an alternative mechanism.
-- **Assessment:** This is a sound architectural decision. The bypass risk is acceptable for a solo developer who is the security author. For team use, consider aliasing `claude` to `harness start` in shell profiles.
+- **Assessment:** This is a sound architectural decision. The bypass risk is acceptable for a solo developer who is the security author. For team use, consider aliasing `claude` to `aegis start` in shell profiles.
 
 ### ADR-02: Warm Container (Reset-Not-Recreate)
 
@@ -319,7 +319,7 @@ The SPEC requires invoking `snyk_package_health_check` via the Snyk MCP server. 
 - (+) **Process isolation**: Each MCP server is a child process of the Claude Code client. Only Claude Code can communicate with it.
 - (−) **No out-of-process debugging**: Cannot `curl` the MCP server to test it independently.
 - (−) **Startup overhead**: Each session start spawns 3 MCP child processes.
-- **Assessment:** Unambiguously correct for a security harness. No change recommended.
+- **Assessment:** Unambiguously correct for a Aegis. No change recommended.
 
 ---
 
@@ -362,14 +362,14 @@ After installation, re-run `security-smoke-test.sh` and confirm T-003 and T-005 
 
 **Effort:** 1 hour (install + verify).
 
-#### P2-H3: Fix `harness install` to Copy All Config Files (G-02, G-03, FR-034)
+#### P2-H3: Fix `aegis install` to Copy All Config Files (G-02, G-03, FR-034)
 
-**What:** `harness install` must generate `.claude/hooks.json`, `.claude/mcp.json`, `.claudeignore`, and `.pre-commit-config.yaml` in the target project.
+**What:** `aegis install` must generate `.claude/hooks.json`, `.claude/mcp.json`, `.claudeignore`, and `.pre-commit-config.yaml` in the target project.
 
 **How:**
-- `hooks.json`: Generate at install time using the target project's absolute path. Use a template with `__HARNESS_DIR__` placeholder, replaced by `sed` during install.
+- `hooks.json`: Generate at install time using the target project's absolute path. Use a template with `__AEGIS_DIR__` placeholder, replaced by `sed` during install.
 - Better: Use relative paths from `.claude/hooks.json` (if Claude Code resolves hooks relative to the project root, use `./hooks/pre-tool-use.sh`). Test this — if Claude Code requires absolute paths, generate them at install time.
-- Copy `mcp.json`, `.claudeignore`, `.pre-commit-config.yaml` from the harness source directory.
+- Copy `mcp.json`, `.claudeignore`, `.pre-commit-config.yaml` from Aegis source directory.
 
 **Effort:** 2–3 hours. Requires testing Claude Code's path resolution behavior.
 
@@ -379,8 +379,8 @@ After installation, re-run `security-smoke-test.sh` and confirm T-003 and T-005 
 
 **How:**
 1. Test `--security-opt seccomp=default` on macOS Docker Desktop. If it works (it should on recent versions), use it.
-2. If `seccomp=default` fails on macOS, create a custom seccomp profile (`harness-seccomp.json`) that blocks the highest-risk syscalls: `ptrace`, `mount`, `umount2`, `keyctl`, `bpf`, `userfaultfd`, `perf_event_open`, `add_key`, `request_key`.
-3. Apply via `--security-opt seccomp=harness-seccomp.json`.
+2. If `seccomp=default` fails on macOS, create a custom seccomp profile (`aegis-seccomp.json`) that blocks the highest-risk syscalls: `ptrace`, `mount`, `umount2`, `keyctl`, `bpf`, `userfaultfd`, `perf_event_open`, `add_key`, `request_key`.
+3. Apply via `--security-opt seccomp=aegis-seccomp.json`.
 4. Gate on platform: use `seccomp=default` on Linux, custom profile on macOS.
 
 **Effort:** 2–4 hours including testing.
@@ -416,9 +416,9 @@ RESULT=$(semgrep scan \
 
 #### P2-M2: Generate `.claude/settings.json` from Policy (G-05, FR-038, SPEC §9.5)
 
-**What:** `harness install` should read `harness-policy.json` and generate Claude Code permission rules in `.claude/settings.json`.
+**What:** `aegis install` should read `aegis-policy.json` and generate Claude Code permission rules in `.claude/settings.json`.
 
-**How:** Write a `jq` transformation in `install.sh` that maps `harness-policy.json` actions to Claude Code's `permissions` format. This adds a second layer of defense — even if the hook scripts fail, Claude Code's native permission system will `ask` before destructive operations.
+**How:** Write a `jq` transformation in `install.sh` that maps `aegis-policy.json` actions to Claude Code's `permissions` format. This adds a second layer of defense — even if the hook scripts fail, Claude Code's native permission system will `ask` before destructive operations.
 
 **Effort:** 2 hours.
 
@@ -435,14 +435,14 @@ RESULT=$(semgrep scan \
 **What:** Eliminate the multi-layer shell quoting risk in sandbox routing.
 
 **How:**
-1. In `sandbox-exec.sh`, write the command to a temporary file and execute it via `docker exec harness-sandbox bash /workspace/_cmd.sh` instead of `bash -c "$CMD"`. This avoids shell metacharacter interpretation.
-2. Alternatively, use `docker exec` with array-form command: `docker exec harness-sandbox bash -c "$(cat /dev/stdin)"` with the command piped via stdin.
+1. In `sandbox-exec.sh`, write the command to a temporary file and execute it via `docker exec aegis-sandbox bash /workspace/_cmd.sh` instead of `bash -c "$CMD"`. This avoids shell metacharacter interpretation.
+2. Alternatively, use `docker exec` with array-form command: `docker exec aegis-sandbox bash -c "$(cat /dev/stdin)"` with the command piped via stdin.
 
 **Effort:** 2 hours including test.
 
-#### P2-M5: Implement `harness status` Command (FR-035)
+#### P2-M5: Implement `aegis status` Command (FR-035)
 
-**What:** Health check for all harness components.
+**What:** Health check for all aegis components.
 
 **How:** Report a table with:
 ```
@@ -453,7 +453,7 @@ TruffleHog         MISSING   —
 Semgrep            MISSING   —
 Snyk               OK        1.x.x
 Docker             OK        24.x
-harness-sandbox    RUNNING   ubuntu:22.04
+aegis-sandbox    RUNNING   ubuntu:22.04
 lean-ctx           MISSING   —
 pre-commit         MISSING   —
 ```
@@ -499,7 +499,7 @@ pre-commit         MISSING   —
 
 **What:** Mitigate persistent in-memory backdoors (ADR-02 consequence).
 
-**How:** After every N sandbox calls (configurable, default 50), destroy and recreate the container instead of just resetting the workspace. Track call count in `.harness/sandbox-calls`.
+**How:** After every N sandbox calls (configurable, default 50), destroy and recreate the container instead of just resetting the workspace. Track call count in `.aegis/sandbox-calls`.
 
 **Effort:** 1 hour.
 
@@ -532,9 +532,9 @@ pre-commit         MISSING   —
 | S-06 | Performance | LOW | NFR-001 | bunx cold-start latency |
 | S-07 | Architecture | MEDIUM | FR-015 | Snyk CLI vs MCP divergence |
 
-**Overall assessment:** The harness architecture is structurally sound. The defence-in-depth layering (preflight → hooks → sandbox → CLAUDE.md) is correct. The external hard gate (ADR-01) is a pragmatic improvement over the original SessionStart design. The critical gap is G-01 (dead code in Snyk intercept) — a 30-minute fix. The operational gaps (G-07, G-08) are tool installation tasks, not design problems. The `seccomp=unconfined` issue (S-01) is the most significant security regression vs SPEC intent and should be the first hardening item in Phase 2.
+**Overall assessment:** The aegis architecture is structurally sound. The defence-in-depth layering (preflight → hooks → sandbox → CLAUDE.md) is correct. The external hard gate (ADR-01) is a pragmatic improvement over the original SessionStart design. The critical gap is G-01 (dead code in Snyk intercept) — a 30-minute fix. The operational gaps (G-07, G-08) are tool installation tasks, not design problems. The `seccomp=unconfined` issue (S-01) is the most significant security regression vs SPEC intent and should be the first hardening item in Phase 2.
 
 ---
 
 *End of Architecture Review*
-*Source files reviewed: harness, harness-preflight.sh, harness-policy.json, hooks/pre-tool-use.sh, hooks/post-tool-use.sh, scripts/sandbox-start.sh, scripts/sandbox-exec.sh, scripts/sandbox-reset.sh, scripts/hitl-gateway.sh, scripts/install.sh, scripts/shred.sh, .claude/hooks.json, .claude/mcp.json, .claudeignore, .env.schema, CLAUDE.md, security-smoke-test.sh, docs/SPEC.md, docs/PLAN.md*
+*Source files reviewed: aegis, aegis-preflight.sh, aegis-policy.json, hooks/pre-tool-use.sh, hooks/post-tool-use.sh, scripts/sandbox-start.sh, scripts/sandbox-exec.sh, scripts/sandbox-reset.sh, scripts/hitl-gateway.sh, scripts/install.sh, scripts/shred.sh, .claude/hooks.json, .claude/mcp.json, .claudeignore, .env.schema, CLAUDE.md, security-smoke-test.sh, docs/SPEC.md, docs/PLAN.md*

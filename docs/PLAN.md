@@ -1,4 +1,4 @@
-# PLAN: Magnificent AI-Agent Security Harness
+# PLAN: Magnificent AI-Agent Aegis Security
 
 **Version:** 1.1.0
 **Date:** 2026-04-29
@@ -29,7 +29,7 @@ Every task references the SPEC requirement ID(s) it implements. Tasks are ordere
 
 ### Week 1 — Foundation & Secret Prevention
 
-**Exit criteria:** `harness install` works on a fresh macOS/Linux machine. Pre-flight blocks a real secret in env. Warm sandbox container starts and resets correctly.
+**Exit criteria:** `aegis install` works on a fresh macOS/Linux machine. Pre-flight blocks a real secret in env. Warm sandbox container starts and resets correctly.
 
 **Parallelization:** 1A and 1B can run concurrently. 1C (smoke foundation) starts after 1A is complete.
 
@@ -39,10 +39,10 @@ Every task references the SPEC requirement ID(s) it implements. Tasks are ordere
 
 | # | Task | Implements | Source | Acceptance Criteria |
 |---|------|-----------|--------|---------------------|
-| 1A-01 | Create repo structure: `scripts/`, `hooks/`, `.claude/`, `.harness/` (gitignored) | FR-036, FR-037 | | All directories exist; `.harness/` in `.gitignore` |
-| 1A-02 | Write `harness` CLI shell wrapper that delegates to `scripts/` + create `harness-policy.json` in the same session | FR-034, FR-038, §11.8 | Spec §9.1, §11.8 | `harness --help` works; `harness-policy.json` validates against schema; all 6 action types present |
+| 1A-01 | Create repo structure: `scripts/`, `hooks/`, `.claude/`, `.aegis/` (gitignored) | FR-036, FR-037 | | All directories exist; `.aegis/` in `.gitignore` |
+| 1A-02 | Write `aegis` CLI shell wrapper that delegates to `scripts/` + create `aegis-policy.json` in the same session | FR-034, FR-038, §11.8 | Spec §9.1, §11.8 | `aegis --help` works; `aegis-policy.json` validates against schema; all 6 action types present |
 
-**1A-02 note:** `harness-policy.json` is created alongside the CLI since the CLI will eventually read it. Both are lightweight config — combine into one session.
+**1A-02 note:** `aegis-policy.json` is created alongside the CLI since the CLI will eventually read it. Both are lightweight config — combine into one session.
 
 ---
 
@@ -51,10 +51,10 @@ Every task references the SPEC requirement ID(s) it implements. Tasks are ordere
 | # | Task | Implements | Source | Acceptance Criteria |
 |---|------|-----------|--------|---------------------|
 | 1B-01 | Create `.env.schema` template with `@sensitive` annotations for AWS, Stripe, DB, GitHub, OpenAI, Anthropic fields | FR-004 | | Template has all 6 field types annotated `@sensitive` |
-| 1B-02 | Write `harness-preflight.sh` (copy from SPEC verbatim, adapt for machine) | FR-001, FR-002, FR-005, FR-008, FR-009 | Spec §11.1 (full script included) | Script exits 1 when `AWS_SECRET_ACCESS_KEY=fake123` is set; exits 0 on clean env; all 6 checks run in order |
-| 1B-03 | Wire `harness install` to write `.env.schema` template and append `.harness/` + `.env` to `.gitignore` | FR-034, FR-037 | | Fresh project: `harness install` creates all required files |
+| 1B-02 | Write `aegis-preflight.sh` (copy from SPEC verbatim, adapt for machine) | FR-001, FR-002, FR-005, FR-008, FR-009 | Spec §11.1 (full script included) | Script exits 1 when `AWS_SECRET_ACCESS_KEY=fake123` is set; exits 0 on clean env; all 6 checks run in order |
+| 1B-03 | Wire `aegis install` to write `.env.schema` template and append `.aegis/` + `.env` to `.gitignore` | FR-034, FR-037 | | Fresh project: `aegis install` creates all required files |
 
-**1B-02 note:** The full `harness-preflight.sh` source is in SPEC.md §11.1. Copy it verbatim and adapt the Docker container name and paths for this machine. Do not rewrite from scratch.
+**1B-02 note:** The full `aegis-preflight.sh` source is in SPEC.md §11.1. Copy it verbatim and adapt the Docker container name and paths for this machine. Do not rewrite from scratch.
 
 ---
 
@@ -71,7 +71,7 @@ Every task references the SPEC requirement ID(s) it implements. Tasks are ordere
 
 ### Week 2 — Warm Sandbox
 
-**Exit criteria:** All agent shell commands execute inside `harness-sandbox` container. Container survives session; workspace resets between calls.
+**Exit criteria:** All agent shell commands execute inside `aegis-sandbox` container. Container survives session; workspace resets between calls.
 
 **Parallelization:** 2A (Docker scripts) and 2B (hook registration) run concurrently. The base `pre-tool-use.sh` skeleton (2B-01) must be complete before Week 3 workstreams extend it.
 
@@ -81,11 +81,11 @@ Every task references the SPEC requirement ID(s) it implements. Tasks are ordere
 
 | # | Task | Implements | Source | Acceptance Criteria |
 |---|------|-----------|--------|---------------------|
-| 2A-01 | Write `scripts/sandbox-start.sh`: rootless Docker, seccomp=default, `--network none`, `--read-only`, tmpfs for `/workspace` and `/tmp` | FR-017, FR-018, FR-019 | Spec §11.5 | Container starts; `docker inspect harness-sandbox` shows all 4 security flags |
-| 2A-02 | Write `scripts/sandbox-reset.sh`: `docker exec harness-sandbox rm -rf /workspace/*` | FR-017 | | After reset, `/workspace` is empty; container still running |
-| 2A-03 | Write `scripts/sandbox-stop.sh`: stop and remove `harness-sandbox` | FR-017 | | `harness stop` cleanly removes container |
-| 2A-04 | Write `scripts/sandbox-exec.sh`: wraps `docker exec harness-sandbox bash -c "$CMD"` | FR-016 | | Arbitrary command runs inside container; output returned; workspace reset after each call |
-| 2A-05 | Update `harness start` to call `sandbox-start.sh` | FR-034 | | `harness start` brings up warm container |
+| 2A-01 | Write `scripts/sandbox-start.sh`: rootless Docker, seccomp=default, `--network none`, `--read-only`, tmpfs for `/workspace` and `/tmp` | FR-017, FR-018, FR-019 | Spec §11.5 | Container starts; `docker inspect aegis-sandbox` shows all 4 security flags |
+| 2A-02 | Write `scripts/sandbox-reset.sh`: `docker exec aegis-sandbox rm -rf /workspace/*` | FR-017 | | After reset, `/workspace` is empty; container still running |
+| 2A-03 | Write `scripts/sandbox-stop.sh`: stop and remove `aegis-sandbox` | FR-017 | | `aegis stop` cleanly removes container |
+| 2A-04 | Write `scripts/sandbox-exec.sh`: wraps `docker exec aegis-sandbox bash -c "$CMD"` | FR-016 | | Arbitrary command runs inside container; output returned; workspace reset after each call |
+| 2A-05 | Update `aegis start` to call `sandbox-start.sh` | FR-034 | | `aegis start` brings up warm container |
 
 ---
 
@@ -93,9 +93,9 @@ Every task references the SPEC requirement ID(s) it implements. Tasks are ordere
 
 | # | Task | Implements | Source | Acceptance Criteria |
 |---|------|-----------|--------|---------------------|
-| 2B-01 | Write `hooks/pre-tool-use.sh` skeleton: intercepts `bash` tool calls, rewrites to `sandbox-exec.sh`; registers HIGH-RISK pattern matching from `harness-policy.json` | FR-016, FR-027 | Spec §11.7 | All Claude `bash` calls route through container; `DROP TABLE` patterns trigger HITL call |
+| 2B-01 | Write `hooks/pre-tool-use.sh` skeleton: intercepts `bash` tool calls, rewrites to `sandbox-exec.sh`; registers HIGH-RISK pattern matching from `aegis-policy.json` | FR-016, FR-027 | Spec §11.7 | All Claude `bash` calls route through container; `DROP TABLE` patterns trigger HITL call |
 | 2B-02 | Register `PreToolUse` hook in `.claude/hooks.json` pointing to `hooks/pre-tool-use.sh` | FR-031 | | Hook fires on every tool call |
-| 2B-03 | Add T-004 (sandbox cannot read host sentinel) to smoke test | FR-039, NFR-006 | | Container cannot read `/tmp/harness-canary` on host |
+| 2B-03 | Add T-004 (sandbox cannot read host sentinel) to smoke test | FR-039, NFR-006 | | Container cannot read `/tmp/aegis-canary` on host |
 
 **2B-01 note:** The base `pre-tool-use.sh` is defined here. Week 3 workstreams (3A, 3B) append to this file — not overwrite it. Document this in the file header comment.
 
@@ -142,7 +142,7 @@ Every task references the SPEC requirement ID(s) it implements. Tasks are ordere
 
 ### Week 4 — HITL Gateway, lean-ctx & Final Integration
 
-**Exit criteria:** All 10 smoke tests pass. `harness shred` works. lean-ctx MCP active. HITL gateway fires correctly. Manual end-to-end session succeeds.
+**Exit criteria:** All 10 smoke tests pass. `aegis shred` works. lean-ctx MCP active. HITL gateway fires correctly. Manual end-to-end session succeeds.
 
 ---
 
@@ -159,8 +159,8 @@ Every task references the SPEC requirement ID(s) it implements. Tasks are ordere
 
 | # | Task | Implements | Source | Acceptance Criteria |
 |---|------|-----------|--------|---------------------|
-| 4B-01 | Add `lean-ctx` MCP entry to `.claude/mcp.json` with `lean-ctx serve --db .harness/lean-ctx.db` | FR-021, FR-023 | | lean-ctx MCP starts; DB written to `.harness/lean-ctx.db` |
-| 4B-02 | Add conflicting-tool check to `harness-preflight.sh`: warn if RTK or context-mode shell hooks are detected | FR-022 | | Pre-flight warns if `rtk` or `context-mode` hook processes are found running |
+| 4B-01 | Add `lean-ctx` MCP entry to `.claude/mcp.json` with `lean-ctx serve --db .aegis/lean-ctx.db` | FR-021, FR-023 | | lean-ctx MCP starts; DB written to `.aegis/lean-ctx.db` |
+| 4B-02 | Add conflicting-tool check to `aegis-preflight.sh`: warn if RTK or context-mode shell hooks are detected | FR-022 | | Pre-flight warns if `rtk` or `context-mode` hook processes are found running |
 | 4B-03 | Add T-007 (lean-ctx DB clean of sensitive patterns after session) to smoke test | FR-039 | | T-007 passes after a full Claude Code session |
 
 ---
@@ -169,7 +169,7 @@ Every task references the SPEC requirement ID(s) it implements. Tasks are ordere
 
 | # | Task | Implements | Source | Acceptance Criteria |
 |---|------|-----------|--------|---------------------|
-| 4C-01 | Write `scripts/shred.sh` (copy from SPEC verbatim) + wire to `harness shred` CLI | FR-024, FR-025, §10.3 | Spec §10.3 | `harness shred` deletes `.harness/lean-ctx.db` and `.aegis/audit.log`; `harness shred --audit` scans before deletion |
+| 4C-01 | Write `scripts/shred.sh` (copy from SPEC verbatim) + wire to `aegis shred` CLI | FR-024, FR-025, §10.3 | Spec §10.3 | `aegis shred` deletes `.aegis/lean-ctx.db` and `.aegis/audit.log`; `aegis shred --audit` scans before deletion |
 | 4C-02 | Register `SessionEnd` hook in `.claude/hooks.json`; append session-end event to `.aegis/audit.log` | FR-029, NFR-010 | | After session, audit.log contains `{"event":"session_end",...}` entry |
 | 4C-03 | Add T-010 (shred removes lean-ctx.db) to smoke test | FR-039 | | T-010 passes |
 
@@ -179,10 +179,10 @@ Every task references the SPEC requirement ID(s) it implements. Tasks are ordere
 
 | # | Task | Implements | Source | Acceptance Criteria |
 |---|------|-----------|--------|---------------------|
-| 4D-01 | Register `SessionStart` hook in `.claude/hooks.json` pointing to `harness-preflight.sh` | FR-032 | | Claude Code session does NOT start if pre-flight exits non-zero |
-| 4D-02 | Final `harness install` integration: write all config files (`.claude/hooks.json`, `.claude/mcp.json`, `.claudeignore`, `.pre-commit-config.yaml`, `harness-policy.json`, `CLAUDE.md`) in one command | FR-034 | | `harness install` on a blank project creates all files; `harness start` runs clean |
+| 4D-01 | Register `SessionStart` hook in `.claude/hooks.json` pointing to `aegis-preflight.sh` | FR-032 | | Claude Code session does NOT start if pre-flight exits non-zero |
+| 4D-02 | Final `aegis install` integration: write all config files (`.claude/hooks.json`, `.claude/mcp.json`, `.claudeignore`, `.pre-commit-config.yaml`, `aegis-policy.json`, `CLAUDE.md`) in one command | FR-034 | | `aegis install` on a blank project creates all files; `aegis start` runs clean |
 | 4D-03 | Run full `security-smoke-test.sh`; fix any failures | FR-039 | | All 10 tests pass; runtime < 5 minutes |
-| 4D-04 | Manual end-to-end test: full Claude Code session with harness active, covering all 4 user journeys from SPEC §4 | All P0 FRs | | Journeys A1 (normal coding), A2 (HITL deny), A3 (Semgrep self-correct), A4 (Snyk package block) all complete without harness friction |
+| 4D-04 | Manual end-to-end test: full Claude Code session with aegis active, covering all 4 user journeys from SPEC §4 | All P0 FRs | | Journeys A1 (normal coding), A2 (HITL deny), A3 (Semgrep self-correct), A4 (Snyk package block) all complete without aegis friction |
 
 ---
 
@@ -191,8 +191,8 @@ Every task references the SPEC requirement ID(s) it implements. Tasks are ordere
 | Task | Implements | Notes |
 |------|-----------|-------|
 | TruffleHog CI integration | FR-010 | GitHub Actions YAML |
-| E2B sandbox backend | FR-020 | `HARNESS_SANDBOX=e2b` env var path |
-| `harness status` command | FR-035 | Health table for all components |
+| E2B sandbox backend | FR-020 | `AEGIS_SANDBOX=e2b` env var path |
+| `aegis status` command | FR-035 | Health table for all components |
 | Write `README.md` with quickstart | — | Moved from Phase 1 (not exit criterion) |
 | Windows support investigation | §3 NG-5 | WSL2 path; may become Phase 3 |
 | Resolve all OPEN risks from SPEC §15.2 | §15.2 | Varlock fail-open, Varlock-MCP interaction |
@@ -204,10 +204,10 @@ Every task references the SPEC requirement ID(s) it implements. Tasks are ordere
 | Task | Implements | Notes |
 |------|-----------|-------|
 | CyberSecEval 4 integration | §12.3 | Significant compute required |
-| AgentBench regression check | §12.3 | Agent utility under harness constraints |
+| AgentBench regression check | §12.3 | Agent utility under aegis constraints |
 | OpenCode adapter | §16.1 | MCP-only path; 1–2 weeks |
 | Pi.dev adapter | §16.2 | TypeScript extensions; 2–3 weeks |
-| Encryption at rest for `.harness/lean-ctx.db` | §16 | SQLCipher or equivalent |
+| Encryption at rest for `.aegis/lean-ctx.db` | §16 | SQLCipher or equivalent |
 
 ---
 

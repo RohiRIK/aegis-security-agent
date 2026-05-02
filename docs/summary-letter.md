@@ -1,4 +1,4 @@
-# Summary Letter — AI-Agent Security Harness
+# Summary Letter — AI-Agent Aegis Security
 
 **To:** Senior Engineer (peer review)  
 **From:** MATISSE  
@@ -11,7 +11,7 @@ Here's the honest version.
 
 ## What this is
 
-A security harness for Claude Code. Not a platform, not a product — a harness. Seven controls bolted around a single agent to prevent the most common ways AI coding agents go wrong: leaking secrets, running unsafe code on the host, installing hallucinated packages, and making irreversible changes without a human in the loop.
+A Aegis for Claude Code. Not a platform, not a product — a aegis. Seven controls bolted around a single agent to prevent the most common ways AI coding agents go wrong: leaking secrets, running unsafe code on the host, installing hallucinated packages, and making irreversible changes without a human in the loop.
 
 The stack: Varlock (secret prevention), TruffleHog (pre-commit secret detection), Semgrep (SAST on generated code), Snyk (SCA on new dependencies), a warm Docker container (execution sandbox), lean-ctx (context compression), and a terminal readline prompt (HITL gateway). That's it. Everything else is Phase 2.
 

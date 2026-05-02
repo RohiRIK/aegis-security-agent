@@ -36,7 +36,7 @@ export function createBeforeHandler(
     const pkg = parseInstallCommand(command);
     if (pkg) {
       const { filename, content } = makeLockfileContent(pkg);
-      const scanDir = mkdtempSync(join(tmpdir(), "harness-trivy-"));
+      const scanDir = mkdtempSync(join(tmpdir(), "aegis-trivy-"));
       try {
         await Bun.write(join(scanDir, filename), content);
         const result = await wrapTrivy([
@@ -49,7 +49,7 @@ export function createBeforeHandler(
 
         if (result.degraded) {
           // Fail-open on timeout — same behavior as "trivy not installed"
-          process.stderr.write("[HARNESS] ⚠️ Trivy DEGRADED: dep scan timed out\n");
+          process.stderr.write("[AEGIS] ⚠️ Trivy DEGRADED: dep scan timed out\n");
         } else if (result.status === "ok" && result.exitCode === 1) {
           let vulnCount = 0;
           try {
@@ -59,7 +59,7 @@ export function createBeforeHandler(
           throw new Error(`BLOCKED by Trivy: ${pkg.packageName} — ${vulnCount} HIGH/CRITICAL CVE(s) found — upgrade to a patched version`);
         } else if (result.status === "error") {
           // Fail-open on error — scanner unavailable
-          process.stderr.write("[HARNESS] ⚠️ Trivy unavailable: dep scan skipped\n");
+          process.stderr.write("[AEGIS] ⚠️ Trivy unavailable: dep scan skipped\n");
         }
       } finally {
         rmSync(scanDir, { recursive: true, force: true });
@@ -68,7 +68,7 @@ export function createBeforeHandler(
 
     const escaped = command.replace(/'/g, "'\\''");
     output.args ??= {};
-    output.args.command = `docker exec harness-sandbox bash -c '${escaped}'`;
+    output.args.command = `docker exec aegis-sandbox bash -c '${escaped}'`;
 
     if (matched) throw new Error(`BLOCKED: HIGH-RISK pattern matched — ${matched}`);
   };

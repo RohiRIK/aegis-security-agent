@@ -1,4 +1,4 @@
-# SPEC: Magnificent AI-Agent Security Harness
+# SPEC: Magnificent AI-Agent Aegis Security
 
 **Version:** 1.0.0  
 **Date:** 2026-04-29  
@@ -10,7 +10,7 @@
 
 ## 1. Executive Summary & Vision
 
-This document specifies a **security harness** — not a security platform — for AI coding agents. The harness wraps a Claude Code agent with the minimum set of controls required to prevent secret leakage, detect credential exposure, sandbox code execution, and gate high-risk actions behind a human. It stays out of the way during normal coding and activates only when something dangerous is about to happen.
+This document specifies a **Aegis** — not a security platform — for AI coding agents. The aegis wraps a Claude Code agent with the minimum set of controls required to prevent secret leakage, detect credential exposure, sandbox code execution, and gate high-risk actions behind a human. It stays out of the way during normal coding and activates only when something dangerous is about to happen.
 
 **The Magnificent Minimum:** Five controls, one platform, one context manager, one sandbox, one gateway. Everything else is Phase 2.
 
@@ -41,9 +41,9 @@ AI coding agents (Claude Code and equivalents) operate with broad filesystem, sh
 
 ### 2.2 Target User
 
-**Primary:** A solo developer using Claude Code for day-to-day coding on a macOS or Linux workstation. They want security without ceremony — the harness should be invisible during safe operations and blocking only when genuinely needed.
+**Primary:** A solo developer using Claude Code for day-to-day coding on a macOS or Linux workstation. They want security without ceremony — Aegis should be invisible during safe operations and blocking only when genuinely needed.
 
-**Secondary:** A small team (2–5 engineers) sharing a project repository. Each developer runs the harness locally; there is no shared server.
+**Secondary:** A small team (2–5 engineers) sharing a project repository. Each developer runs Aegis locally; there is no shared server.
 
 **Out of scope:** Enterprise SOC teams, multi-tenant deployments, Windows-primary workflows.
 
@@ -64,7 +64,7 @@ AI coding agents (Claude Code and equivalents) operate with broad filesystem, sh
 ### Non-Goals
 
 - **NG-1:** This is NOT a security platform. It does not provide threat intelligence, SIEM integration, or incident response.
-- **NG-2:** This is NOT a multi-platform harness. OpenCode and Pi.dev are not v1 targets.
+- **NG-2:** This is NOT a multi-platform aegis. OpenCode and Pi.dev are not v1 targets.
 - **NG-3:** This is NOT a CI/CD pipeline. It runs locally on the developer's machine.
 - **NG-4:** This does NOT replace code review. It augments it.
 - **NG-5:** This does NOT provide Windows support in v1. **[PHASE-2]**
@@ -79,7 +79,7 @@ AI coding agents (Claude Code and equivalents) operate with broad filesystem, sh
 Alex is building a SaaS product with Claude Code. They have AWS credentials, a Stripe API key, and a database password in their environment. They want Claude to help write code without accidentally leaking those credentials.
 
 **Journey A1 — Normal coding session:**
-1. Alex runs `harness start` in the project directory.
+1. Alex runs `aegis start` in the project directory.
 2. Pre-flight check verifies no real secrets are in the environment (§11.1).
 3. Claude Code starts with lean-ctx MCP active and Varlock schema loaded.
 4. Alex asks Claude to add a new API endpoint. Claude reads files via lean-ctx (compressed), generates code, Semgrep scans it automatically via PostToolUse hook.
@@ -106,44 +106,44 @@ Alex is building a SaaS product with Claude Code. They have AWS credentials, a S
 
 | ID | Description | Acceptance Criteria | Priority |
 |----|-------------|---------------------|----------|
-| **FR-001** | The system MUST provide a `harness-preflight.sh` script that runs before the agent starts and verifies no real secrets are present in the shell environment. | Script exits non-zero and prints a human-readable error if any variable matching patterns in `SENSITIVE_PATTERNS` (see §11.1) is found in `env`. Agent startup is blocked on non-zero exit. | P0 |
+| **FR-001** | The system MUST provide a `aegis-preflight.sh` script that runs before the agent starts and verifies no real secrets are present in the shell environment. | Script exits non-zero and prints a human-readable error if any variable matching patterns in `SENSITIVE_PATTERNS` (see §11.1) is found in `env`. Agent startup is blocked on non-zero exit. | P0 |
 | **FR-002** | The agent MUST interact exclusively with `.env.schema` files, never with `.env` files containing real values. | `.env` files MUST be listed in `.gitignore` and `.claudeignore`. The agent's working directory MUST NOT contain a readable `.env` file during sessions. | P0 |
 | **FR-003** | Real secrets MUST be injected into the execution environment only via `varlock run -- <command>`, never by direct env export in the agent's shell. | Integration test: run agent session without `varlock run` wrapper; assert no secret-pattern strings appear in any tool output or lean-ctx DB. | P0 |
 | **FR-004** | Varlock MUST be configured with `@sensitive` annotations for all secret fields in `.env.schema`. | `.env.schema` file MUST contain `@sensitive` on every field whose value is a credential, token, or key. CI lint step validates this. | P0 |
-| **FR-005** | The pre-flight script MUST check for Varlock binary presence and fail with a clear error if Varlock is not installed. | `harness-preflight.sh` runs `which varlock \|\| exit 1` and prints installation instructions on failure. | P0 |
+| **FR-005** | The pre-flight script MUST check for Varlock binary presence and fail with a clear error if Varlock is not installed. | `aegis-preflight.sh` runs `which varlock \|\| exit 1` and prints installation instructions on failure. | P0 |
 | **FR-006** | TruffleHog MUST be installed as a pre-commit hook using the documented hook entry. | `.pre-commit-config.yaml` contains the TruffleHog hook entry: `trufflehog git file://. --since-commit HEAD --results=verified --fail --trust-local-git-config`. | P0 |
 | **FR-007** | The TruffleHog pre-commit hook MUST block commits that contain verified credentials. | Integration test: stage a file containing a seeded (revoked) AWS key; assert `git commit` exits non-zero. | P0 |
-| **FR-008** | The pre-flight script MUST verify that the TruffleHog pre-commit hook is installed and active. | `harness-preflight.sh` checks for `.pre-commit-config.yaml` entry; exits non-zero if absent. | P0 |
-| **FR-009** | `varlock scan` MUST be run as part of the pre-flight check to scan project files for plaintext secret occurrences. | `harness-preflight.sh` runs `varlock scan --staged` and exits non-zero on any finding. | P0 |
+| **FR-008** | The pre-flight script MUST verify that the TruffleHog pre-commit hook is installed and active. | `aegis-preflight.sh` checks for `.pre-commit-config.yaml` entry; exits non-zero if absent. | P0 |
+| **FR-009** | `varlock scan` MUST be run as part of the pre-flight check to scan project files for plaintext secret occurrences. | `aegis-preflight.sh` runs `varlock scan --staged` and exits non-zero on any finding. | P0 |
 | **FR-010** | TruffleHog MUST also be configured to run in CI (pre-push or PR check) in addition to the local pre-commit hook. **[PHASE-2]** | CI pipeline YAML contains TruffleHog step. | P1 |
 | **FR-011** | Semgrep MUST be configured as an MCP server (`semgrep/mcp`) and registered in `.claude/mcp.json`. | `.claude/mcp.json` contains a `semgrep` entry with `type: stdio` and the correct command. | P0 |
 | **FR-012** | A Claude Code `PostToolUse` hook MUST invoke Semgrep scan on every file written by the agent. | `hooks/post-tool-use.sh` calls `semgrep scan --config=auto --json <file>` on the written path and appends findings to the HITL queue if severity >= ERROR. | P0 |
 | **FR-013** | Semgrep MUST use at minimum the `p/security-audit` and `p/secrets` rulesets. | `.semgrep.yml` or hook invocation includes `--config=p/security-audit --config=p/secrets`. | P0 |
 | **FR-014** | Snyk MUST be configured as an MCP server (`sammcj/mcp-snyk`) and registered in `.claude/mcp.json`. | `.claude/mcp.json` contains a `snyk` entry with `type: stdio`. | P0 |
 | **FR-015** | The agent MUST invoke `snyk_package_health_check` via the Snyk MCP server before any `npm install`, `pip install`, or `cargo add` command is executed. | `PreToolUse` hook intercepts bash commands matching package-install patterns and calls `snyk_package_health_check`; blocks install if package is not found or has critical CVE. | P0 |
-| **FR-016** | All agent-generated code execution MUST be routed through the Warm Docker sandbox, never executed directly on the host. | `PreToolUse` hook intercepts bash tool calls and rewrites the command to run inside the warm container via `docker exec harness-sandbox <cmd>`. | P0 |
-| **FR-017** | The Warm Docker sandbox MUST be a persistent container named `harness-sandbox` that is reset (workspace files wiped) between agent calls, NOT destroyed and recreated. | `harness start` runs `docker run -d --name harness-sandbox ...` once. Between calls, `docker exec harness-sandbox rm -rf /workspace/*` resets state. Container is never stopped during a session. | P0 |
+| **FR-016** | All agent-generated code execution MUST be routed through the Warm Docker sandbox, never executed directly on the host. | `PreToolUse` hook intercepts bash tool calls and rewrites the command to run inside the warm container via `docker exec aegis-sandbox <cmd>`. | P0 |
+| **FR-017** | The Warm Docker sandbox MUST be a persistent container named `aegis-sandbox` that is reset (workspace files wiped) between agent calls, NOT destroyed and recreated. | `aegis start` runs `docker run -d --name aegis-sandbox ...` once. Between calls, `docker exec aegis-sandbox rm -rf /workspace/*` resets state. Container is never stopped during a session. | P0 |
 | **FR-018** | The Warm Docker sandbox MUST run in rootless mode with the default seccomp profile applied. | `docker run` command includes `--security-opt seccomp=default` and the Docker daemon is configured for rootless mode per Docker docs (per oracle-01). | P0 |
 | **FR-019** | The Warm Docker sandbox MUST have no outbound network access by default. | `docker run` includes `--network none`. Network can be re-enabled per-call only via explicit HITL approval (FR-026). | P0 |
-| **FR-020** | E2B MUST be supported as an optional sandbox backend, selectable via `HARNESS_SANDBOX=e2b` environment variable. **[PHASE-2]** | When `HARNESS_SANDBOX=e2b`, the sandbox router calls the E2B SDK instead of `docker exec`. Local Docker remains the default. | P1 |
+| **FR-020** | E2B MUST be supported as an optional sandbox backend, selectable via `AEGIS_SANDBOX=e2b` environment variable. **[PHASE-2]** | When `AEGIS_SANDBOX=e2b`, the sandbox router calls the E2B SDK instead of `docker exec`. Local Docker remains the default. | P1 |
 | **FR-021** | lean-ctx MUST be configured as an MCP server and registered in `.claude/mcp.json`. | `.claude/mcp.json` contains a `lean-ctx` entry with `type: stdio`. | P0 |
-| **FR-022** | lean-ctx MUST be the ONLY context management layer. RTK, context-mode, and claude-ltm-plugin MUST NOT be installed alongside lean-ctx. | `harness-preflight.sh` checks that no conflicting shell hooks from RTK or context-mode are active. | P0 |
-| **FR-023** | lean-ctx cross-session memory MUST be stored in a single project-scoped SQLite file at `.harness/lean-ctx.db`. | lean-ctx configuration sets `db_path = .harness/lean-ctx.db`. **[ASSUMPTION]** lean-ctx supports custom DB path via flag. | P0 |
-| **FR-024** | The `harness shred` command MUST delete `.harness/lean-ctx.db` and all other harness-managed SQLite files. | Running `harness shred` removes `.harness/*.db` and prints a confirmation. | P0 |
-| **FR-025** | lean-ctx MUST NOT store raw secret values. The harness MUST verify this by checking that no string matching `SENSITIVE_PATTERNS` appears in `.harness/lean-ctx.db`. | `harness shred --audit` scans the DB before deletion and reports any sensitive-pattern matches. | P0 |
+| **FR-022** | lean-ctx MUST be the ONLY context management layer. RTK, context-mode, and claude-ltm-plugin MUST NOT be installed alongside lean-ctx. | `aegis-preflight.sh` checks that no conflicting shell hooks from RTK or context-mode are active. | P0 |
+| **FR-023** | lean-ctx cross-session memory MUST be stored in a single project-scoped SQLite file at `.aegis/lean-ctx.db`. | lean-ctx configuration sets `db_path = .aegis/lean-ctx.db`. **[ASSUMPTION]** lean-ctx supports custom DB path via flag. | P0 |
+| **FR-024** | The `aegis shred` command MUST delete `.aegis/lean-ctx.db` and all other aegis-managed SQLite files. | Running `aegis shred` removes `.aegis/*.db` and prints a confirmation. | P0 |
+| **FR-025** | lean-ctx MUST NOT store raw secret values. The aegis MUST verify this by checking that no string matching `SENSITIVE_PATTERNS` appears in `.aegis/lean-ctx.db`. | `aegis shred --audit` scans the DB before deletion and reports any sensitive-pattern matches. | P0 |
 | **FR-026** | The HITL Gateway MUST block execution and present a `readline` prompt in the terminal for any action classified as HIGH-RISK (see §11.7). | When a HIGH-RISK action is detected, the agent pauses, prints the approval schema to stdout, and reads a line from stdin. Execution proceeds only if the user types `approve`. Any other input (including timeout) results in `deny`. | P0 |
-| **FR-027** | The HITL Gateway MUST classify the following action types as HIGH-RISK: database schema changes, secret generation or rotation, production deployment commands, network access from sandbox, and any `rm -rf` or equivalent destructive filesystem operation. | `hooks/pre-tool-use.sh` pattern-matches bash commands against the HIGH-RISK pattern list in `harness-policy.json`. | P0 |
+| **FR-027** | The HITL Gateway MUST classify the following action types as HIGH-RISK: database schema changes, secret generation or rotation, production deployment commands, network access from sandbox, and any `rm -rf` or equivalent destructive filesystem operation. | `hooks/pre-tool-use.sh` pattern-matches bash commands against the HIGH-RISK pattern list in `aegis-policy.json`. | P0 |
 | **FR-028** | The HITL approval request MUST be printed as a structured JSON block to stdout before the readline prompt. | Output format defined in §11.7. | P0 |
 | **FR-029** | HITL decisions MUST be logged to `.aegis/audit.log` with timestamp, action, decision, and user identity. | Each HITL event appends a JSON line to `.aegis/audit.log`. | P0 |
-| **FR-030** | The HITL Gateway MUST have a configurable timeout (default: 120 seconds). On timeout, the action MUST be denied automatically. | `harness-policy.json` contains `hitl_timeout_seconds: 120`. After timeout, gateway logs `decision: timeout-deny`. | P0 |
+| **FR-030** | The HITL Gateway MUST have a configurable timeout (default: 120 seconds). On timeout, the action MUST be denied automatically. | `aegis-policy.json` contains `hitl_timeout_seconds: 120`. After timeout, gateway logs `decision: timeout-deny`. | P0 |
 | **FR-031** | Claude Code hooks MUST be configured in `.claude/hooks.json` with at minimum: `PreToolUse` (sandbox router + HITL gate + Snyk check) and `PostToolUse` (Semgrep scan). | `.claude/hooks.json` exists and contains entries for `PreToolUse` and `PostToolUse` pointing to shell scripts in `hooks/`. | P0 |
-| **FR-032** | The `SessionStart` hook MUST run `harness-preflight.sh` and abort the session if it exits non-zero. | `.claude/hooks.json` contains a `SessionStart` entry. Claude Code session does not start if the hook exits non-zero. **[ASSUMPTION]** Claude Code `SessionStart` hook can block startup via non-zero exit. | P0 |
+| **FR-032** | The `SessionStart` hook MUST run `aegis-preflight.sh` and abort the session if it exits non-zero. | `.claude/hooks.json` contains a `SessionStart` entry. Claude Code session does not start if the hook exits non-zero. **[ASSUMPTION]** Claude Code `SessionStart` hook can block startup via non-zero exit. | P0 |
 | **FR-033** | All MCP servers MUST use `stdio` transport. HTTP-transport MCP servers are PROHIBITED in v1. | `.claude/mcp.json` contains only entries with `"type": "stdio"` (per oracle-05). | P0 |
-| **FR-034** | The harness MUST provide a `harness install` command that installs all hooks, MCP configs, and pre-commit entries into the current project. | Running `harness install` in a project directory creates `.claude/hooks.json`, `.claude/mcp.json`, `.pre-commit-config.yaml`, and `.env.schema` template if they do not exist. | P0 |
-| **FR-035** | The harness MUST provide a `harness status` command that reports the health of all components. | `harness status` prints a table with component name, status (OK/WARN/ERROR), and version. | P1 |
-| **FR-036** | All harness-managed persistent files MUST reside under `.harness/` in the project root. | No harness file is written outside `.harness/` or the standard config locations (`.claude/`, `.pre-commit-config.yaml`). | P0 |
-| **FR-037** | `.harness/` MUST be listed in `.gitignore`. | `harness install` appends `.harness/` to `.gitignore` if not already present. | P0 |
-| **FR-038** | The `harness-policy.json` file MUST define the permission manifest with actions: `read_file`, `edit_file`, `run_shell`, `fetch_domain`, `use_secret`, `approve_deploy`. | `harness-policy.json` schema defined in §11.8. | P0 |
+| **FR-034** | The aegis MUST provide a `aegis install` command that installs all hooks, MCP configs, and pre-commit entries into the current project. | Running `aegis install` in a project directory creates `.claude/hooks.json`, `.claude/mcp.json`, `.pre-commit-config.yaml`, and `.env.schema` template if they do not exist. | P0 |
+| **FR-035** | The aegis MUST provide a `aegis status` command that reports the health of all components. | `aegis status` prints a table with component name, status (OK/WARN/ERROR), and version. | P1 |
+| **FR-036** | All aegis-managed persistent files MUST reside under `.aegis/` in the project root. | No aegis file is written outside `.aegis/` or the standard config locations (`.claude/`, `.pre-commit-config.yaml`). | P0 |
+| **FR-037** | `.aegis/` MUST be listed in `.gitignore`. | `aegis install` appends `.aegis/` to `.gitignore` if not already present. | P0 |
+| **FR-038** | The `aegis-policy.json` file MUST define the permission manifest with actions: `read_file`, `edit_file`, `run_shell`, `fetch_domain`, `use_secret`, `approve_deploy`. | `aegis-policy.json` schema defined in §11.8. | P0 |
 | **FR-039** | The security smoke test (`security-smoke-test.sh`) MUST complete in under 5 minutes and exit non-zero on any failure. | Smoke test defined in §12.1. CI runs it on every push. | P0 |
 | **FR-040** | Local model support via Ollama MUST be documented as an optional configuration. **[PHASE-2]** | `docs/local-models.md` describes Ollama setup for OpenCode/Pi. Claude Code local model path requires Anthropic-compatible gateway (per oracle-04). | P2 |
 
@@ -153,15 +153,15 @@ Alex is building a SaaS product with Claude Code. They have AWS credentials, a S
 
 | ID | Category | Requirement | Metric |
 |----|----------|-------------|--------|
-| **NFR-001** | Latency | The harness MUST NOT add more than 500ms of overhead to any single agent tool call under normal operation. | P95 wall-clock delta between tool call initiation and sandbox execution start <= 500ms on M1/M2 or equivalent x86. |
-| **NFR-002** | Offline Capability | The harness MUST function fully offline when using the local Docker sandbox. Semgrep, TruffleHog, and lean-ctx MUST work without internet access once installed. | All P0 features pass smoke test with network interface disabled. E2B (FR-020) is explicitly exempt. |
+| **NFR-001** | Latency | The aegis MUST NOT add more than 500ms of overhead to any single agent tool call under normal operation. | P95 wall-clock delta between tool call initiation and sandbox execution start <= 500ms on M1/M2 or equivalent x86. |
+| **NFR-002** | Offline Capability | The aegis MUST function fully offline when using the local Docker sandbox. Semgrep, TruffleHog, and lean-ctx MUST work without internet access once installed. | All P0 features pass smoke test with network interface disabled. E2B (FR-020) is explicitly exempt. |
 | **NFR-003** | Privacy | No agent session data, code, or tool outputs MUST be sent to any third-party service except: (a) the configured LLM provider (Anthropic API), and (b) E2B if explicitly enabled. | Network audit: `tcpdump` during a session shows no unexpected outbound connections. |
 | **NFR-004** | Reliability | The warm Docker sandbox MUST be available within 200ms of a tool call after initial startup. | P95 from `docker exec` invocation to first byte of output <= 200ms after container is warm. |
-| **NFR-005** | Solo Maintainability | The entire harness codebase MUST be understandable and modifiable by one engineer without specialist knowledge in any single domain. | No component requires expertise beyond shell scripting, basic Docker, and reading MCP server docs. Total harness code (excluding vendored tools) MUST be under 1,000 lines. |
-| **NFR-006** | Security — Sandbox Escape | The Docker sandbox MUST prevent host filesystem access. | Canary test: place sentinel file at `/tmp/harness-canary` on host; run agent session; assert file is unmodified and unread by sandbox. |
+| **NFR-005** | Solo Maintainability | The entire aegis codebase MUST be understandable and modifiable by one engineer without specialist knowledge in any single domain. | No component requires expertise beyond shell scripting, basic Docker, and reading MCP server docs. Total aegis code (excluding vendored tools) MUST be under 1,000 lines. |
+| **NFR-006** | Security — Sandbox Escape | The Docker sandbox MUST prevent host filesystem access. | Canary test: place sentinel file at `/tmp/aegis-canary` on host; run agent session; assert file is unmodified and unread by sandbox. |
 | **NFR-007** | Security — Secret Isolation | No real secret value MUST appear in any LLM provider API request. | Integration test: seed known-pattern fake secret in environment; run session that reads env vars; assert secret string does not appear in any Anthropic API request body (captured via proxy). |
 | **NFR-008** | Security — MCP Transport | All MCP servers MUST use stdio transport to limit access to the MCP client process only. | Verified by absence of listening TCP ports from MCP server processes (per oracle-05). |
-| **NFR-009** | Dependency Minimalism | The harness MUST NOT introduce more than 5 new runtime dependencies beyond the core tool binaries. | `harness install --dry-run` lists all dependencies. Count MUST be <= 5 additional packages. |
+| **NFR-009** | Dependency Minimalism | The aegis MUST NOT introduce more than 5 new runtime dependencies beyond the core tool binaries. | `aegis install --dry-run` lists all dependencies. Count MUST be <= 5 additional packages. |
 | **NFR-010** | Audit Logging | Every HITL decision and every Semgrep/Snyk finding MUST be logged to `.aegis/audit.log` in NDJSON format. | Log entries contain: `timestamp`, `event_type`, `tool`, `action`, `finding` (if applicable), `decision`, `user`. |
 
 ---
@@ -172,7 +172,7 @@ Alex is building a SaaS product with Claude Code. They have AWS credentials, a S
 
 | Component | Role | Implementation | Source |
 |-----------|------|----------------|--------|
-| `harness-preflight.sh` | Pre-session hard gate | Shell script | §11.1 |
+| `aegis-preflight.sh` | Pre-session hard gate | Shell script | §11.1 |
 | Claude Code | Primary agent platform | Native | per oracle-03 |
 | lean-ctx | Context compression + memory | Rust binary + MCP server | per oracle-02 |
 | Varlock | Secret prevention | CLI wrapper + `.env.schema` | per oracle-07 |
@@ -183,9 +183,9 @@ Alex is building a SaaS product with Claude Code. They have AWS credentials, a S
 | Warm Docker | Local execution sandbox | Persistent rootless container | per oracle-01 |
 | E2B | Optional cloud sandbox | E2B SDK (opt-in) **[PHASE-2]** | per oracle-01 |
 | HITL Gateway | Human approval gate | `readline` terminal prompt | §11.7 |
-| `harness-policy.json` | Permission manifest | JSON config file | §11.8 |
+| `aegis-policy.json` | Permission manifest | JSON config file | §11.8 |
 | `.aegis/audit.log` | Audit trail | NDJSON append-only log | §10.1 |
-| `.harness/lean-ctx.db` | Context memory | SQLite (lean-ctx managed) | §10.2 |
+| `.aegis/lean-ctx.db` | Context memory | SQLite (lean-ctx managed) | §10.2 |
 
 ### 7.2 Data Flow Diagram (ASCII)
 
@@ -194,11 +194,11 @@ Developer Terminal
        |
        v
 +-------------------------------------------------------------+
-|  harness-preflight.sh  (SessionStart hook)                  |
+|  aegis-preflight.sh  (SessionStart hook)                  |
 |  +-- check: no real secrets in env (SENSITIVE_PATTERNS)     |
 |  +-- check: varlock binary present                          |
 |  +-- check: TruffleHog pre-commit hook installed            |
-|  +-- check: Docker daemon running + harness-sandbox warm    |
+|  +-- check: Docker daemon running + aegis-sandbox warm    |
 |  +-- run: varlock scan --staged (leak scan)                 |
 |  +-- EXIT 1 on any failure --> session BLOCKED              |
 +-------------------------------------------------------------+
@@ -214,7 +214,7 @@ Developer Terminal
 +-------------------------------------------------------------+
 |  Claude Code Agent                                          |
 |  +-- lean-ctx MCP ---- token compression (60-95%)          |
-|  |    +-- .harness/lean-ctx.db (cross-session memory)      |
+|  |    +-- .aegis/lean-ctx.db (cross-session memory)      |
 |  +-- Semgrep MCP ----- SAST on generated code              |
 |  +-- Snyk MCP -------- SCA on new dependencies             |
 +-------------------------------------------------------------+
@@ -235,11 +235,11 @@ Developer Terminal
        v
 +-------------------------------------------------------------+
 |  Sandbox Router                                             |
-|  +-- HARNESS_SANDBOX=docker (default)                       |
-|  |    +-- docker exec harness-sandbox <cmd>                 |
+|  +-- AEGIS_SANDBOX=docker (default)                       |
+|  |    +-- docker exec aegis-sandbox <cmd>                 |
 |  |         Container: rootless, seccomp=default,            |
 |  |         --network none, workspace reset between calls    |
-|  +-- HARNESS_SANDBOX=e2b (optional, PHASE-2)               |
+|  +-- AEGIS_SANDBOX=e2b (optional, PHASE-2)               |
 |       +-- E2B SDK sandbox.run_code(<cmd>)                   |
 +-------------------------------------------------------------+
        |
@@ -269,7 +269,7 @@ Developer Terminal
 
 This is a **single-agent architecture** in v1. There is one Claude Code agent instance per developer session. No sub-agents, no orchestrator. The security controls are implemented as hooks and MCP servers, not as separate agents.
 
-**[PHASE-2]:** Multi-agent topology (reviewer agent, security agent) may be added once the single-agent harness is proven stable.
+**[PHASE-2]:** Multi-agent topology (reviewer agent, security agent) may be added once the single-agent aegis is proven stable.
 
 ---
 
@@ -277,7 +277,7 @@ This is a **single-agent architecture** in v1. There is one Claude Code agent in
 
 ### 8.1 Roles & Responsibilities
 
-The Claude Code agent has one role: **coding assistant**. The harness does not change the agent's role; it constrains the agent's action space.
+The Claude Code agent has one role: **coding assistant**. The aegis does not change the agent's role; it constrains the agent's action space.
 
 The agent:
 - MUST read files via lean-ctx MCP (compressed reads)
@@ -309,9 +309,9 @@ The agent:
 
 **Within-session memory:** lean-ctx MCP maintains compressed context of files read and tool outputs during the session.
 
-**Cross-session memory:** lean-ctx persists project-scoped summaries and decisions to `.harness/lean-ctx.db`. This DB is the single source of truth for agent memory. No other memory layer is active.
+**Cross-session memory:** lean-ctx persists project-scoped summaries and decisions to `.aegis/lean-ctx.db`. This DB is the single source of truth for agent memory. No other memory layer is active.
 
-**Session shredder:** `harness shred` deletes `.harness/lean-ctx.db` and `.aegis/audit.log`. Use when switching projects or when privacy requires a clean slate (see §10.3).
+**Session shredder:** `aegis shred` deletes `.aegis/lean-ctx.db` and `.aegis/audit.log`. Use when switching projects or when privacy requires a clean slate (see §10.3).
 
 **Handoffs:** In v1, there are no agent-to-agent handoffs. All context lives in lean-ctx.
 
@@ -321,19 +321,19 @@ The agent:
 
 ### 9.1 CLI Interface
 
-The harness exposes a single `harness` CLI with the following subcommands:
+The aegis exposes a single `aegis` CLI with the following subcommands:
 
 ```
-harness install          # Install hooks, MCP config, pre-commit entry into current project
-harness start            # Run preflight + start warm sandbox + launch agent
-harness stop             # Stop warm sandbox container
-harness status           # Report health of all components
-harness shred            # Delete all harness-managed local data
-harness shred --audit    # Scan DB for sensitive patterns before deletion
-harness policy edit      # Open harness-policy.json in $EDITOR
+aegis install          # Install hooks, MCP config, pre-commit entry into current project
+aegis start            # Run preflight + start warm sandbox + launch agent
+aegis stop             # Stop warm sandbox container
+aegis status           # Report health of all components
+aegis shred            # Delete all aegis-managed local data
+aegis shred --audit    # Scan DB for sensitive patterns before deletion
+aegis policy edit      # Open aegis-policy.json in $EDITOR
 ```
 
-**Implementation:** Shell script wrapper (`harness`) that delegates to component scripts in `scripts/`. No compiled binary required for the CLI itself.
+**Implementation:** Shell script wrapper (`aegis`) that delegates to component scripts in `scripts/`. No compiled binary required for the CLI itself.
 
 ### 9.2 Editor/IDE Hooks
 
@@ -362,7 +362,7 @@ All MCP servers use `stdio` transport (per oracle-05: stdio limits access to jus
     "lean-ctx": {
       "type": "stdio",
       "command": "lean-ctx",
-      "args": ["serve", "--db", ".harness/lean-ctx.db"]
+      "args": ["serve", "--db", ".aegis/lean-ctx.db"]
     },
     "semgrep": {
       "type": "stdio",
@@ -382,7 +382,7 @@ All MCP servers use `stdio` transport (per oracle-05: stdio limits access to jus
 
 | Server | Risk | Mitigation |
 |--------|------|------------|
-| lean-ctx | Reads project files; DB is a forensic artifact | DB path scoped to `.harness/`; `harness shred` deletes it; no secrets stored (FR-025) |
+| lean-ctx | Reads project files; DB is a forensic artifact | DB path scoped to `.aegis/`; `aegis shred` deletes it; no secrets stored (FR-025) |
 | semgrep | Reads generated code; no network egress needed | stdio transport; no API key required for `p/security-audit` ruleset |
 | snyk | Calls Snyk API for CVE data; requires `SNYK_TOKEN` | Token injected via Varlock; **[OPEN]** verify Varlock-MCP interaction per oracle-05 §10 |
 
@@ -394,7 +394,7 @@ All MCP servers use `stdio` transport (per oracle-05: stdio limits access to jus
 
 When implemented: Use Ollama as the local model backend (per oracle-04). Ollama supports `/v1/chat/completions` and `/v1/responses` compatibility. Claude Code requires an Anthropic-compatible gateway; plain Ollama endpoints are not a drop-in for Claude Code (per oracle-04 §4). For local model use, OpenCode or Pi.dev are the appropriate platforms (see §16).
 
-**Model minimum requirements [PHASE-2]:** Local models used with this harness MUST have >= 30B parameters and demonstrated tool-calling capability. Smaller models (e.g., Llama 3 8B) are insufficient for reliable security-harness tool orchestration (per momus-critique §4).
+**Model minimum requirements [PHASE-2]:** Local models used with this aegis MUST have >= 30B parameters and demonstrated tool-calling capability. Smaller models (e.g., Llama 3 8B) are insufficient for reliable security-aegis tool orchestration (per momus-critique §4).
 
 ### 9.5 File System Access Rules
 
@@ -405,7 +405,7 @@ The following rules are enforced via `.claude/settings.json` permission rules an
 .env
 .env.*
 !.env.schema
-.harness/lean-ctx.db
+.aegis/lean-ctx.db
 .aegis/audit.log
 **/*.pem
 **/*.key
@@ -435,12 +435,12 @@ The following rules are enforced via `.claude/settings.json` permission rules an
 
 | File | Contents | Retention | Sensitive? |
 |------|----------|-----------|------------|
-| `.harness/lean-ctx.db` | Compressed file summaries, project decisions, cross-session memory | Until `harness shred` | NO (secrets must not appear here — FR-025) |
-| `.aegis/audit.log` | HITL decisions, Semgrep/Snyk findings, session events | Until `harness shred` | LOW (action descriptions, not secret values) |
+| `.aegis/lean-ctx.db` | Compressed file summaries, project decisions, cross-session memory | Until `aegis shred` | NO (secrets must not appear here — FR-025) |
+| `.aegis/audit.log` | HITL decisions, Semgrep/Snyk findings, session events | Until `aegis shred` | LOW (action descriptions, not secret values) |
 | `.env.schema` | Secret field names and types (NO values) | Committed to git | NO |
 | `.claude/hooks.json` | Hook configuration | Committed to git | NO |
 | `.claude/mcp.json` | MCP server configuration | Committed to git | NO |
-| `harness-policy.json` | Permission manifest | Committed to git | NO |
+| `aegis-policy.json` | Permission manifest | Committed to git | NO |
 
 **What is NEVER persisted:**
 - Real secret values
@@ -449,11 +449,11 @@ The following rules are enforced via `.claude/settings.json` permission rules an
 
 ### 10.2 Schema (lean-ctx SQLite)
 
-lean-ctx manages its own SQLite schema. The harness constrains it to `.harness/lean-ctx.db`. The relevant tables (per oracle-02, lean-ctx README) include:
+lean-ctx manages its own SQLite schema. The aegis constrains it to `.aegis/lean-ctx.db`. The relevant tables (per oracle-02, lean-ctx README) include:
 
 ```sql
--- Managed by lean-ctx; harness does not write directly
--- Harness reads only for audit purposes (harness shred --audit)
+-- Managed by lean-ctx; aegis does not write directly
+-- Aegis reads only for audit purposes (aegis shred --audit)
 
 -- Project-scoped file summaries
 CREATE TABLE file_cache (
@@ -472,34 +472,34 @@ CREATE TABLE memory (
 );
 ```
 
-**[ASSUMPTION]** The above schema is inferred from oracle-02 and lean-ctx README. Actual schema may differ. The harness MUST NOT depend on specific lean-ctx internal table names; it interacts with lean-ctx only via its MCP tools.
+**[ASSUMPTION]** The above schema is inferred from oracle-02 and lean-ctx README. Actual schema may differ. The aegis MUST NOT depend on specific lean-ctx internal table names; it interacts with lean-ctx only via its MCP tools.
 
 ### 10.3 Session Shredder
 
-The `harness shred` command provides a clean-slate capability:
+The `aegis shred` command provides a clean-slate capability:
 
 ```bash
 #!/usr/bin/env bash
 # scripts/shred.sh
 set -euo pipefail
 
-HARNESS_DIR="${PROJECT_ROOT:-.}/.harness"
+AEGIS_DIR="${PROJECT_ROOT:-.}/.aegis"
 
 if [[ "${1:-}" == "--audit" ]]; then
   echo "=== Scanning for sensitive patterns before shred ==="
   SENSITIVE_PATTERNS="password|secret|api_key|token|private_key"
   if command -v strings &>/dev/null; then
-    strings "${HARNESS_DIR}/lean-ctx.db" 2>/dev/null | \
+    strings "${AEGIS_DIR}/lean-ctx.db" 2>/dev/null | \
       grep -iE "${SENSITIVE_PATTERNS}" && \
       echo "WARNING: Sensitive patterns found in lean-ctx.db" || \
       echo "OK: No sensitive patterns found"
   fi
 fi
 
-echo "Shredding harness data..."
-rm -f "${HARNESS_DIR}/lean-ctx.db"
-rm -f "${HARNESS_DIR}/audit.log"
-echo "Done. Harness data deleted."
+echo "Shredding aegis data..."
+rm -f "${AEGIS_DIR}/lean-ctx.db"
+rm -f "${AEGIS_DIR}/audit.log"
+echo "Done. Aegis data deleted."
 ```
 
 ---
@@ -510,13 +510,13 @@ echo "Done. Harness data deleted."
 
 **Architecture:** Varlock enforces `.env.schema` discipline. The agent process NEVER sees real secret values in its context window. Real values are injected only into the subprocess environment via `varlock run`.
 
-**Hard-Gate Pre-Flight Script (`harness-preflight.sh`):**
+**Hard-Gate Pre-Flight Script (`aegis-preflight.sh`):**
 
 This script MUST run before every agent session (via `SessionStart` hook). It is the primary defense against Varlock failure modes, including the critical fail-open risk identified by Momus.
 
 ```bash
 #!/usr/bin/env bash
-# harness-preflight.sh
+# aegis-preflight.sh
 # EXIT 1 on any failure -- agent session is BLOCKED
 set -euo pipefail
 
@@ -535,7 +535,7 @@ SENSITIVE_VARS=(
   "PASSWD"
 )
 
-echo "=== Harness Pre-Flight Check ==="
+echo "=== Aegis Pre-Flight Check ==="
 
 # CHECK 1: Varlock binary present
 echo -n "[1/6] Varlock binary... "
@@ -550,7 +550,7 @@ echo "OK"
 echo -n "[2/6] .env.schema present... "
 if [[ ! -f ".env.schema" ]]; then
   echo "FAIL"
-  echo "ERROR: .env.schema not found. Run 'harness install' to create a template."
+  echo "ERROR: .env.schema not found. Run 'aegis install' to create a template."
   exit 1
 fi
 echo "OK"
@@ -571,7 +571,7 @@ if [[ ${#FOUND_SECRETS[@]} -gt 0 ]]; then
     echo "  - $s is set"
   done
   echo ""
-  echo "SOLUTION: Unset these variables and use 'varlock run -- harness start'"
+  echo "SOLUTION: Unset these variables and use 'varlock run -- aegis start'"
   echo "          to inject secrets only into the agent subprocess."
   exit 1
 fi
@@ -582,23 +582,23 @@ echo -n "[4/6] TruffleHog pre-commit hook... "
 if [[ ! -f ".pre-commit-config.yaml" ]] || \
    ! grep -q "trufflehog" ".pre-commit-config.yaml" 2>/dev/null; then
   echo "WARN"
-  echo "WARNING: TruffleHog pre-commit hook not found. Run 'harness install'."
+  echo "WARNING: TruffleHog pre-commit hook not found. Run 'aegis install'."
 else
   echo "OK"
 fi
 
-# CHECK 5: Docker daemon running and harness-sandbox container warm
+# CHECK 5: Docker daemon running and aegis-sandbox container warm
 echo -n "[5/6] Docker sandbox... "
 if ! docker info &>/dev/null 2>&1; then
   echo "FAIL"
   echo "ERROR: Docker daemon not running. Start Docker and retry."
   exit 1
 fi
-if ! docker ps --filter "name=harness-sandbox" --filter "status=running" \
-   --format "{{.Names}}" | grep -q "harness-sandbox"; then
+if ! docker ps --filter "name=aegis-sandbox" --filter "status=running" \
+   --format "{{.Names}}" | grep -q "aegis-sandbox"; then
   echo "STARTING"
   docker run -d \
-    --name harness-sandbox \
+    --name aegis-sandbox \
     --security-opt seccomp=default \
     --network none \
     --memory 2g \
@@ -714,9 +714,9 @@ fi
 The warm sandbox is a persistent Docker container that is reset (not recreated) between agent calls. This eliminates per-call cold-start overhead (per momus-critique §6, Directive 4).
 
 ```bash
-# harness start -- run once per session
+# aegis start -- run once per session
 docker run -d \
-  --name harness-sandbox \
+  --name aegis-sandbox \
   --security-opt seccomp=default \
   --network none \
   --memory 2g \
@@ -728,10 +728,10 @@ docker run -d \
   tail -f /dev/null
 
 # Between agent calls -- reset workspace, NOT container
-docker exec harness-sandbox rm -rf /workspace/*
+docker exec aegis-sandbox rm -rf /workspace/*
 
 # Execute agent command
-docker exec harness-sandbox bash -c "${AGENT_COMMAND}"
+docker exec aegis-sandbox bash -c "${AGENT_COMMAND}"
 ```
 
 **Hardening (per oracle-01):**
@@ -743,17 +743,17 @@ docker exec harness-sandbox bash -c "${AGENT_COMMAND}"
 
 **Optional: E2B [PHASE-2]**
 
-Set `HARNESS_SANDBOX=e2b` to route execution to E2B instead of local Docker. E2B provides Firecracker-backed microVM isolation with ~150-200ms startup (per oracle-01, directional estimate from product materials).
+Set `AEGIS_SANDBOX=e2b` to route execution to E2B instead of local Docker. E2B provides Firecracker-backed microVM isolation with ~150-200ms startup (per oracle-01, directional estimate from product materials).
 
 **[OPEN]** E2B startup latency of 150-200ms is from product/marketing materials, not lower-level API docs (per oracle-01). Treat as directional until measured on target hardware.
 
 ### 11.6 MCP Server Security Model
 
-All MCP servers in this harness follow these rules (per oracle-05):
+All MCP servers in this aegis follow these rules (per oracle-05):
 
 1. **stdio transport only** — no HTTP-transport MCP servers in v1.
 2. **No token passthrough** — each MCP server validates tokens issued for itself only.
-3. **Minimal scope** — Semgrep: read files only; Snyk: network to Snyk API only; lean-ctx: read/write `.harness/lean-ctx.db` only.
+3. **Minimal scope** — Semgrep: read files only; Snyk: network to Snyk API only; lean-ctx: read/write `.aegis/lean-ctx.db` only.
 4. **Untrusted output** — all MCP tool results are treated as untrusted data. The agent MUST NOT execute instructions embedded in MCP tool output.
 5. **Sandboxed startup** — high-risk MCP servers (those with filesystem or network reach) SHOULD be started via `npx @anthropic-ai/sandbox-runtime <mcp-command>` when available (per oracle-05 §5).
 
@@ -763,9 +763,9 @@ All MCP servers in this harness follow these rules (per oracle-05):
 
 **Interaction model:** A blocking `readline` prompt in the terminal. The agent pauses. The developer reads the approval request and types a response. No Slack, no HTTP server, no async callback.
 
-**Trigger:** Any action classified as HIGH-RISK by `harness-policy.json` (FR-027).
+**Trigger:** Any action classified as HIGH-RISK by `aegis-policy.json` (FR-027).
 
-**HIGH-RISK action patterns (default list in `harness-policy.json`):**
+**HIGH-RISK action patterns (default list in `aegis-policy.json`):**
 ```json
 [
   "DROP TABLE", "DROP DATABASE", "DELETE FROM", "ALTER TABLE", "TRUNCATE",
@@ -858,11 +858,11 @@ fi
 
 ### 11.8 Permission Policy Format
 
-`harness-policy.json` is the single source of truth for permission rules. It is committed to git and shared across the team.
+`aegis-policy.json` is the single source of truth for permission rules. It is committed to git and shared across the team.
 
 ```json
 {
-  "$schema": "https://harness.local/policy-schema/v1",
+  "$schema": "https://aegis.local/policy-schema/v1",
   "version": "1.0",
   "actions": {
     "read_file": {
@@ -900,7 +900,7 @@ fi
 }
 ```
 
-**Compilation to Claude Code:** The `harness install` command reads `harness-policy.json` and generates `.claude/settings.json` permission rules. `.claude/settings.json` is not edited manually.
+**Compilation to Claude Code:** The `aegis install` command reads `aegis-policy.json` and generates `.claude/settings.json` permission rules. `.claude/settings.json` is not edited manually.
 
 ---
 
@@ -931,11 +931,11 @@ echo "=== Security Smoke Test ==="
 
 # T-001: Pre-flight blocks real secrets in env
 run_test "T-001: Pre-flight blocks real secret in env" \
-  "AWS_SECRET_ACCESS_KEY=fake123 bash harness-preflight.sh; [[ \$? -ne 0 ]]"
+  "AWS_SECRET_ACCESS_KEY=fake123 bash aegis-preflight.sh; [[ \$? -ne 0 ]]"
 
 # T-002: Pre-flight passes clean environment
 run_test "T-002: Pre-flight passes clean environment" \
-  "bash harness-preflight.sh"
+  "bash aegis-preflight.sh"
 
 # T-003: TruffleHog blocks seeded credential
 run_test "T-003: TruffleHog blocks seeded credential" \
@@ -946,8 +946,8 @@ run_test "T-003: TruffleHog blocks seeded credential" \
 
 # T-004: Sandbox cannot read host sentinel file
 run_test "T-004: Sandbox cannot read host sentinel file" \
-  "echo 'SENTINEL' > /tmp/harness-canary && \
-   docker exec harness-sandbox cat /tmp/harness-canary 2>&1 | grep -v SENTINEL"
+  "echo 'SENTINEL' > /tmp/aegis-canary && \
+   docker exec aegis-sandbox cat /tmp/aegis-canary 2>&1 | grep -v SENTINEL"
 
 # T-005: Semgrep detects hardcoded API key
 run_test "T-005: Semgrep detects hardcoded API key" \
@@ -963,7 +963,7 @@ run_test "T-006: HITL gateway denies on 'no' input" \
 
 # T-007: lean-ctx DB clean of sensitive patterns
 run_test "T-007: lean-ctx DB clean of sensitive patterns" \
-  "! strings .harness/lean-ctx.db 2>/dev/null | grep -iE 'password|secret|api_key|token'"
+  "! strings .aegis/lean-ctx.db 2>/dev/null | grep -iE 'password|secret|api_key|token'"
 
 # T-008: .env.schema has @sensitive annotations
 run_test "T-008: .env.schema has @sensitive annotations" \
@@ -973,9 +973,9 @@ run_test "T-008: .env.schema has @sensitive annotations" \
 run_test "T-009: MCP config uses stdio only" \
   "! jq '.mcpServers | to_entries[] | .value.type' .claude/mcp.json | grep -v '\"stdio\"'"
 
-# T-010: harness shred removes lean-ctx.db
-run_test "T-010: harness shred removes lean-ctx.db" \
-  "touch .harness/lean-ctx.db && bash scripts/shred.sh && [[ ! -f .harness/lean-ctx.db ]]"
+# T-010: aegis shred removes lean-ctx.db
+run_test "T-010: aegis shred removes lean-ctx.db" \
+  "touch .aegis/lean-ctx.db && bash scripts/shred.sh && [[ ! -f .aegis/lean-ctx.db ]]"
 
 echo ""
 echo "Results: ${PASS} passed, ${FAIL} failed"
@@ -992,7 +992,7 @@ echo "Results: ${PASS} passed, ${FAIL} failed"
 | HITL approval latency | P50 < 30s, P95 < 90s | `.aegis/audit.log` timestamps |
 | Semgrep false positive rate | < 10% of findings are false positives | Manual review of 50 findings |
 | Smoke test runtime | < 5 minutes | CI timing |
-| Harness overhead per tool call | P95 < 500ms | Instrumented hook timing |
+| Aegis overhead per tool call | P95 < 500ms | Instrumented hook timing |
 
 ### 12.3 Future: Full Benchmark Suite
 
@@ -1000,7 +1000,7 @@ echo "Results: ${PASS} passed, ${FAIL} failed"
 
 When implemented, use:
 - **CyberSecEval 4** (prompt injection + interpreter families) as the external benchmark base (per oracle-06). Specifically: `prompt_injection` dataset for injection resistance, `interpreter` dataset for sandbox escape prevention.
-- **AgentBench** as a utility regression check — verifies the agent remains useful under harness constraints (per oracle-06 §10).
+- **AgentBench** as a utility regression check — verifies the agent remains useful under aegis constraints (per oracle-06 §10).
 - Custom fixtures for Varlock, TruffleHog, and HITL gateway effectiveness.
 
 **[OPEN]** CyberSecEval 4 requires significant setup and compute. Do not block v1 release on this.
@@ -1013,18 +1013,18 @@ When implemented, use:
 
 | Week | Deliverable |
 |------|-------------|
-| 1 | `harness install`, `harness-preflight.sh`, `.env.schema` template, Varlock integration |
-| 2 | Warm Docker sandbox, sandbox router hook, `harness start`/`stop` |
+| 1 | `aegis install`, `aegis-preflight.sh`, `.env.schema` template, Varlock integration |
+| 2 | Warm Docker sandbox, sandbox router hook, `aegis start`/`stop` |
 | 3 | Semgrep MCP + PostToolUse hook, Snyk MCP + PreToolUse hook, TruffleHog pre-commit |
-| 4 | HITL Gateway, lean-ctx MCP, `harness shred`, smoke test suite |
+| 4 | HITL Gateway, lean-ctx MCP, `aegis shred`, smoke test suite |
 
-**Phase 1 exit criteria:** All 10 smoke tests pass. `harness install` works on a fresh macOS/Linux machine. Solo developer can use Claude Code for a full day without harness friction.
+**Phase 1 exit criteria:** All 10 smoke tests pass. `aegis install` works on a fresh macOS/Linux machine. Solo developer can use Claude Code for a full day without aegis friction.
 
 ### Phase 2 — Hardening (Target: weeks 5–8)
 
 - TruffleHog CI integration (FR-010)
 - E2B sandbox backend (FR-020)
-- `harness status` command (FR-035)
+- `aegis status` command (FR-035)
 - Local model support documentation (FR-040)
 - Windows support investigation
 - Multi-user shared policy documentation
@@ -1034,7 +1034,7 @@ When implemented, use:
 - CyberSecEval 4 integration
 - OpenCode adapter (thin, MCP-only path)
 - Pi.dev adapter (thin, MCP-only path)
-- Encryption at rest for `.harness/lean-ctx.db`
+- Encryption at rest for `.aegis/lean-ctx.db`
 
 ---
 
@@ -1112,7 +1112,7 @@ When implemented, use:
 OpenCode has a first-class permission model (`allow`/`ask`/`deny`) and a plugin system with `tool.execute.before`/`tool.execute.after` hooks (per oracle-03). An OpenCode adapter would:
 
 1. Register the sandbox router as a `tool.execute.before` plugin.
-2. Map `harness-policy.json` to OpenCode's permission config format.
+2. Map `aegis-policy.json` to OpenCode's permission config format.
 3. Register lean-ctx as an MCP server in OpenCode's MCP config.
 4. Implement HITL gateway via the same `readline` script (platform-agnostic).
 
@@ -1133,7 +1133,7 @@ Pi.dev has no native permission system; security must be implemented via TypeScr
 
 For local model use, OpenCode and Pi are the appropriate platforms (per oracle-04). Claude Code requires an Anthropic-compatible gateway for local models; plain Ollama endpoints are not a drop-in.
 
-**Minimum model requirements for harness use:** >= 30B parameters, demonstrated tool-calling capability (per momus-critique §4).
+**Minimum model requirements for aegis use:** >= 30B parameters, demonstrated tool-calling capability (per momus-critique §4).
 
 ---
 
@@ -1141,18 +1141,18 @@ For local model use, OpenCode and Pi are the appropriate platforms (per oracle-0
 
 | Term | Definition |
 |------|------------|
-| **Harness** | This project. A security wrapper around Claude Code that enforces secret isolation, sandboxed execution, and human approval gates. |
-| **Hard-Gate** | The `harness-preflight.sh` script that blocks agent startup if any security precondition fails. |
+| **Aegis** | This project. A security wrapper around Claude Code that enforces secret isolation, sandboxed execution, and human approval gates. |
+| **Hard-Gate** | The `aegis-preflight.sh` script that blocks agent startup if any security precondition fails. |
 | **Warm Sandbox** | A persistent Docker container that is reset (workspace wiped) between agent calls but never destroyed during a session. Eliminates cold-start latency. |
 | **HITL Gateway** | Human-In-The-Loop Gateway. A blocking `readline` terminal prompt that requires explicit human approval before a HIGH-RISK action executes. |
-| **HIGH-RISK action** | Any action matching the patterns in `harness-policy.json`'s `high_risk_patterns` list. Includes DB schema changes, destructive filesystem operations, production deployments. |
+| **HIGH-RISK action** | Any action matching the patterns in `aegis-policy.json`'s `high_risk_patterns` list. Includes DB schema changes, destructive filesystem operations, production deployments. |
 | **lean-ctx** | The single context management layer. A Rust binary that operates as both a shell hook and an MCP server, providing 60-95% token reduction and cross-session memory (per oracle-02). |
 | **Varlock** | Secret prevention tool. Enforces `.env.schema` discipline so the agent never sees real secret values. |
 | **TruffleHog** | Secret detection tool. Runs as a pre-commit hook to block commits containing verified credentials. |
 | **Semgrep** | SAST tool. Scans agent-generated code for security anti-patterns via MCP server. |
 | **Snyk** | SCA tool. Checks new dependencies for CVEs and existence via MCP server. |
 | **ContextCrush** | Attack vector where external documentation (via RAG or web fetch) contains instructions that override the agent's security rules. Mitigated by immutable `CLAUDE.md` directives (per oracle-05, gemini-reaserch.md). |
-| **Session Shredder** | `harness shred` command. Deletes all harness-managed local data including lean-ctx DB and audit log. |
+| **Session Shredder** | `aegis shred` command. Deletes all aegis-managed local data including lean-ctx DB and audit log. |
 | **`.env.schema`** | A Varlock schema file that defines secret field names and types but contains NO real values. Committed to git. |
 | **MCP** | Model Context Protocol. The protocol used by Claude Code to communicate with external tool servers. |
 | **stdio transport** | MCP server communication via standard input/output. Preferred over HTTP for security (limits access to the MCP client process only, per oracle-05). |

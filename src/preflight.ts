@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 import { fileExists, runCommandCapture, runCommandInherit } from "./lib/base.ts";
 import { c, icon, printPreflightSummary, runSteps, type StepResult } from "./lib/ui.ts";
 
-const HARNESS_DIR = resolve(import.meta.dir, "..");
+const AEGIS_DIR = resolve(import.meta.dir, "..");
 
 const SENSITIVE_VARS = [
   "AWS_SECRET_ACCESS_KEY",
@@ -35,7 +35,7 @@ async function main(): Promise<number> {
       label: ".env.schema present",
       run: async (): Promise<{ result: StepResult; detail?: string }> => {
         if (!(await fileExists(join(process.cwd(), ".env.schema")))) {
-          return { result: "fail", detail: ".env.schema not found. Run 'harness install' to create a template." };
+          return { result: "fail", detail: ".env.schema not found. Run 'aegis install' to create a template." };
         }
         return { result: "ok" };
       },
@@ -51,7 +51,7 @@ async function main(): Promise<number> {
           const list = found.map((v) => `  ${icon.fail} ${c.bold(v)} is set`).join("\n");
           return {
             result: "fail",
-            detail: `Real secrets detected in environment:\n${list}\n\nUse 'bunx varlock run -- harness start' to inject secrets safely.`,
+            detail: `Real secrets detected in environment:\n${list}\n\nUse 'bunx varlock run -- aegis start' to inject secrets safely.`,
           };
         }
         return { result: "ok" };
@@ -64,7 +64,7 @@ async function main(): Promise<number> {
         const present = await fileExists(configPath);
         const hasTruffleHog = present && (await Bun.file(configPath).text()).includes("trufflehog");
         if (!hasTruffleHog) {
-          return { result: "warn", detail: "TruffleHog not configured. Run 'harness install'." };
+          return { result: "warn", detail: "TruffleHog not configured. Run 'aegis install'." };
         }
         return { result: "ok" };
       },
@@ -78,17 +78,17 @@ async function main(): Promise<number> {
         }
         const dockerPs = await runCommandCapture([
           "docker", "ps",
-          "--filter", "name=harness-sandbox",
+          "--filter", "name=aegis-sandbox",
           "--filter", "status=running",
           "--format", "{{.Names}}",
         ]);
-        if (!dockerPs.stdout.includes("harness-sandbox")) {
+        if (!dockerPs.stdout.includes("aegis-sandbox")) {
           const startCode = await runCommandInherit(
-            ["bun", "run", join(HARNESS_DIR, "src", "sandbox", "start.ts")],
+            ["bun", "run", join(AEGIS_DIR, "src", "sandbox", "start.ts")],
             { stdout: "ignore", stderr: "ignore" },
           );
           if (startCode !== 0) {
-            return { result: "fail", detail: "Failed to start harness-sandbox container." };
+            return { result: "fail", detail: "Failed to start aegis-sandbox container." };
           }
           return { result: "ok", detail: "container started" };
         }

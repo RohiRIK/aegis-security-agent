@@ -61,5 +61,5 @@ Pick **local Docker** as the default v1 sandbox because it is the simplest optio
 
 ## OPEN questions
 1. What is the **measured** Docker startup time on your target hardware and image set?
-2. Do you need **GPU** in the same execution path as the coding agent, or can GPU jobs stay outside the harness?
+2. Do you need **GPU** in the same execution path as the coding agent, or can GPU jobs stay outside Aegis?
 3. Is **hosted cloud execution** a product requirement, or just an optional deployment mode?

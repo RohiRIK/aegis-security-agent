@@ -2,8 +2,8 @@ import { join, resolve } from "node:path";
 
 import { runCommandInherit, writeStderr } from "../lib/base.ts";
 
-const CONTAINER = "harness-sandbox";
-const HARNESS_DIR = resolve(import.meta.dir, "..", "..");
+const CONTAINER = "aegis-sandbox";
+const AEGIS_DIR = resolve(import.meta.dir, "..", "..");
 
 async function main(): Promise<number> {
   const command = Bun.argv[2];
@@ -13,7 +13,7 @@ async function main(): Promise<number> {
   }
 
   const executionExitCode = await runCommandInherit(["docker", "exec", CONTAINER, "bash", "-c", command]);
-  await runCommandInherit(["bun", "run", join(HARNESS_DIR, "src", "sandbox", "reset.ts")], {
+  await runCommandInherit(["bun", "run", join(AEGIS_DIR, "src", "sandbox", "reset.ts")], {
     stdout: "ignore",
     stderr: "ignore",
   });

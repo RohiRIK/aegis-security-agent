@@ -406,7 +406,7 @@ These are from different sources and may refer to different workloads. Not a cri
 4. Pi TypeScript Extensions: what events are available? Is there a security-focused extension community repo?
 5. Can MCP servers serve as the unified integration layer instead of platform-specific hooks?
 6. What's the maintenance burden of three platform-specific integrations vs one unified layer?
-7. Are there existing community projects attempting this (e.g., a "security-harness-for-all-agents" repo)?
+7. Are there existing community projects attempting this (e.g., a "security-aegis-for-all-agents" repo)?
 8. How does each platform handle permission prompts — can they be automated/scripted?
 
 **Suggested Sources:**
@@ -464,7 +464,7 @@ These are from different sources and may refer to different workloads. Not a cri
 
 ### GAP-006: Eval / Testing Framework — Red-Team and Benchmark Approach
 
-**Why it matters:** The PRD claims security but provides NO metrics, NO test plan, NO red-team methodology. How do we know if the harness actually works? This is the most critical gap for an actual security product.
+**Why it matters:** The PRD claims security but provides NO metrics, NO test plan, NO red-team methodology. How do we know if Aegis actually works? This is the most critical gap for an actual security product.
 
 **Research Questions:**
 1. What existing datasets exist for evaluating AI agent security? (e.g., CyberRLBench, AgentBench, etc.)
@@ -473,7 +473,7 @@ These are from different sources and may refer to different workloads. Not a cri
 4. How do you test that Varlock actually prevents secrets from reaching the LLM context?
 5. How do you test that TruffleHog catches what Varlock misses?
 6. How do you test the E2B sandbox actually prevents host compromise?
-7. Is there a "security harness regression test suite" or must this be built from scratch?
+7. Is there a "Aegis regression test suite" or must this be built from scratch?
 8. What is the false positive rate for Semgrep rules when scanning AI-generated code?
 9. How do you evaluate HITL gateway effectiveness? (Time to approve? Escalation paths?)
 10. What industry benchmarks exist for AI coding agent security?
@@ -561,7 +561,7 @@ These are from different sources and may refer to different workloads. Not a cri
 
 **Research Questions:**
 1. Is there a standard format for agent permission declarations? ( Cedar? OPA? Custom JSON?)
-2. Who defines the permission policy — the user? The platform? The security harness?
+2. Who defines the permission policy — the user? The platform? The Aegis?
 3. Can the agent REQUEST more permissions? (Yes — per OpenCode/Claude model — but how?)
 4. Is the permission policy enforced at the agent level (framework) or beneath it (OS-level)?
 5. For filesystem access — is there a path allow-list? A pattern matcher? Symlink traversal protection?

@@ -11,11 +11,11 @@ export function createAfterHandler(): (input: any, output: any) => Promise<void>
     const findings = result.status === "ok" ? parseSemgrepFindings(result.stdout) : [];
 
     if (findings.length > 0) {
-      output.output += `\n\n[HARNESS] Semgrep found ${findings.length} issue(s):\n` + JSON.stringify(findings, null, 2);
+      output.output += `\n\n[AEGIS] Semgrep found ${findings.length} issue(s):\n` + JSON.stringify(findings, null, 2);
     }
 
     if (result.degraded) {
-      output.output += "\n\n[HARNESS] ⚠️ Semgrep DEGRADED: scan timed out after 120s";
+      output.output += "\n\n[AEGIS] ⚠️ Semgrep DEGRADED: scan timed out after 120s";
     }
   };
 }

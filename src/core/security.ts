@@ -120,7 +120,7 @@ export function makeLockfileContent(pkg: ParsedInstall): { filename: string; con
       return {
         filename: "package-lock.json",
         content: JSON.stringify({
-          name: "harness-scan",
+          name: "aegis-scan",
           lockfileVersion: 2,
           packages: {
             [`node_modules/${pkg.packageName}`]: {
@@ -160,7 +160,7 @@ export async function trivyScan(pkg: ParsedInstall): Promise<{ blocked: boolean;
   if (trivyExitCode !== 0) return { blocked: false, reason: "trivy not installed — scan skipped" };
 
   const { filename, content } = makeLockfileContent(pkg);
-  const scanDir = mkdtempSync(joinPath(tmpdir(), "harness-trivy-"));
+  const scanDir = mkdtempSync(joinPath(tmpdir(), "aegis-trivy-"));
 
   try {
     await Bun.write(joinPath(scanDir, filename), content);

@@ -10,7 +10,7 @@ import { createEnvHandler } from "./opencode/handlers/env.ts";
 import { DEFAULT_SENSITIVE_VARS } from "./core/security.ts";
 
 const ROOT = resolve(import.meta.dir, "..");
-const POLICY = JSON.parse(await Bun.file(join(ROOT, "harness-policy.json")).text()) as HarnessPolicy;
+const POLICY = JSON.parse(await Bun.file(join(ROOT, "aegis-policy.json")).text()) as HarnessPolicy;
 
 type BeforeInput = {
   tool: string;
@@ -113,7 +113,7 @@ describe("OpenCode Plugin Smoke Tests", () => {
 
     await handler(input, output);
 
-    expect(output.args?.command).toContain("docker exec harness-sandbox");
+    expect(output.args?.command).toContain("docker exec aegis-sandbox");
   });
 
   it("OC-06: tool.execute.after write with shell injection appends semgrep findings", async () => {
@@ -131,7 +131,7 @@ describe("OpenCode Plugin Smoke Tests", () => {
 
     await handler(input, output);
 
-    expect(output.output).toContain("[HARNESS]");
+    expect(output.output).toContain("[AEGIS]");
   });
 
   it("OC-07: shell.env strips AWS_SECRET_ACCESS_KEY and keeps PATH", async () => {

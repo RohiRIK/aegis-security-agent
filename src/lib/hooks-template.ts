@@ -6,7 +6,7 @@ export const HOOKS_TEMPLATE = `{
         "hooks": [
           {
             "type": "command",
-            "command": "bun run \\\"__HARNESS_DIR__/src/hooks/pre-tool-use.ts\\\""
+            "command": "bun run \\\"__AEGIS_DIR__/src/hooks/pre-tool-use.ts\\\""
           }
         ]
       }
@@ -17,7 +17,7 @@ export const HOOKS_TEMPLATE = `{
         "hooks": [
           {
             "type": "command",
-            "command": "bun run \\\"__HARNESS_DIR__/src/hooks/post-tool-use.ts\\\""
+            "command": "bun run \\\"__AEGIS_DIR__/src/hooks/post-tool-use.ts\\\""
           }
         ]
       }
@@ -28,7 +28,7 @@ export const HOOKS_TEMPLATE = `{
         "hooks": [
           {
             "type": "command",
-            "command": "echo \\\"{\\\\\\\"timestamp\\\\\\\":\\\\\\\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\\\\\\\",\\\\\\\"event\\\\\\\":\\\\\\\"session_end\\\\\\\"}\\\" >> \\\"__HARNESS_DIR__/.aegis/audit.log\\\""
+            "command": "echo \\\"{\\\\\\\"timestamp\\\\\\\":\\\\\\\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\\\\\\\",\\\\\\\"event\\\\\\\":\\\\\\\"session_end\\\\\\\"}\\\" >> \\\"__AEGIS_DIR__/.aegis/audit.log\\\""
           }
         ]
       }

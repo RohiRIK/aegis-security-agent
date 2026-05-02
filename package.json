@@ -5,7 +5,7 @@
   "scripts": {
     "preflight": "bun run src/preflight.ts",
     "smoke-test": "bun run src/smoke-test.ts",
-    "install-harness": "bun run src/install.ts"
+    "install-aegis": "bun run src/install.ts"
   },
   "devDependencies": {
     "@opencode-ai/plugin": "^1.14.30",

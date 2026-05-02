@@ -238,7 +238,7 @@ describe("semgrepScan", () => {
 });
 
 describe("makeLockfileContent", () => {
-  test("creates npm lockfile content containing harness-scan", () => {
+  test("creates npm lockfile content containing aegis-scan", () => {
     const result = makeLockfileContent({
       ecosystem: "npm",
       packageName: "pkg",
@@ -246,7 +246,7 @@ describe("makeLockfileContent", () => {
     });
 
     expect(result.filename).toBe("package-lock.json");
-    expect(result.content).toContain("harness-scan");
+    expect(result.content).toContain("aegis-scan");
   });
 
   test("creates pip requirements content", () => {

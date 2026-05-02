@@ -53,7 +53,7 @@ Adopt this v1 pattern:
 That gives you one prevention control and one detection control without adding speculative MCP plumbing.
 
 ## Confidence level
-**Medium.** The concrete TruffleHog pre-commit path is well-supported by docs. Varlock’s capabilities are well-documented too, but several operational questions that matter for a security harness — especially fail-open/fail-closed behavior and MCP-specific integration semantics — are still unresolved in the current evidence set. ([Varlock secrets guide](https://varlock.dev/guides/secrets), [TruffleHog PreCommit docs](https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/PreCommit.md))
+**Medium.** The concrete TruffleHog pre-commit path is well-supported by docs. Varlock’s capabilities are well-documented too, but several operational questions that matter for a Aegis — especially fail-open/fail-closed behavior and MCP-specific integration semantics — are still unresolved in the current evidence set. ([Varlock secrets guide](https://varlock.dev/guides/secrets), [TruffleHog PreCommit docs](https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/PreCommit.md))
 
 ## OPEN questions
 1. Does Varlock fail **closed** when secret resolution fails, or can the agent continue unsafely?

@@ -18,10 +18,10 @@ async function runDefaultPreflight(directory: string): Promise<void> {
   const d = Bun.spawn(["docker", "info"], { stdout: "ignore", stderr: "ignore" });
   if ((await d.exited) !== 0) throw new Error("docker daemon not running");
 
-  const ps = Bun.spawn(["docker", "ps", "--filter", "name=harness-sandbox", "--format", "{{.Names}}"], { stdout: "pipe", stderr: "ignore" });
+  const ps = Bun.spawn(["docker", "ps", "--filter", "name=aegis-sandbox", "--format", "{{.Names}}"], { stdout: "pipe", stderr: "ignore" });
   await ps.exited;
   const out = await new Response(ps.stdout).text();
-  if (!out.includes("harness-sandbox")) throw new Error("harness-sandbox container not running");
+  if (!out.includes("aegis-sandbox")) throw new Error("aegis-sandbox container not running");
 
   const vs = Bun.spawn(["bunx", "varlock", "scan", "--staged"], { stdout: "ignore", stderr: "ignore" });
   if ((await vs.exited) !== 0) throw new Error("varlock scan failed");
@@ -45,7 +45,7 @@ export function createSessionHandler(
         }
         setPreflightPassed(true);
       } catch (err) {
-        process.stderr.write(`[HARNESS] preflight failed: ${err instanceof Error ? err.message : String(err)}\n`);
+        process.stderr.write(`[AEGIS] preflight failed: ${err instanceof Error ? err.message : String(err)}\n`);
         setPreflightPassed(false);
       }
     })();

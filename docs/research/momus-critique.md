@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-29
 **Role:** Momus (Ruthless Critic)
-**Project:** Local AI Coding-Agent Security Harness
+**Project:** Local AI Coding-Agent Aegis Security
 **Status:** **CONDITIONAL PASS** (Major scope-reduction required for solo-developer feasibility)
 
 ---
@@ -48,7 +48,7 @@ The research body is technically sound but **architecturally bloated**. Oracle h
 - **Verdict:** PASS
 - **Strengths:** Correctly identifies the Anthropic-compatibility gap for Claude Code.
 - **Issues:** 
-    1. Ignores the "Small Model" reality. Most local models (Llama 3 8B) fail at complex tool-calling required for this harness.
+    1. Ignores the "Small Model" reality. Most local models (Llama 3 8B) fail at complex tool-calling required for this aegis.
 - **Required fixes:** Add a "Model Minimum Requirements" section (e.g., 30B+ parameters for security reasoning).
 
 ### Oracle 05: MCP Security
@@ -124,7 +124,7 @@ The research body is technically sound but **architecturally bloated**. Oracle h
 4.  **The "Warm Sandbox":** Specify a persistent Docker container that is "reset" (files wiped) rather than "destroyed" between calls to save latency.
 5.  **The Single Most Dangerous Assumption:** **Varlock's stability.** If Varlock fails to load, the agent might see the real `.env`. Matisse must include a "Hard-Gate" check: a script that runs *before* the agent starts to verify no real secrets are in the environment.
 
-**Final Instruction to Matisse:** Build the "Magnificent Minimum." Do not build a security platform; build a security *harness* that stays out of the way.
+**Final Instruction to Matisse:** Build the "Magnificent Minimum." Do not build a security platform; build a security *aegis* that stays out of the way.
 
 ---
 *Momus has spoken. Vetoes are final.*

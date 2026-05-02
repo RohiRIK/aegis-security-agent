@@ -11,7 +11,7 @@ export type CacheEntry = {
   result: ScannerResult;
 };
 
-export const CACHE_DIR = ".harness/scan-cache";
+export const CACHE_DIR = ".aegis/scan-cache";
 
 export const CACHE_TTLS = {
   semgrep: 600_000,

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The OpenCode plugin (`src/opencode/`) is a silent, always-on security layer that mirrors the Claude Code harness for the OpenCode AI runtime. It is built on the `@opencode-ai/plugin` SDK and shares the same core logic (`src/core/security.ts`) as the Claude Code hooks. The plugin registers five hooks — `tool.execute.before`, `tool.execute.after`, `event`, `shell.env`, and `permission.ask` — covering sandbox routing, deny-list enforcement, preflight gating, sensitive env stripping, and HIGH-RISK notification. The Claude Code harness is completely unchanged; both runtimes run independently from the same codebase.
+The OpenCode plugin (`src/opencode/`) is a silent, always-on security layer that mirrors the Claude Code aegis for the OpenCode AI runtime. It is built on the `@opencode-ai/plugin` SDK and shares the same core logic (`src/core/security.ts`) as the Claude Code hooks. The plugin registers five hooks — `tool.execute.before`, `tool.execute.after`, `event`, `shell.env`, and `permission.ask` — covering sandbox routing, deny-list enforcement, preflight gating, sensitive env stripping, and HIGH-RISK notification. The Claude Code aegis is completely unchanged; both runtimes run independently from the same codebase.
 
 ---
 
@@ -25,7 +25,7 @@ The OpenCode plugin (`src/opencode/`) is a silent, always-on security layer that
 
 **Decision**: Separate plugin (`src/opencode/`) with shared core (`src/core/security.ts`).
 
-**Rationale**: Zero risk to the working Claude Code harness. The plugin is a new surface area (~500 lines) so the duplication cost is low. Sharing `src/core/security.ts` gives both runtimes the same `matchHighRiskPattern`, `trivyScan`, `semgrepScan`, and `checkSensitiveFile` logic without copy-paste. Keeping the plugin directory separate means a bug in the plugin cannot affect Claude Code hooks.
+**Rationale**: Zero risk to the working Claude Code aegis. The plugin is a new surface area (~500 lines) so the duplication cost is low. Sharing `src/core/security.ts` gives both runtimes the same `matchHighRiskPattern`, `trivyScan`, `semgrepScan`, and `checkSensitiveFile` logic without copy-paste. Keeping the plugin directory separate means a bug in the plugin cannot affect Claude Code hooks.
 
 **Alternatives Considered**: Single unified module with runtime detection — rejected because it would require modifying the working Claude Code `src/hooks/` files, violating the "do not touch working hooks" constraint.
 
@@ -35,7 +35,7 @@ The OpenCode plugin (`src/opencode/`) is a silent, always-on security layer that
 
 **Decision**: Use `permission.ask` native OpenCode dialog for HIGH-RISK notification.
 
-**Rationale**: Implementing a custom terminal HITL flow (like the Claude Code harness) would require fighting the OpenCode process model — OpenCode owns the terminal during a session. The native `permission.ask` hook provides a built-in block/allow dialog that preserves the essential "user sees HIGH-RISK command before it runs" UX.
+**Rationale**: Implementing a custom terminal HITL flow (like the Claude Code aegis) would require fighting the OpenCode process model — OpenCode owns the terminal during a session. The native `permission.ask` hook provides a built-in block/allow dialog that preserves the essential "user sees HIGH-RISK command before it runs" UX.
 
 **Known Gap**: No timeout, no custom UI, no audit trail in the dialog itself. Compensated by:
 1. `tool.execute.before` always hard-blocks HIGH-RISK regardless of dialog outcome — there is no approve path. The dialog is UX notification only.
@@ -64,16 +64,16 @@ The OpenCode plugin (`src/opencode/`) is a silent, always-on security layer that
 
 ## ADR-004: Plugin Structure
 
-**Decision**: `src/opencode/` source directory + symlink of full tree to `.opencode/plugins/harness-security/` via `bun run src/install.ts -- --opencode`.
+**Decision**: `src/opencode/` source directory + symlink of full tree to `.opencode/plugins/aegis-security/` via `bun run src/install.ts -- --opencode`.
 
 **Rationale**: Single source of truth — updating `src/opencode/` automatically updates the installed plugin via symlink. Symlinking the full tree (not just `index.ts`) is required so relative imports to `./handlers/*` and `../core/security.ts` resolve correctly at runtime.
 
 **Plugin entry** in `opencode.json`:
 ```json
-{ "plugin": [".opencode/plugins/harness-security/index.ts"] }
+{ "plugin": [".opencode/plugins/aegis-security/index.ts"] }
 ```
 
-**Note**: CLI wiring (`harness install --opencode` via `src/cli.ts`) is deferred to v2. For v1, invoke the install script directly: `bun run src/install.ts -- --opencode`.
+**Note**: CLI wiring (`aegis install --opencode` via `src/cli.ts`) is deferred to v2. For v1, invoke the install script directly: `bun run src/install.ts -- --opencode`.
 
 ---
 
@@ -83,23 +83,23 @@ The OpenCode plugin (`src/opencode/`) is a silent, always-on security layer that
 
 - Bun ≥ 1.3
 - OpenCode installed and configured
-- Docker daemon running (for harness-sandbox)
+- Docker daemon running (for aegis-sandbox)
 - `semgrep` available on PATH
 
 ### Steps
 
 ```bash
-# 1. Clone / have the harness repo available
+# 1. Clone / have Aegis repo available
 # 2. From your target project directory:
-bun run /path/to/harness/src/install.ts -- --opencode
+bun run /path/to/aegis/src/install.ts -- --opencode
 ```
 
 This command:
-1. Runs the standard Claude Code harness install (copies `.env.schema`, `harness-policy.json`, `CLAUDE.md`, patches `.gitignore`, creates `.harness/`, `.claude/hooks.json`)
+1. Runs the standard Claude Code aegis install (copies `.env.schema`, `aegis-policy.json`, `CLAUDE.md`, patches `.gitignore`, creates `.aegis/`, `.claude/hooks.json`)
 2. Creates `.opencode/plugins/` directory
-3. Symlinks `src/opencode/` → `.opencode/plugins/harness-security/` (full tree, including `handlers/`)
+3. Symlinks `src/opencode/` → `.opencode/plugins/aegis-security/` (full tree, including `handlers/`)
 4. Symlinks `src/core/` → `.opencode/plugins/core/` (required for `../core/security.ts` imports)
-5. Creates or patches `opencode.json` with plugin entry: `".opencode/plugins/harness-security/index.ts"`
+5. Creates or patches `opencode.json` with plugin entry: `".opencode/plugins/aegis-security/index.ts"`
 
 ### Verify install
 
@@ -119,4 +119,4 @@ bun run src/smoke-test.ts  # must pass 10/10
 - **R5 — Preflight race condition**: Mitigated by promise mutex but not fully eliminated in pathological cases.
 - **R6 — In-process crash propagation**: A panic in any handler could affect the entire plugin. Mitigated by `safe()` fail-closed wrappers.
 - **R7 — No audit trail in permission dialog**: The native OpenCode dialog does not provide a post-decision callback for audit logging. Audit entries are written pre-dialog only.
-- **R8 — No sandbox for non-bash tools**: Only bash/shell commands are routed through `harness-sandbox`. File writes, web fetches, and other tool types are not sandboxed.
+- **R8 — No sandbox for non-bash tools**: Only bash/shell commands are routed through `aegis-sandbox`. File writes, web fetches, and other tool types are not sandboxed.

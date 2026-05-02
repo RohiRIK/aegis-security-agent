@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 import { ensureDir, fileExists, writeStderr, writeStdout } from "./lib/base.ts";
 import { HOOKS_TEMPLATE } from "./lib/hooks-template.ts";
 
-const HARNESS_DIR = resolve(import.meta.dir, "..");
+const AEGIS_DIR = resolve(import.meta.dir, "..");
 
 async function copyIfMissing(sourcePath: string, destinationPath: string): Promise<void> {
   if (await fileExists(destinationPath)) {
@@ -58,7 +58,7 @@ async function patchOpencodeConfig(targetDir: string): Promise<void> {
     }
   }
 
-  const pluginEntry = ".opencode/plugins/harness-security/index.ts";
+  const pluginEntry = ".opencode/plugins/aegis-security/index.ts";
   const pluginValue = config.plugin;
   const plugins = Array.isArray(pluginValue) ? [...pluginValue] : [];
 
@@ -75,32 +75,29 @@ async function main(): Promise<number> {
   const targetDir = process.cwd();
   const opencode = Bun.argv.includes("--opencode");
 
-  writeStdout(`[harness install] Scaffolding into: ${targetDir}\n`);
+  writeStdout(`[aegis install] Scaffolding into: ${targetDir}\n`);
 
-  await copyIfMissing(join(HARNESS_DIR, ".env.schema"), join(targetDir, ".env.schema"));
-  await copyIfMissing(join(HARNESS_DIR, "harness-policy.json"), join(targetDir, "harness-policy.json"));
-  await copyIfMissing(join(HARNESS_DIR, "CLAUDE.md"), join(targetDir, "CLAUDE.md"));
+  await copyIfMissing(join(AEGIS_DIR, ".env.schema"), join(targetDir, ".env.schema"));
+  await copyIfMissing(join(AEGIS_DIR, "aegis-policy.json"), join(targetDir, "aegis-policy.json"));
+  await copyIfMissing(join(AEGIS_DIR, "CLAUDE.md"), join(targetDir, "CLAUDE.md"));
 
   const gitignorePath = join(targetDir, ".gitignore");
   const gitignoreExists = await fileExists(gitignorePath);
   const gitignoreText = gitignoreExists ? await Bun.file(gitignorePath).text() : "";
-  if (!gitignoreText.includes(".harness/")) {
+  if (!gitignoreText.includes(".aegis/")) {
     const prefix = gitignoreText.length > 0 ? `${gitignoreText}\n` : "\n";
-    const updatedGitignore = `${prefix}# Harness runtime (added by harness install)\n.harness/\n.aegis/\n.env\n.env.*\n!.env.schema\n`;
+    const updatedGitignore = `${prefix}# Aegis runtime (added by aegis install)\n.aegis/\n.env\n.env.*\n!.env.schema\n`;
     await Bun.write(gitignorePath, updatedGitignore);
-    writeStdout(`  [UPDATED] ${gitignorePath} (added harness entries)\n`);
+    writeStdout(`  [UPDATED] ${gitignorePath} (added aegis entries)\n`);
   } else {
-    writeStdout(`  [SKIP] ${gitignorePath} already has harness entries\n`);
+    writeStdout(`  [SKIP] ${gitignorePath} already has aegis entries\n`);
   }
-
-  await ensureDir(join(targetDir, ".harness"));
-  writeStdout(`  [CREATED] ${join(targetDir, ".harness")}/\n`);
-
-  await ensureDir(join(targetDir, ".harness", "scan-cache"));
-  writeStdout(`  [CREATED] ${join(targetDir, ".harness", "scan-cache")}/\n`);
 
   await ensureDir(join(targetDir, ".aegis"));
   writeStdout(`  [CREATED] ${join(targetDir, ".aegis")}/\n`);
+
+  await ensureDir(join(targetDir, ".aegis", "scan-cache"));
+  writeStdout(`  [CREATED] ${join(targetDir, ".aegis", "scan-cache")}/\n`);
 
   const auditLogPath = join(targetDir, ".aegis", "audit.log");
   if (!(await fileExists(auditLogPath))) {
@@ -115,29 +112,54 @@ async function main(): Promise<number> {
   if (await fileExists(hooksDestinationPath)) {
     writeStdout(`  [SKIP] ${hooksDestinationPath} already exists\n`);
   } else {
-    await Bun.write(hooksDestinationPath, HOOKS_TEMPLATE.replaceAll("__HARNESS_DIR__", HARNESS_DIR));
-    writeStdout(`  [CREATED] ${hooksDestinationPath} (paths stamped for ${HARNESS_DIR})\n`);
+    await Bun.write(hooksDestinationPath, HOOKS_TEMPLATE.replaceAll("__AEGIS_DIR__", AEGIS_DIR));
+    writeStdout(`  [CREATED] ${hooksDestinationPath} (paths stamped for ${AEGIS_DIR})\n`);
   }
 
-  await copyIfMissing(join(HARNESS_DIR, ".claude", "mcp.json"), join(targetDir, ".claude", "mcp.json"));
-  await copyIfMissing(join(HARNESS_DIR, ".claudeignore"), join(targetDir, ".claudeignore"));
-  await copyIfMissing(join(HARNESS_DIR, ".pre-commit-config.yaml"), join(targetDir, ".pre-commit-config.yaml"));
+  await copyIfMissing(join(AEGIS_DIR, ".claude", "mcp.json"), join(targetDir, ".claude", "mcp.json"));
+  await copyIfMissing(join(AEGIS_DIR, ".claudeignore"), join(targetDir, ".claudeignore"));
+  await copyIfMissing(join(AEGIS_DIR, ".pre-commit-config.yaml"), join(targetDir, ".pre-commit-config.yaml"));
+
+  const agentSourcePath = join(AEGIS_DIR, "docs", "agents", "aegis.md");
+  if (await fileExists(agentSourcePath)) {
+    const claudeAgentDir = join(targetDir, ".claude", "agents");
+    await ensureDir(claudeAgentDir);
+    const agentDestPath = join(claudeAgentDir, "aegis.md");
+    if (await fileExists(agentDestPath)) {
+      writeStdout(`  [SKIP] ${agentDestPath} already exists\n`);
+    } else {
+      const agentTemplate = await Bun.file(agentSourcePath).text();
+      await Bun.write(agentDestPath, agentTemplate.replaceAll("__AEGIS_DIR__", AEGIS_DIR));
+      writeStdout(`  [CREATED] ${agentDestPath} (paths stamped for ${AEGIS_DIR})\n`);
+    }
+
+    const opencodeAgentDir = join(targetDir, ".opencode", "agents");
+    await ensureDir(opencodeAgentDir);
+    const ocAgentDestPath = join(opencodeAgentDir, "aegis.md");
+    if (await fileExists(ocAgentDestPath)) {
+      writeStdout(`  [SKIP] ${ocAgentDestPath} already exists\n`);
+    } else {
+      const agentTemplate = await Bun.file(agentSourcePath).text();
+      await Bun.write(ocAgentDestPath, agentTemplate.replaceAll("__AEGIS_DIR__", AEGIS_DIR));
+      writeStdout(`  [CREATED] ${ocAgentDestPath} (paths stamped for ${AEGIS_DIR})\n`);
+    }
+  }
 
   if (opencode) {
     await ensureDir(join(targetDir, ".opencode", "plugins"));
     writeStdout(`  [CREATED] ${join(targetDir, ".opencode", "plugins")}/\n`);
 
     await createPluginLink(
-      join(HARNESS_DIR, "src", "opencode"),
-      join(targetDir, ".opencode", "plugins", "harness-security"),
+      join(AEGIS_DIR, "src", "opencode"),
+      join(targetDir, ".opencode", "plugins", "aegis-security"),
     );
 
-    await createPluginLink(join(HARNESS_DIR, "src", "core"), join(targetDir, ".opencode", "plugins", "core"));
+    await createPluginLink(join(AEGIS_DIR, "src", "core"), join(targetDir, ".opencode", "plugins", "core"));
 
     await patchOpencodeConfig(targetDir);
   }
 
-  writeStdout("\n[harness install] Done. Next: run 'harness start' to launch.\n");
+  writeStdout("\n[aegis install] Done. Next: run 'aegis start' to launch.\n");
   return 0;
 }
 

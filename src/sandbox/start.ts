@@ -1,6 +1,6 @@
 import { writeStderr, writeStdout, runCommandCapture, runCommandInherit } from "../lib/base.ts";
 
-const CONTAINER = "harness-sandbox";
+const CONTAINER = "aegis-sandbox";
 
 async function main(): Promise<number> {
   const running = await runCommandCapture([

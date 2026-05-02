@@ -8,16 +8,15 @@ import {
   writeStdout,
 } from "./lib/base.ts";
 
-const HARNESS_DIR = join(resolve(import.meta.dir, ".."), ".harness");
 const AEGIS_DIR = join(resolve(import.meta.dir, ".."), ".aegis");
 
 async function main(): Promise<number> {
   const auditFlag = Bun.argv[2] ?? "";
-  const leanCtxPath = join(HARNESS_DIR, "lean-ctx.db");
+  const leanCtxPath = join(AEGIS_DIR, "lean-ctx.db");
   const auditLogPath = join(AEGIS_DIR, "audit.log");
 
   if (auditFlag === "--audit") {
-    writeStdout("[shred] Scanning .harness/ for sensitive patterns before deletion...\n");
+    writeStdout("[shred] Scanning .aegis/ for sensitive patterns before deletion...\n");
     const scan = await runShellCapture(`strings ${JSON.stringify(leanCtxPath)} 2>/dev/null | grep -iE 'password|secret|api_key|token' || true`);
     if (scan.stdout.trim().length > 0) {
       writeStdout(scan.stdout);

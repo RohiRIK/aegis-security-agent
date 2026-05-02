@@ -1,17 +1,17 @@
-# QA Report — AI-Agent Security Harness MVP
+# QA Report — AI-Agent Aegis Security MVP
 
-Scope: review of the existing smoke suite and adjacent harness scripts/config only. No production code changed.
+Scope: review of the existing smoke suite and adjacent aegis scripts/config only. No production code changed.
 
 Files reviewed:
 
 - `security-smoke-test.sh`
-- `harness-preflight.sh`
+- `aegis-preflight.sh`
 - `hooks/pre-tool-use.sh`
 - `hooks/post-tool-use.sh`
 - `scripts/hitl-gateway.sh`
 - `scripts/sandbox-exec.sh`
 - `scripts/shred.sh`
-- `harness-policy.json`
+- `aegis-policy.json`
 - `.claude/mcp.json`
 - `.claude/hooks.json`
 - `.pre-commit-config.yaml`
@@ -30,10 +30,10 @@ Files reviewed:
 | T-004 Sandbox cannot read host sentinel | PASS | partial FR-016; strongest match is NFR-006 | Useful escape canary, but it does not prove bash-tool routing through `hooks/pre-tool-use.sh`. |
 | T-005 Semgrep detects hardcoded API key | SKIP | partial FR-013 | Only checks Semgrep CLI + `p/secrets`; it does not verify `PostToolUse` hook invocation required by FR-012. |
 | T-006 HITL gateway denies on 'no' input | PASS | partial FR-026 | Deny-path only. No approve-path, timeout-path, JSON-output, or audit-log assertion. |
-| T-007 lean-ctx DB clean of sensitive patterns | PASS (vacuous) | intended FR-025 | Invalid. `.harness/lean-ctx.db` may not exist, so `strings ... | grep ...` trivially succeeds; see `security-smoke-test.sh:79-81`. |
+| T-007 lean-ctx DB clean of sensitive patterns | PASS (vacuous) | intended FR-025 | Invalid. `.aegis/lean-ctx.db` may not exist, so `strings ... | grep ...` trivially succeeds; see `security-smoke-test.sh:79-81`. |
 | T-008 `.env.schema` has `@sensitive` annotations | PASS | partial FR-004 | Weak coverage. It proves at least one annotation exists, not that all required sensitive fields are annotated. |
 | T-009 MCP config uses stdio only | PASS | FR-033, partial FR-011/FR-014/FR-021 | Good transport check, but does not assert required servers actually exist. |
-| T-010 `harness shred` removes lean-ctx.db | PASS | partial FR-024 | Only checks one file. FR-024 requires all harness-managed SQLite files, and the spec text also expects confirmation output. |
+| T-010 `aegis shred` removes lean-ctx.db | PASS | partial FR-024 | Only checks one file. FR-024 requires all aegis-managed SQLite files, and the spec text also expects confirmation output. |
 
 ### 1.2 Confirmed smoke-suite weaknesses
 
@@ -92,9 +92,9 @@ FRs with only **weak / incidental / vacuous** coverage today:
 
 - **Severity:** HIGH
 - **File:line:** `security-smoke-test.sh:79-81`
-- **Description:** The test intended to validate FR-025 does not create `.harness/lean-ctx.db` first. Because `strings` runs on a missing file and stderr is discarded, the negated pipeline returns success and the test reports PASS without validating anything.
+- **Description:** The test intended to validate FR-025 does not create `.aegis/lean-ctx.db` first. Because `strings` runs on a missing file and stderr is discarded, the negated pipeline returns success and the test reports PASS without validating anything.
 - **Reproduction:**
-  1. Ensure `.harness/lean-ctx.db` does not exist.
+  1. Ensure `.aegis/lean-ctx.db` does not exist.
   2. Run `bash security-smoke-test.sh`.
   3. Observe T-007 passes.
 - **Expected:** T-007 should create a real SQLite DB, write benign content, then verify the detector is actually scanning a real file.
@@ -138,11 +138,11 @@ FRs with only **weak / incidental / vacuous** coverage today:
 ### BUG-005 — Pre-flight does not fail when TruffleHog hook is missing
 
 - **Severity:** HIGH
-- **File:line:** `harness-preflight.sh:65-72`
+- **File:line:** `aegis-preflight.sh:65-72`
 - **Description:** FR-008 says the pre-flight script must verify the TruffleHog hook is installed and active, and `docs/SPEC.md:116` states the acceptance criterion is non-zero exit if absent. The implementation emits `WARN` and continues.
 - **Reproduction:**
   1. Temporarily remove or rename `.pre-commit-config.yaml`.
-  2. Run `bash harness-preflight.sh` in an otherwise clean environment.
+  2. Run `bash aegis-preflight.sh` in an otherwise clean environment.
   3. Observe the script warns and continues instead of exiting non-zero.
 - **Expected:** Missing TruffleHog hook should block startup.
 - **Actual:** Startup is allowed with only a warning.
@@ -174,10 +174,10 @@ FRs with only **weak / incidental / vacuous** coverage today:
 ### BUG-008 — HIGH-RISK taxonomy is incomplete relative to FR-027
 
 - **Severity:** HIGH
-- **File:line:** `harness-policy.json:31-35`, `hooks/pre-tool-use.sh:25-35`
+- **File:line:** `aegis-policy.json:31-35`, `hooks/pre-tool-use.sh:25-35`
 - **Description:** FR-027 requires HIGH-RISK handling for database schema changes, secret generation/rotation, production deployment commands, network access from sandbox, and destructive filesystem operations. The policy covers some DB/destructive/deploy patterns, but it does **not** cover secret generation/rotation or sandbox network access.
 - **Reproduction:**
-  1. Review `harness-policy.json` high-risk patterns.
+  1. Review `aegis-policy.json` high-risk patterns.
   2. Note there is no pattern for secret generation/rotation and no pattern for enabling network access.
 - **Expected:** Policy should encode all FR-027 classes.
 - **Actual:** Two required classes are absent.
@@ -186,11 +186,11 @@ FRs with only **weak / incidental / vacuous** coverage today:
 
 - **Severity:** HIGH
 - **File:line:** `.claude/hooks.json:1-37`
-- **Description:** FR-032 requires a `SessionStart` hook that runs `harness-preflight.sh` and aborts startup on non-zero exit. `.claude/hooks.json` contains `PreToolUse`, `PostToolUse`, and `Stop`, but no `SessionStart`.
+- **Description:** FR-032 requires a `SessionStart` hook that runs `aegis-preflight.sh` and aborts startup on non-zero exit. `.claude/hooks.json` contains `PreToolUse`, `PostToolUse`, and `Stop`, but no `SessionStart`.
 - **Reproduction:**
   1. Open `.claude/hooks.json`.
   2. Observe there is no `SessionStart` key.
-- **Expected:** `SessionStart` should exist and invoke `harness-preflight.sh`.
+- **Expected:** `SessionStart` should exist and invoke `aegis-preflight.sh`.
 - **Actual:** No startup gate is configured.
 
 ### BUG-010 — Package-install guard does not implement the spec’d Snyk MCP health check
@@ -216,7 +216,7 @@ All commands below are written in the same `run_test` / `run_test_if_available` 
 
 ```bash
 run_test "T-011: lean-ctx DB clean after real SQLite write" \
-  "DB='$ROOT/.harness/lean-ctx.db'; export DB; mkdir -p '$ROOT/.harness' && rm -f \"$DB\" && \
+  "DB='$ROOT/.aegis/lean-ctx.db'; export DB; mkdir -p '$ROOT/.aegis' && rm -f \"$DB\" && \
    python3 -c 'import os, sqlite3; db=os.environ[\"DB\"]; conn=sqlite3.connect(db); conn.execute(\"create table memory(summary text)\"); conn.execute(\"insert into memory values (?)\", (\"architecture summary only\",)); conn.commit(); conn.close()' && \
    ! strings \"$DB\" 2>/dev/null | grep -iE 'password|secret|api_key|token'"
 ```
@@ -229,7 +229,7 @@ run_test "T-011: lean-ctx DB clean after real SQLite write" \
 
 ```bash
 run_test "T-012: lean-ctx DB detector trips on seeded token" \
-  "DB='$ROOT/.harness/lean-ctx.db'; export DB; mkdir -p '$ROOT/.harness' && rm -f \"$DB\" && \
+  "DB='$ROOT/.aegis/lean-ctx.db'; export DB; mkdir -p '$ROOT/.aegis' && rm -f \"$DB\" && \
    python3 -c 'import os, sqlite3; db=os.environ[\"DB\"]; conn=sqlite3.connect(db); conn.execute(\"create table memory(summary text)\"); conn.execute(\"insert into memory values (?)\", (\"api_key=sk-test-123\",)); conn.commit(); conn.close()' && \
    strings \"$DB\" 2>/dev/null | grep -qiE 'password|secret|api_key|token'"
 ```
@@ -343,12 +343,12 @@ run_test "T-019: SELECT * bypasses HITL and is rewritten to sandbox exec" \
 
 ```bash
 run_test "T-020: Pre-flight check 1 fails when bunx/varlock unavailable" \
-  "tmpdir=\$(mktemp -d) && cp '$ROOT/harness-preflight.sh' \"$tmpdir/\" && \
+  "tmpdir=\$(mktemp -d) && cp '$ROOT/aegis-preflight.sh' \"$tmpdir/\" && \
    printf '#!/usr/bin/env bash\nexit 127\n' > \"$tmpdir/bunx\" && chmod +x \"$tmpdir/bunx\" && \
    printf '#!/usr/bin/env bash\nexit 0\n' > \"$tmpdir/docker\" && chmod +x \"$tmpdir/docker\" && \
    printf '#!/usr/bin/env bash\nexit 1\n' > \"$tmpdir/pgrep\" && chmod +x \"$tmpdir/pgrep\" && \
    touch \"$tmpdir/.env.schema\" \"$tmpdir/.pre-commit-config.yaml\" && \
-   output=\$(cd \"$tmpdir\" && PATH=\"$tmpdir:$PATH\" bash ./harness-preflight.sh 2>&1 || true) && \
+   output=\$(cd \"$tmpdir\" && PATH=\"$tmpdir:$PATH\" bash ./aegis-preflight.sh 2>&1 || true) && \
    rm -rf \"$tmpdir\" && printf '%s' \"$output\" | grep -q 'bunx varlock not available'"
 ```
 
@@ -360,12 +360,12 @@ run_test "T-020: Pre-flight check 1 fails when bunx/varlock unavailable" \
 
 ```bash
 run_test "T-021: Pre-flight check 2 fails when .env.schema is missing" \
-  "tmpdir=\$(mktemp -d) && cp '$ROOT/harness-preflight.sh' \"$tmpdir/\" && \
+  "tmpdir=\$(mktemp -d) && cp '$ROOT/aegis-preflight.sh' \"$tmpdir/\" && \
    printf '#!/usr/bin/env bash\nexit 0\n' > \"$tmpdir/bunx\" && chmod +x \"$tmpdir/bunx\" && \
-   printf '#!/usr/bin/env bash\nif [[ \"$1\" == \"info\" ]]; then exit 0; fi\nif [[ \"$1\" == \"ps\" ]]; then printf \"harness-sandbox\\n\"; exit 0; fi\nexit 0\n' > \"$tmpdir/docker\" && chmod +x \"$tmpdir/docker\" && \
+   printf '#!/usr/bin/env bash\nif [[ \"$1\" == \"info\" ]]; then exit 0; fi\nif [[ \"$1\" == \"ps\" ]]; then printf \"aegis-sandbox\\n\"; exit 0; fi\nexit 0\n' > \"$tmpdir/docker\" && chmod +x \"$tmpdir/docker\" && \
    printf '#!/usr/bin/env bash\nexit 1\n' > \"$tmpdir/pgrep\" && chmod +x \"$tmpdir/pgrep\" && \
    touch \"$tmpdir/.pre-commit-config.yaml\" && \
-   output=\$(cd \"$tmpdir\" && PATH=\"$tmpdir:$PATH\" bash ./harness-preflight.sh 2>&1 || true) && \
+   output=\$(cd \"$tmpdir\" && PATH=\"$tmpdir:$PATH\" bash ./aegis-preflight.sh 2>&1 || true) && \
    rm -rf \"$tmpdir\" && printf '%s' \"$output\" | grep -q '.env.schema not found'"
 ```
 
@@ -377,12 +377,12 @@ run_test "T-021: Pre-flight check 2 fails when .env.schema is missing" \
 
 ```bash
 run_test "T-022: Pre-flight check 3 fails when GITHUB_TOKEN is set" \
-  "tmpdir=\$(mktemp -d) && cp '$ROOT/harness-preflight.sh' \"$tmpdir/\" && \
+  "tmpdir=\$(mktemp -d) && cp '$ROOT/aegis-preflight.sh' \"$tmpdir/\" && \
    printf '#!/usr/bin/env bash\nexit 0\n' > \"$tmpdir/bunx\" && chmod +x \"$tmpdir/bunx\" && \
-   printf '#!/usr/bin/env bash\nif [[ \"$1\" == \"info\" ]]; then exit 0; fi\nif [[ \"$1\" == \"ps\" ]]; then printf \"harness-sandbox\\n\"; exit 0; fi\nexit 0\n' > \"$tmpdir/docker\" && chmod +x \"$tmpdir/docker\" && \
+   printf '#!/usr/bin/env bash\nif [[ \"$1\" == \"info\" ]]; then exit 0; fi\nif [[ \"$1\" == \"ps\" ]]; then printf \"aegis-sandbox\\n\"; exit 0; fi\nexit 0\n' > \"$tmpdir/docker\" && chmod +x \"$tmpdir/docker\" && \
    printf '#!/usr/bin/env bash\nexit 1\n' > \"$tmpdir/pgrep\" && chmod +x \"$tmpdir/pgrep\" && \
    touch \"$tmpdir/.env.schema\" \"$tmpdir/.pre-commit-config.yaml\" && \
-   output=\$(cd \"$tmpdir\" && PATH=\"$tmpdir:$PATH\" GITHUB_TOKEN=fake123 bash ./harness-preflight.sh 2>&1 || true) && \
+   output=\$(cd \"$tmpdir\" && PATH=\"$tmpdir:$PATH\" GITHUB_TOKEN=fake123 bash ./aegis-preflight.sh 2>&1 || true) && \
    rm -rf \"$tmpdir\" && printf '%s' \"$output\" | grep -q 'GITHUB_TOKEN is set'"
 ```
 
@@ -390,16 +390,16 @@ run_test "T-022: Pre-flight check 3 fails when GITHUB_TOKEN is set" \
 
 - **Name:** `T-023: Pre-flight check 4 fails when TruffleHog hook is missing`
 - **Tests:** FR-008
-- **Expected exit code:** `1` from `harness-preflight.sh` (this should currently fail and expose BUG-005)
+- **Expected exit code:** `1` from `aegis-preflight.sh` (this should currently fail and expose BUG-005)
 
 ```bash
 run_test "T-023: Pre-flight check 4 fails when TruffleHog hook is missing" \
-  "tmpdir=\$(mktemp -d) && cp '$ROOT/harness-preflight.sh' \"$tmpdir/\" && \
+  "tmpdir=\$(mktemp -d) && cp '$ROOT/aegis-preflight.sh' \"$tmpdir/\" && \
    printf '#!/usr/bin/env bash\nexit 0\n' > \"$tmpdir/bunx\" && chmod +x \"$tmpdir/bunx\" && \
-   printf '#!/usr/bin/env bash\nif [[ \"$1\" == \"info\" ]]; then exit 0; fi\nif [[ \"$1\" == \"ps\" ]]; then printf \"harness-sandbox\\n\"; exit 0; fi\nexit 0\n' > \"$tmpdir/docker\" && chmod +x \"$tmpdir/docker\" && \
+   printf '#!/usr/bin/env bash\nif [[ \"$1\" == \"info\" ]]; then exit 0; fi\nif [[ \"$1\" == \"ps\" ]]; then printf \"aegis-sandbox\\n\"; exit 0; fi\nexit 0\n' > \"$tmpdir/docker\" && chmod +x \"$tmpdir/docker\" && \
    printf '#!/usr/bin/env bash\nexit 1\n' > \"$tmpdir/pgrep\" && chmod +x \"$tmpdir/pgrep\" && \
    touch \"$tmpdir/.env.schema\" && \
-   ! (cd \"$tmpdir\" && PATH=\"$tmpdir:$PATH\" bash ./harness-preflight.sh >/dev/null 2>&1)"
+   ! (cd \"$tmpdir\" && PATH=\"$tmpdir:$PATH\" bash ./aegis-preflight.sh >/dev/null 2>&1)"
 ```
 
 ### T-024 — Pre-flight check 5 isolated
@@ -410,12 +410,12 @@ run_test "T-023: Pre-flight check 4 fails when TruffleHog hook is missing" \
 
 ```bash
 run_test "T-024: Pre-flight check 5 fails when Docker is unavailable" \
-  "tmpdir=\$(mktemp -d) && cp '$ROOT/harness-preflight.sh' \"$tmpdir/\" && \
+  "tmpdir=\$(mktemp -d) && cp '$ROOT/aegis-preflight.sh' \"$tmpdir/\" && \
    printf '#!/usr/bin/env bash\nexit 0\n' > \"$tmpdir/bunx\" && chmod +x \"$tmpdir/bunx\" && \
    printf '#!/usr/bin/env bash\nexit 1\n' > \"$tmpdir/docker\" && chmod +x \"$tmpdir/docker\" && \
    printf '#!/usr/bin/env bash\nexit 1\n' > \"$tmpdir/pgrep\" && chmod +x \"$tmpdir/pgrep\" && \
    touch \"$tmpdir/.env.schema\" \"$tmpdir/.pre-commit-config.yaml\" && \
-   output=\$(cd \"$tmpdir\" && PATH=\"$tmpdir:$PATH\" bash ./harness-preflight.sh 2>&1 || true) && \
+   output=\$(cd \"$tmpdir\" && PATH=\"$tmpdir:$PATH\" bash ./aegis-preflight.sh 2>&1 || true) && \
    rm -rf \"$tmpdir\" && printf '%s' \"$output\" | grep -q 'Docker daemon not running'"
 ```
 
@@ -427,12 +427,12 @@ run_test "T-024: Pre-flight check 5 fails when Docker is unavailable" \
 
 ```bash
 run_test "T-025: Pre-flight check 6 fails when varlock scan finds staged secret" \
-  "tmpdir=\$(mktemp -d) && cp '$ROOT/harness-preflight.sh' \"$tmpdir/\" && \
+  "tmpdir=\$(mktemp -d) && cp '$ROOT/aegis-preflight.sh' \"$tmpdir/\" && \
    printf '#!/usr/bin/env bash\nif [[ \"$2\" == \"--version\" ]]; then exit 0; fi\nif [[ \"$2\" == \"scan\" ]]; then exit 1; fi\nexit 0\n' > \"$tmpdir/bunx\" && chmod +x \"$tmpdir/bunx\" && \
-   printf '#!/usr/bin/env bash\nif [[ \"$1\" == \"info\" ]]; then exit 0; fi\nif [[ \"$1\" == \"ps\" ]]; then printf \"harness-sandbox\\n\"; exit 0; fi\nexit 0\n' > \"$tmpdir/docker\" && chmod +x \"$tmpdir/docker\" && \
+   printf '#!/usr/bin/env bash\nif [[ \"$1\" == \"info\" ]]; then exit 0; fi\nif [[ \"$1\" == \"ps\" ]]; then printf \"aegis-sandbox\\n\"; exit 0; fi\nexit 0\n' > \"$tmpdir/docker\" && chmod +x \"$tmpdir/docker\" && \
    printf '#!/usr/bin/env bash\nexit 1\n' > \"$tmpdir/pgrep\" && chmod +x \"$tmpdir/pgrep\" && \
    touch \"$tmpdir/.env.schema\" \"$tmpdir/.pre-commit-config.yaml\" && \
-   output=\$(cd \"$tmpdir\" && PATH=\"$tmpdir:$PATH\" bash ./harness-preflight.sh 2>&1 || true) && \
+   output=\$(cd \"$tmpdir\" && PATH=\"$tmpdir:$PATH\" bash ./aegis-preflight.sh 2>&1 || true) && \
    rm -rf \"$tmpdir\" && printf '%s' \"$output\" | grep -q 'varlock scan found potential secrets'"
 ```
 
@@ -444,12 +444,12 @@ run_test "T-025: Pre-flight check 6 fails when varlock scan finds staged secret"
 
 ```bash
 run_test "T-026: Pre-flight check 7 warns on conflicting context tools" \
-  "tmpdir=\$(mktemp -d) && cp '$ROOT/harness-preflight.sh' \"$tmpdir/\" && \
+  "tmpdir=\$(mktemp -d) && cp '$ROOT/aegis-preflight.sh' \"$tmpdir/\" && \
    printf '#!/usr/bin/env bash\nexit 0\n' > \"$tmpdir/bunx\" && chmod +x \"$tmpdir/bunx\" && \
-   printf '#!/usr/bin/env bash\nif [[ \"$1\" == \"info\" ]]; then exit 0; fi\nif [[ \"$1\" == \"ps\" ]]; then printf \"harness-sandbox\\n\"; exit 0; fi\nexit 0\n' > \"$tmpdir/docker\" && chmod +x \"$tmpdir/docker\" && \
+   printf '#!/usr/bin/env bash\nif [[ \"$1\" == \"info\" ]]; then exit 0; fi\nif [[ \"$1\" == \"ps\" ]]; then printf \"aegis-sandbox\\n\"; exit 0; fi\nexit 0\n' > \"$tmpdir/docker\" && chmod +x \"$tmpdir/docker\" && \
    printf '#!/usr/bin/env bash\nexit 0\n' > \"$tmpdir/pgrep\" && chmod +x \"$tmpdir/pgrep\" && \
    touch \"$tmpdir/.env.schema\" \"$tmpdir/.pre-commit-config.yaml\" && \
-   output=\$(cd \"$tmpdir\" && PATH=\"$tmpdir:$PATH\" bash ./harness-preflight.sh 2>&1) && \
+   output=\$(cd \"$tmpdir\" && PATH=\"$tmpdir:$PATH\" bash ./aegis-preflight.sh 2>&1) && \
    rm -rf \"$tmpdir\" && printf '%s' \"$output\" | grep -q 'Conflicting context tools detected'"
 ```
 
@@ -489,13 +489,13 @@ run_test "T-029: mcp.json declares semgrep, snyk, and lean-ctx over stdio" \
 
 ### T-030 — Policy manifest must expose the required action set
 
-- **Name:** `T-030: harness-policy.json contains required actions`
+- **Name:** `T-030: aegis-policy.json contains required actions`
 - **Tests:** FR-038
 - **Expected exit code:** `0`
 
 ```bash
-run_test "T-030: harness-policy.json contains required actions" \
-  "jq -e '.actions.read_file and .actions.edit_file and .actions.run_shell and .actions.fetch_domain and .actions.use_secret and .actions.approve_deploy' '$ROOT/harness-policy.json' >/dev/null"
+run_test "T-030: aegis-policy.json contains required actions" \
+  "jq -e '.actions.read_file and .actions.edit_file and .actions.run_shell and .actions.fetch_domain and .actions.use_secret and .actions.approve_deploy' '$ROOT/aegis-policy.json' >/dev/null"
 ```
 
 ## 4. Test Execution Recommendations
@@ -506,7 +506,7 @@ run_test "T-030: harness-policy.json contains required actions" \
 |---|---|
 | T-013 | `trufflehog`, `git` |
 | T-015 | `semgrep`, `jq` |
-| T-018, T-019, any existing T-004 | Docker + `harness-sandbox` availability or equivalent hook environment |
+| T-018, T-019, any existing T-004 | Docker + `aegis-sandbox` availability or equivalent hook environment |
 | T-011, T-012 | `python3`, `strings` |
 | T-028 to T-030 | `jq` |
 

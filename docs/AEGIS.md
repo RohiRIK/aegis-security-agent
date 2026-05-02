@@ -2,7 +2,7 @@
 
 ## Overview
 
-Aegis is the on-demand security analyst for the harness system. Where the silent plugin acts as a real-time immune system — blocking dangerous tool calls in <500ms — Aegis is the specialist called in for deep diagnosis: whole-repo scans, dependency audits, threat modeling, and audit log forensics. Aegis is harness-aware (reads `harness-policy.json` and `.aegis/audit.log`) and produces structured `SAFE/RISKY/BLOCKED` verdicts with evidence and remediation. It is strictly read-only; it never edits files.
+Aegis is the on-demand security analyst for Aegis system. Where the silent plugin acts as a real-time immune system — blocking dangerous tool calls in <500ms — Aegis is the specialist called in for deep diagnosis: whole-repo scans, dependency audits, threat modeling, and audit log forensics. Aegis is aegis-aware (reads `aegis-policy.json` and `.aegis/audit.log`) and produces structured `SAFE/RISKY/BLOCKED` verdicts with evidence and remediation. It is strictly read-only; it never edits files.
 
 ---
 
@@ -16,7 +16,7 @@ Aegis is the on-demand security analyst for the harness system. Where the silent
 | TruffleHog secrets scan | preflight only | ✅ (on-demand) | ❌ |
 | Audit log analysis | writes only | ✅ reads + analyzes | ❌ |
 | Threat modeling | ❌ | ✅ | ❌ |
-| harness-policy.json aware | ✅ | ✅ | ❌ |
+| aegis-policy.json aware | ✅ | ✅ | ❌ |
 | Structured SAFE/RISKY/BLOCKED verdict | ❌ | ✅ | ❌ |
 | Edits files | ❌ | ❌ | ❌ |
 
@@ -95,7 +95,7 @@ Every Aegis response follows this structure:
 <numbered list of specific fixes>
 
 ### Policy Recommendation
-<optional: harness-policy.json changes>
+<optional: aegis-policy.json changes>
 
 ---
 Scanned by: Aegis v1 | Scanners: semgrep, trivy, trufflehog

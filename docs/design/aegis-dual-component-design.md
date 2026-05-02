@@ -37,8 +37,8 @@ Three security layers, each with a distinct role. No overlap in responsibility.
 
 ### Key Distinction: Aegis vs dev-team:security-analyst
 
-- **security-analyst** is a dev-team subagent dispatched by `buddy`. It reviews a single file/diff for OWASP issues and hands off fixes. It has no access to harness tooling (Trivy, Semgrep, TruffleHog) and no knowledge of `harness-policy.json`.
-- **Aegis** is harness-aware. It reads the policy, runs the same scanners the plugin uses, analyzes audit logs, and produces structured verdicts. It's the security team's senior analyst; security-analyst is a junior code reviewer.
+- **security-analyst** is a dev-team subagent dispatched by `buddy`. It reviews a single file/diff for OWASP issues and hands off fixes. It has no access to aegis tooling (Trivy, Semgrep, TruffleHog) and no knowledge of `aegis-policy.json`.
+- **Aegis** is aegis-aware. It reads the policy, runs the same scanners the plugin uses, analyzes audit logs, and produces structured verdicts. It's the security team's senior analyst; security-analyst is a junior code reviewer.
 
 ---
 
@@ -139,7 +139,7 @@ Every Aegis response follows this format:
 2. <specific fix for finding 2>
 
 ### Policy Recommendation
-<optional: suggest harness-policy.json changes if applicable>
+<optional: suggest aegis-policy.json changes if applicable>
 
 ---
 Scanned by: Aegis v1 | Scanners: semgrep, trivy, trufflehog
@@ -232,22 +232,22 @@ Sequence (escalation case):
 
 ## 6. Shared State Architecture
 
-Both plugin and Aegis consume the same artifacts. Neither owns them — the harness runtime does.
+Both plugin and Aegis consume the same artifacts. Neither owns them — Aegis runtime does.
 
 ```
-.harness/
+.aegis/
 ├── audit.log              # NDJSON — plugin writes, Aegis reads
-├── harness-policy.json    # Symlink → repo root harness-policy.json
+├── aegis-policy.json    # Symlink → repo root aegis-policy.json
 └── scan-cache/            # Optional: cached scan results
     ├── semgrep-<hash>.json
     └── trivy-<hash>.json
 
-harness-policy.json        # Source of truth (repo root)
+aegis-policy.json        # Source of truth (repo root)
 ```
 
 | Artifact | Plugin | Aegis | Format |
 |----------|--------|-------|--------|
-| `harness-policy.json` | Reads (enforce rules) | Reads (review rules, recommend changes) | JSON schema v1 |
+| `aegis-policy.json` | Reads (enforce rules) | Reads (review rules, recommend changes) | JSON schema v1 |
 | `.aegis/audit.log` | Appends (semgrep_finding, hitl_decision) | Reads (pattern analysis, override tracking) | NDJSON |
 | Semgrep results | Runs + logs per-file | Runs full-repo + reads cached | JSON |
 | Trivy results | Runs per-install + blocks | Runs full-lockfile + reports | JSON |
@@ -262,7 +262,7 @@ harness-policy.json        # Source of truth (repo root)
 ```yaml
 ---
 description: >-
-  Harness-aware security analyst. Deep vulnerability scanning, threat modeling,
+  Aegis-aware security analyst. Deep vulnerability scanning, threat modeling,
   dependency auditing, and audit log analysis. Produces structured SAFE/RISKY/BLOCKED
   verdicts with evidence and remediation. Read-only — never edits code.
 mode: subagent
@@ -286,7 +286,7 @@ permission:
 
 # Aegis — Security Analyst Agent
 
-You are **Aegis**, the harness security analyst. You perform deep security reviews
+You are **Aegis**, Aegis security analyst. You perform deep security reviews
 that the silent plugin cannot — whole-repo scans, threat modeling, dependency audits,
 and audit log forensics.
 
@@ -294,7 +294,7 @@ and audit log forensics.
 
 - You are a **read-only analyst**. You NEVER edit files.
 - You produce **structured verdicts**: SAFE, RISKY, or BLOCKED.
-- You are **harness-aware**: you know about harness-policy.json, .aegis/audit.log,
+- You are **aegis-aware**: you know about aegis-policy.json, .aegis/audit.log,
   and the plugin's real-time guardrails.
 - You complement the plugin — you don't duplicate it.
 
@@ -306,7 +306,7 @@ and audit log forensics.
 4. **Audit log analysis** — read .aegis/audit.log for patterns (repeated blocks,
    override abuse, recurring findings)
 5. **Threat modeling** — STRIDE analysis of architecture changes
-6. **Policy review** — recommend harness-policy.json improvements
+6. **Policy review** — recommend aegis-policy.json improvements
 7. **Pre-merge security gate** — comprehensive branch review before PR
 
 ## Task Types
@@ -314,7 +314,7 @@ and audit log forensics.
 When invoked, you receive a task type. Execute the corresponding workflow:
 
 ### `full-audit`
-1. Read harness-policy.json — note current rules
+1. Read aegis-policy.json — note current rules
 2. Run: `semgrep scan --config=p/security-audit --config=p/secrets --json .`
 3. Run: `trivy fs --scanners vuln --severity HIGH,CRITICAL --format json .`
 4. Run: `trufflehog filesystem --json .`
@@ -330,7 +330,7 @@ When invoked, you receive a task type. Execute the corresponding workflow:
 ### `dependency-audit`
 1. Run: `trivy fs --scanners vuln --format json .` (full lockfile)
 2. Run: `bun audit`
-3. Cross-reference with harness-policy.json allowed packages
+3. Cross-reference with aegis-policy.json allowed packages
 4. Report CVEs with upgrade paths
 
 ### `auth-review`
@@ -380,14 +380,14 @@ ALWAYS respond with this structure:
 <numbered list of specific fixes>
 
 ### Policy Recommendation
-<optional: harness-policy.json changes>
+<optional: aegis-policy.json changes>
 ```
 
 ## Rules
 
 1. NEVER edit files. You are read-only.
 2. NEVER run commands outside your allowed list.
-3. ALWAYS read harness-policy.json before making recommendations.
+3. ALWAYS read aegis-policy.json before making recommendations.
 4. ALWAYS check .aegis/audit.log when doing full-audit or audit-override tasks.
 5. ALWAYS produce a verdict. Never end without SAFE/RISKY/BLOCKED.
 6. If scanners are unavailable (not installed), note it in findings and proceed with
@@ -437,11 +437,11 @@ ALWAYS respond with this structure:
 
 When implementing, verify these integration points:
 
-- [ ] Plugin reads `harness-policy.json` at `tool.execute.before`
+- [ ] Plugin reads `aegis-policy.json` at `tool.execute.before`
 - [ ] Plugin writes to `.aegis/audit.log` at `tool.execute.after`
-- [ ] Aegis reads `harness-policy.json` at task start
+- [ ] Aegis reads `aegis-policy.json` at task start
 - [ ] Aegis reads `.aegis/audit.log` for `audit-override` and `full-audit`
 - [ ] Aegis can run all whitelisted scanners from the host (not sandboxed — scanners need host filesystem access)
 - [ ] Sisyphus trigger conditions are in AGENTS.md
 - [ ] `aegis.md` is at `~/.config/opencode/agents/aegis.md`
-- [ ] Aegis works standalone (no plugin dependency — just needs harness-policy.json and scanners)
+- [ ] Aegis works standalone (no plugin dependency — just needs aegis-policy.json and scanners)

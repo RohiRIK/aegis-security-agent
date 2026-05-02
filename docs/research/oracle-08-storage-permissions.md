@@ -35,13 +35,13 @@ Claude Code has a first-class permission model with **allow / ask / deny**, rule
 OpenCode also has a first-class permission model with **allow / ask / deny**, a global `permission` config, granular per-tool rules, wildcard matching, `external_directory` handling, and agent-specific overrides. ([OpenCode permissions](https://opencode.ai/docs/permissions/))
 
 ### 8) What does Pi expose for permissions?
-Pi’s extension API exposes tool registration, command registration, event hooks, and tool activation changes, but the gathered docs do **not** describe a comparable built-in permission-policy layer. That implies the harness would need to implement its own permission mediation in Pi extensions. ([Pi Extension API](https://www.mintlify.com/badlogic/pi-mono/api/coding-agent/extension-api))
+Pi’s extension API exposes tool registration, command registration, event hooks, and tool activation changes, but the gathered docs do **not** describe a comparable built-in permission-policy layer. That implies Aegis would need to implement its own permission mediation in Pi extensions. ([Pi Extension API](https://www.mintlify.com/badlogic/pi-mono/api/coding-agent/extension-api))
 
 ### 9) What does Cedar contribute conceptually?
 Cedar is an authorization policy language intended to decouple authorization logic from application code, and its best-practice guidance explicitly says it is better to model **fine-grained permissions up front** and aggregate them in the UI than to start with overly coarse actions and regret it later. ([Cedar overview](https://docs.cedarpolicy.com/), [Cedar fine-grained permissions best practice](https://docs.cedarpolicy.com/bestpractices/bp-fine-grained-permissions.html))
 
 ### 10) Should Cedar be your v1 runtime policy engine?
-Probably not. None of **Claude Code**, **OpenCode**, or **Pi** natively consumes Cedar policies in the gathered docs. Adding Cedar now would mean introducing a new runtime policy engine and a compile/adaptation layer on top of the three host platforms before the harness basics are proven. The concept is strong; the direct platform integration evidence is not there. ([Claude permissions](https://code.claude.com/docs/en/permissions.md), [OpenCode permissions](https://opencode.ai/docs/permissions/), [Pi Extension API](https://www.mintlify.com/badlogic/pi-mono/api/coding-agent/extension-api), [Cedar overview](https://docs.cedarpolicy.com/))
+Probably not. None of **Claude Code**, **OpenCode**, or **Pi** natively consumes Cedar policies in the gathered docs. Adding Cedar now would mean introducing a new runtime policy engine and a compile/adaptation layer on top of the three host platforms before Aegis basics are proven. The concept is strong; the direct platform integration evidence is not there. ([Claude permissions](https://code.claude.com/docs/en/permissions.md), [OpenCode permissions](https://opencode.ai/docs/permissions/), [Pi Extension API](https://www.mintlify.com/badlogic/pi-mono/api/coding-agent/extension-api), [Cedar overview](https://docs.cedarpolicy.com/))
 
 ## RECOMMENDATION
 Use this model for v1:

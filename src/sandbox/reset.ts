@@ -1,6 +1,6 @@
 import { runCommandCapture, writeStderr, writeStdout } from "../lib/base.ts";
 
-const CONTAINER = "harness-sandbox";
+const CONTAINER = "aegis-sandbox";
 
 async function main(): Promise<number> {
   const result = await runCommandCapture(["docker", "exec", CONTAINER, "bash", "-c", "rm -rf /workspace/*"]);

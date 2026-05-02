@@ -1,7 +1,7 @@
 # Oracle 06 — Eval / Testing Framework
 
 ## Decision summary
-Use **CyberSecEval 4 as the primary external benchmark base** and build a **small custom regression harness** around it for your actual controls: secret handling, prompt injection resistance, sandbox escape prevention, and human-approval flow correctness. **AgentBench is useful as a realism/agent-function check, but it is not the right primary security benchmark** because it is focused on general agent task performance, not security-harness behavior. ([PurpleLlama CyberSecEval README](https://raw.githubusercontent.com/facebookresearch/PurpleLlama/main/CybersecurityBenchmarks/README.md), [AgentBench README](https://raw.githubusercontent.com/THUDM/AgentBench/main/README.md), [prompt_injection dataset](https://raw.githubusercontent.com/facebookresearch/PurpleLlama/main/CybersecurityBenchmarks/datasets/prompt_injection/prompt_injection.json), [interpreter dataset](https://raw.githubusercontent.com/facebookresearch/PurpleLlama/main/CybersecurityBenchmarks/datasets/interpreter/interpreter.json))
+Use **CyberSecEval 4 as the primary external benchmark base** and build a **small custom regression aegis** around it for your actual controls: secret handling, prompt injection resistance, sandbox escape prevention, and human-approval flow correctness. **AgentBench is useful as a realism/agent-function check, but it is not the right primary security benchmark** because it is focused on general agent task performance, not security-aegis behavior. ([PurpleLlama CyberSecEval README](https://raw.githubusercontent.com/facebookresearch/PurpleLlama/main/CybersecurityBenchmarks/README.md), [AgentBench README](https://raw.githubusercontent.com/THUDM/AgentBench/main/README.md), [prompt_injection dataset](https://raw.githubusercontent.com/facebookresearch/PurpleLlama/main/CybersecurityBenchmarks/datasets/prompt_injection/prompt_injection.json), [interpreter dataset](https://raw.githubusercontent.com/facebookresearch/PurpleLlama/main/CybersecurityBenchmarks/datasets/interpreter/interpreter.json))
 
 ## Researched answers
 
@@ -13,8 +13,8 @@ Use **CyberSecEval 4 as the primary external benchmark base** and build a **smal
 - The **prompt injection** dataset contains direct prompt-injection test cases aimed at overriding the model’s task and exposing hidden data. ([prompt_injection dataset](https://raw.githubusercontent.com/facebookresearch/PurpleLlama/main/CybersecurityBenchmarks/datasets/prompt_injection/prompt_injection.json))
 - The **interpreter** dataset includes cases about sandbox escape, privilege escalation, persistence, and malicious code-execution behavior. ([interpreter dataset](https://raw.githubusercontent.com/facebookresearch/PurpleLlama/main/CybersecurityBenchmarks/datasets/interpreter/interpreter.json))
 
-### 3) What should you measure for this harness?
-The public benchmark suites tell you what attack families matter; they do **not** give you all the product-level metrics you need. For this harness, the useful top-line metrics are:
+### 3) What should you measure for this aegis?
+The public benchmark suites tell you what attack families matter; they do **not** give you all the product-level metrics you need. For this aegis, the useful top-line metrics are:
 - **secret leakage rate**,
 - **prompt-injection success rate**,
 - **sandbox escape / host-touch success rate**,
@@ -22,7 +22,7 @@ The public benchmark suites tell you what attack families matter; they do **not*
 - **false-negative allow rate** for dangerous actions,
 - **time-to-human-approval** and **approval completion rate** for gated tasks.
 
-Those are **recommended harness metrics**, not claims taken from the benchmark docs.
+Those are **recommended aegis metrics**, not claims taken from the benchmark docs.
 
 ### 4) How do you test Varlock specifically?
 I did **not** find an off-the-shelf benchmark that proves “Varlock prevented secrets from entering the model context.” That part needs custom tests, for example:
@@ -39,8 +39,8 @@ The official TruffleHog evidence in the gathered set covers **pre-commit integra
 ### 6) How do you test the sandbox itself?
 The best fit in the gathered public suites is CyberSecEval’s **interpreter** benchmark, because it already includes sandbox-escape / malicious code-execution style cases. For your product, you should add host-side canaries as well, such as files or sockets that must remain untouched after every run. ([PurpleLlama CyberSecEval README](https://raw.githubusercontent.com/facebookresearch/PurpleLlama/main/CybersecurityBenchmarks/README.md), [interpreter dataset](https://raw.githubusercontent.com/facebookresearch/PurpleLlama/main/CybersecurityBenchmarks/datasets/interpreter/interpreter.json))
 
-### 7) Is there a ready-made “security harness regression suite”?
-I did **not** find one in the gathered evidence. The public pieces exist, but the product-specific regression harness still has to be assembled. ([PurpleLlama CyberSecEval README](https://raw.githubusercontent.com/facebookresearch/PurpleLlama/main/CybersecurityBenchmarks/README.md), [AgentBench README](https://raw.githubusercontent.com/THUDM/AgentBench/main/README.md))
+### 7) Is there a ready-made “Aegis regression suite”?
+I did **not** find one in the gathered evidence. The public pieces exist, but the product-specific regression aegis still has to be assembled. ([PurpleLlama CyberSecEval README](https://raw.githubusercontent.com/facebookresearch/PurpleLlama/main/CybersecurityBenchmarks/README.md), [AgentBench README](https://raw.githubusercontent.com/THUDM/AgentBench/main/README.md))
 
 ### 8) What about Semgrep false-positive rates?
 No Semgrep false-positive benchmark or rule-quality number was established in the gathered evidence set. That needs to be measured with your own target repos and rule pack.
@@ -59,7 +59,7 @@ Use a **two-part evaluation stack**:
 Then add **AgentBench** only as a utility/regression check after the security controls are in place. ([AgentBench README](https://raw.githubusercontent.com/THUDM/AgentBench/main/README.md))
 
 ## Confidence level
-**Medium-high.** The benchmark fit is clear, but the most important layer for this project — the product-specific regression suite — still has to be designed by you because no public suite maps perfectly to the harness. ([PurpleLlama CyberSecEval README](https://raw.githubusercontent.com/facebookresearch/PurpleLlama/main/CybersecurityBenchmarks/README.md), [AgentBench README](https://raw.githubusercontent.com/THUDM/AgentBench/main/README.md))
+**Medium-high.** The benchmark fit is clear, but the most important layer for this project — the product-specific regression suite — still has to be designed by you because no public suite maps perfectly to Aegis. ([PurpleLlama CyberSecEval README](https://raw.githubusercontent.com/facebookresearch/PurpleLlama/main/CybersecurityBenchmarks/README.md), [AgentBench README](https://raw.githubusercontent.com/THUDM/AgentBench/main/README.md))
 
 ## OPEN questions
 1. What exact **release gates** do you want: pass/fail thresholds, trend deltas, or both?

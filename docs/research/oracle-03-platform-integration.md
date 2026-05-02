@@ -1,7 +1,7 @@
 # Oracle 03 — Platform-Agnostic Integration
 
 ## Decision summary
-There is **no official cross-platform security-hook abstraction** that spans Claude Code, OpenCode, and Pi. The clean path is to build a **shared harness core** behind MCP/CLI services, then add **thin platform adapters**, with **Claude Code as the reference implementation first** because it has the strongest native hook, permission, and sandbox story in the gathered evidence. ([Claude hooks guide](https://code.claude.com/docs/en/hooks-guide), [Claude permissions](https://code.claude.com/docs/en/permissions.md), [Claude sandboxing](https://code.claude.com/docs/en/sandboxing.md), [OpenCode plugins](https://opencode.ai/docs/plugins/), [OpenCode permissions](https://opencode.ai/docs/permissions/), [Pi Extension API](https://www.mintlify.com/badlogic/pi-mono/api/coding-agent/extension-api))
+There is **no official cross-platform security-hook abstraction** that spans Claude Code, OpenCode, and Pi. The clean path is to build a **shared aegis core** behind MCP/CLI services, then add **thin platform adapters**, with **Claude Code as the reference implementation first** because it has the strongest native hook, permission, and sandbox story in the gathered evidence. ([Claude hooks guide](https://code.claude.com/docs/en/hooks-guide), [Claude permissions](https://code.claude.com/docs/en/permissions.md), [Claude sandboxing](https://code.claude.com/docs/en/sandboxing.md), [OpenCode plugins](https://opencode.ai/docs/plugins/), [OpenCode permissions](https://opencode.ai/docs/permissions/), [Pi Extension API](https://www.mintlify.com/badlogic/pi-mono/api/coding-agent/extension-api))
 
 ## Researched answers
 
@@ -29,7 +29,7 @@ Equal first-class support across all three platforms means maintaining:
 That is workable only if the shared core stays very small and the adapters remain thin.
 
 ### 7) Existing community projects in this space
-I found cross-platform **context** tools such as **lean-ctx**, **RTK**, and **context-mode** that support multiple coding-agent platforms, but I did **not** find a mature public project in the gathered evidence that already provides a full **security harness across Claude Code, OpenCode, and Pi**. ([lean-ctx README](https://raw.githubusercontent.com/yvgude/lean-ctx/main/README.md), [RTK README](https://raw.githubusercontent.com/rtk-ai/rtk/master/README.md), [context-mode package.json](https://raw.githubusercontent.com/mksglu/context-mode/main/package.json))
+I found cross-platform **context** tools such as **lean-ctx**, **RTK**, and **context-mode** that support multiple coding-agent platforms, but I did **not** find a mature public project in the gathered evidence that already provides a full **Aegis across Claude Code, OpenCode, and Pi**. ([lean-ctx README](https://raw.githubusercontent.com/yvgude/lean-ctx/main/README.md), [RTK README](https://raw.githubusercontent.com/rtk-ai/rtk/master/README.md), [context-mode package.json](https://raw.githubusercontent.com/mksglu/context-mode/main/package.json))
 
 ### 8) Permission prompt automation
 - **Claude Code**: yes; permissions are first-class, and hooks can influence prompting. ([Claude permissions](https://code.claude.com/docs/en/permissions.md), [Claude hooks guide](https://code.claude.com/docs/en/hooks-guide))
@@ -37,7 +37,7 @@ I found cross-platform **context** tools such as **lean-ctx**, **RTK**, and **co
 - **Pi**: possible, but custom; the docs show extension hooks and tool registration, not a built-in policy engine. ([Pi Extension API](https://www.mintlify.com/badlogic/pi-mono/api/coding-agent/extension-api))
 
 ## RECOMMENDATION
-Build the harness in **three layers**:
+Build Aegis in **three layers**:
 1. **Shared core**: sandbox router, secret loader/scanner, policy manifest, and audit/event logger exposed through MCP and small local CLIs. ([Claude MCP docs](https://code.claude.com/docs/en/mcp.md), [OpenCode plugins](https://opencode.ai/docs/plugins/))
 2. **Claude Code adapter first**: implement the full reference flow here because the native hook and sandbox primitives are strongest. ([Claude hooks guide](https://code.claude.com/docs/en/hooks-guide), [Claude sandboxing](https://code.claude.com/docs/en/sandboxing.md))
 3. **OpenCode adapter second, Pi adapter third**: reuse the same core services, but keep platform-specific interception logic minimal. ([OpenCode permissions](https://opencode.ai/docs/permissions/), [Pi Extension API](https://www.mintlify.com/badlogic/pi-mono/api/coding-agent/extension-api))

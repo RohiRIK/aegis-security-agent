@@ -1,4 +1,4 @@
-# Architectural Guidance: Porting Security Harness to OpenCode Plugin
+# Architectural Guidance: Porting Aegis Security to OpenCode Plugin
 
 **Date:** 2026-04-29
 **Status:** Proposed
@@ -25,13 +25,13 @@
 
 ### Current Architecture (Claude Code)
 
-The harness is a **subprocess-per-invocation** system. Each tool call spawns a
+The aegis is a **subprocess-per-invocation** system. Each tool call spawns a
 fresh Bun process that reads JSON from stdin, applies security logic, and
 signals allow/block via exit code. The five security capabilities are:
 
 | Capability | File | Mechanism |
 |---|---|---|
-| High-risk pattern matching | pre-tool-use.ts | Regex against harness-policy.json |
+| High-risk pattern matching | pre-tool-use.ts | Regex against aegis-policy.json |
 | HITL approval gate | hitl-gateway.ts | Terminal readline with timeout |
 | Trivy CVE scan | pre-tool-use.ts | Synthetic lockfile + `trivy fs` |
 | Docker sandbox routing | pre-tool-use.ts + sandbox/*.ts | Command rewrite to `docker exec` |
@@ -105,7 +105,7 @@ src/lib/security/
   trivy.ts         — trivyScan() (takes runCommand as param)
   semgrep.ts       — semgrepScan() (takes runCommand as param)
   audit.ts         — appendAuditEntry() (takes writer as param)
-  types.ts         — HarnessPolicy, ParsedInstall, SemgrepResult, AuditEntry
+  types.ts         — AegisPolicy, ParsedInstall, SemgrepResult, AuditEntry
 ```
 
 ### Consequences
@@ -139,7 +139,7 @@ have terminal access at all.
 | **(A) Terminal subprocess** | Spawn `bun run hitl-gateway.ts` from within the plugin, wait for exit code. | Works but adds cold-start latency and subprocess management in-process. |
 | **(B) Throw-with-message** | For high-risk actions, throw a descriptive error. The agent sees the error, the user sees it in the UI. No interactive approval — just hard block. | Always works. No terminal dependency. Loses approve/deny choice. |
 | **(C) OpenCode client API** | Use `context.client` to render a prompt or notification. Hypothetical — depends on what client API exposes. | Unknown API surface. May not exist. |
-| **(D) File-based gate** | Write a `.harness/pending-approval.json`, throw to block. Separate CLI tool polls and writes `.harness/approved.json`. Plugin checks on next tool call. | Clunky but decouples terminal from plugin. |
+| **(D) File-based gate** | Write a `.aegis/pending-approval.json`, throw to block. Separate CLI tool polls and writes `.aegis/approved.json`. Plugin checks on next tool call. | Clunky but decouples terminal from plugin. |
 
 ### Decision
 
@@ -154,7 +154,7 @@ have terminal access at all.
   matched. The agent can explain to the user why it was blocked.
 - Interactive approval is a Claude Code luxury tied to the subprocess model.
   Porting it 1:1 would fight the platform.
-- **Fallback (A)** can be enabled via `harness-policy.json` flag
+- **Fallback (A)** can be enabled via `aegis-policy.json` flag
   `hitl_mode: "interactive" | "block"`. If the user sets "interactive" and
   OpenCode is running in a terminal-capable environment, spawn the subprocess.
   Otherwise, fall back to throw.
@@ -174,7 +174,7 @@ have terminal access at all.
 
 ### Context
 
-Claude Code harness runs preflight.ts **before** `claude` launches. All 7
+Claude Code aegis runs preflight.ts **before** `claude` launches. All 7
 checks pass or the session never starts. Zero tool calls can execute in an
 unverified environment.
 
@@ -190,7 +190,7 @@ no `session.creating` or `session.before` event. This means:
 | Option | Impact | Complexity |
 |---|---|---|
 | **(A) Compensating control in `tool.execute.before`** | Every tool call runs lightweight preflight. Blocks all tools until preflight passes. State cached after first pass. | Low |
-| **(B) External wrapper script** | `harness-opencode start` runs preflight, then launches `opencode`. Mirrors Claude Code flow. | Low |
+| **(B) External wrapper script** | `aegis-opencode start` runs preflight, then launches `opencode`. Mirrors Claude Code flow. | Low |
 | **(C) Accept regression** | Document that OpenCode doesn't have a pre-session gate. Rely on tool-level checks only. | None |
 | **(D) Lazy preflight + kill** | `session.created` runs preflight. If it fails, use `process.exit()` to kill the process. | Low but brutal |
 
@@ -198,8 +198,8 @@ no `session.creating` or `session.before` event. This means:
 
 **(A) + (B) — Belt and suspenders.**
 
-- **(B)** is the primary control. The `harness` CLI gets an `opencode`
-  subcommand: `harness opencode` runs preflight, then launches `opencode`.
+- **(B)** is the primary control. The `aegis` CLI gets an `opencode`
+  subcommand: `aegis opencode` runs preflight, then launches `opencode`.
   This preserves the true pre-session gate for users who launch via CLI.
 
 - **(A)** is the defensive fallback. The plugin maintains a `preflightPassed`
@@ -210,7 +210,7 @@ no `session.creating` or `session.before` event. This means:
 ### Rationale
 
 - (B) alone is insufficient because users might launch OpenCode directly
-  (not via `harness opencode`), bypassing the wrapper.
+  (not via `aegis opencode`), bypassing the wrapper.
 - (A) alone adds latency to the first tool call (preflight checks take 1-3s)
   but is invisible after that.
 - Together, they provide defense-in-depth: the wrapper catches 90% of launches,
@@ -224,7 +224,7 @@ no `session.creating` or `session.before` event. This means:
 - Preflight results are cached in-memory (plugin lifetime = session lifetime).
 - If Docker isn't running, the first tool call blocks with a clear error
   explaining what to fix.
-- The `harness status` and `harness opencode` commands unify both runtimes.
+- The `aegis status` and `aegis opencode` commands unify both runtimes.
 
 ---
 
@@ -232,7 +232,7 @@ no `session.creating` or `session.before` event. This means:
 
 ### Context
 
-The current harness is 15 files, ~1,100 lines total. The OpenCode plugin needs
+The current aegis is 15 files, ~1,100 lines total. The OpenCode plugin needs
 to live in `.opencode/plugins/` and be discoverable by OpenCode's plugin
 loader.
 
@@ -241,40 +241,40 @@ loader.
 | Option | Pros | Cons |
 |---|---|---|
 | **(A) Single file** | Simple, no bundling, copy-paste install | 500+ lines in one file, hard to test |
-| **(B) Multi-file in `.opencode/plugins/harness/`** | Clean separation, testable | OpenCode may not support subdirectory plugins |
+| **(B) Multi-file in `.opencode/plugins/aegis/`** | Clean separation, testable | OpenCode may not support subdirectory plugins |
 | **(C) npm package** | Proper packaging, versioning, `bun add` | Dependency management contradicts zero-deps ethos, publishing overhead |
 | **(D) Git submodule** | Versioned, separate repo, shared across projects | Git submodule pain |
-| **(E) Symlink from mono-repo** | Plugin code lives in harness repo, symlinked into `.opencode/plugins/` | Fragile paths, platform-specific symlink behavior |
+| **(E) Symlink from mono-repo** | Plugin code lives in aegis repo, symlinked into `.opencode/plugins/` | Fragile paths, platform-specific symlink behavior |
 
 ### Decision
 
-**(E) Symlink from harness repo, with (A) as built artifact.**
+**(E) Symlink from aegis repo, with (A) as built artifact.**
 
 ### Rationale
 
-The harness repo already owns all the security logic. The OpenCode plugin is
+The aegis repo already owns all the security logic. The OpenCode plugin is
 a **thin adapter** (~150 lines) that:
 1. Registers event handlers
 2. Delegates to `src/lib/security/*` shared modules
 3. Manages preflight state
 
-The adapter file lives at `src/opencode-plugin.ts` in the harness repo. The
-`harness install` command creates a symlink:
+The adapter file lives at `src/opencode-plugin.ts` in Aegis repo. The
+`aegis install` command creates a symlink:
 
 ```
-.opencode/plugins/harness.ts → <harness-repo>/src/opencode-plugin.ts
+.opencode/plugins/aegis.ts → <aegis-repo>/src/opencode-plugin.ts
 ```
 
 If OpenCode doesn't support symlinks or subdirectories, fallback to **(A)**:
-`harness install` **copies** the built single-file artifact into
-`.opencode/plugins/harness.ts`.
+`aegis install` **copies** the built single-file artifact into
+`.opencode/plugins/aegis.ts`.
 
 ### Consequences
 
 - Plugin source lives alongside Claude Code hooks — one repo, one review.
-- `harness install` handles provisioning for both runtimes.
+- `aegis install` handles provisioning for both runtimes.
 - If the symlink approach breaks, the copy approach is a simple fallback.
-- Testing: the plugin adapter has its own test file in the harness repo.
+- Testing: the plugin adapter has its own test file in Aegis repo.
 
 ---
 
@@ -282,7 +282,7 @@ If OpenCode doesn't support symlinks or subdirectories, fallback to **(A)**:
 
 ### Context
 
-The harness must work for both Claude Code (subprocess hooks) and OpenCode
+The aegis must work for both Claude Code (subprocess hooks) and OpenCode
 (in-process plugin) simultaneously. The question is where to draw the
 abstraction boundary.
 
@@ -363,19 +363,19 @@ OpenCode shell passes `Bun.$`-based or direct `Bun.file` implementations.
 
 ### Context
 
-The current `harness install` command scaffolds 8 files into a target project
-for Claude Code: hooks.json, .claudeignore, harness-policy.json, .env.schema,
-.gitignore entries, .pre-commit-config.yaml, .harness/ directory, and mcp.json.
+The current `aegis install` command scaffolds 8 files into a target project
+for Claude Code: hooks.json, .claudeignore, aegis-policy.json, .env.schema,
+.gitignore entries, .pre-commit-config.yaml, .aegis/ directory, and mcp.json.
 
 OpenCode needs:
-- Plugin file at `.opencode/plugins/harness.ts`
+- Plugin file at `.opencode/plugins/aegis.ts`
 - Policy file (shared with Claude Code)
-- .harness/ runtime directory
+- .aegis/ runtime directory
 - No hooks.json equivalent (plugin discovery is automatic)
 
 ### Decision
 
-**Extend `harness install` with runtime detection.**
+**Extend `aegis install` with runtime detection.**
 
 The install command detects which runtimes are present and scaffolds
 accordingly:
@@ -384,7 +384,7 @@ accordingly:
 |---|---|
 | `.claude/` exists or `--claude` flag | Scaffold Claude Code hooks.json, .claudeignore, mcp.json |
 | `.opencode/` exists or `--opencode` flag | Create `.opencode/plugins/`, symlink/copy plugin file |
-| Always | harness-policy.json, .env.schema, .gitignore, .harness/, .pre-commit-config.yaml |
+| Always | aegis-policy.json, .env.schema, .gitignore, .aegis/, .pre-commit-config.yaml |
 
 The shared files (policy, schema, gitignore, pre-commit) are written once
 regardless of runtime. Runtime-specific files are conditional.
@@ -392,17 +392,17 @@ regardless of runtime. Runtime-specific files are conditional.
 ### New CLI Surface
 
 ```
-harness install              # Auto-detect, scaffold both if applicable
-harness install --claude     # Claude Code only
-harness install --opencode   # OpenCode only
-harness opencode [args]      # Preflight + launch opencode (mirrors 'harness start')
+aegis install              # Auto-detect, scaffold both if applicable
+aegis install --claude     # Claude Code only
+aegis install --opencode   # OpenCode only
+aegis opencode [args]      # Preflight + launch opencode (mirrors 'aegis start')
 ```
 
 ### Consequences
 
 - Users don't need to know which scaffolding is for which runtime.
-- `harness install` is idempotent — re-running doesn't clobber existing config.
-- The `harness opencode` command provides the pre-session gate wrapper.
+- `aegis install` is idempotent — re-running doesn't clobber existing config.
+- The `aegis opencode` command provides the pre-session gate wrapper.
 - Solo dev maintains one install script, not two.
 
 ---
@@ -416,9 +416,9 @@ harness opencode [args]      # Preflight + launch opencode (mirrors 'harness sta
 │                        Developer Workstation                         │
 │                                                                      │
 │  ┌──────────┐     ┌────────────────────────────────────────────┐    │
-│  │          │     │         Security Harness                    │    │
+│  │          │     │         Aegis Security                    │    │
 │  │  Human   │────>│                                            │    │
-│  │Developer │     │  CLI: harness start | opencode | install   │    │
+│  │Developer │     │  CLI: aegis start | opencode | install   │    │
 │  │          │<────│  HITL: approve/deny prompts                │    │
 │  └──────────┘     └──────────────┬─────────────────────────────┘    │
 │                                  │                                   │
@@ -440,7 +440,7 @@ harness opencode [args]      # Preflight + launch opencode (mirrors 'harness sta
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│                          Security Harness Repo                           │
+│                          Aegis Security Repo                           │
 │                                                                          │
 │  ┌────────────────────────────────────────────────────────────────────┐  │
 │  │                     src/lib/security/  (SHARED CORE)               │  │
@@ -455,7 +455,7 @@ harness opencode [args]      # Preflight + launch opencode (mirrors 'harness sta
 │  │  ┌───────────────────┐  ┌────────────────┐                        │  │
 │  │  │preflight-checks   │  │ types          │                        │  │
 │  │  │                   │  │                │                        │  │
-│  │  │ checkVarlock()    │  │ HarnessPolicy  │                        │  │
+│  │  │ checkVarlock()    │  │ AegisPolicy  │                        │  │
 │  │  │ checkEnvClean()   │  │ ParsedInstall  │                        │  │
 │  │  │ checkDocker()     │  │ SemgrepResult  │                        │  │
 │  │  │ checkSchema()     │  │ AuditEntry     │                        │  │
@@ -517,7 +517,7 @@ harness opencode [args]      # Preflight + launch opencode (mirrors 'harness sta
 │  │     CVE found │   State:                                     │
 │  │               │   ┌──────────────────────────┐               │
 │  │ sandbox route │   │ preflightPassed: boolean │               │
-│  │   → rewrite?  │   │ policyCache: HarnessPolicy│              │
+│  │   → rewrite?  │   │ policyCache: AegisPolicy│              │
 │  │   → or throw  │   │ auditLogPath: string     │               │
 │  └───────────────┘   └──────────────────────────┘               │
 └──────────────────────────────────────────────────────────────────┘
@@ -643,7 +643,7 @@ type TrivyDeps = {
 
 **Description:** Claude Code's pre-tool-use hook rewrites
 `tool_input.command` to route bash commands through `docker exec
-harness-sandbox`. This is the primary sandbox enforcement mechanism.
+aegis-sandbox`. This is the primary sandbox enforcement mechanism.
 OpenCode's `tool.execute.before` event can block (throw) but cannot rewrite
 the command. If the tool is allowed, it runs as-is on the host.
 
@@ -655,9 +655,9 @@ sandbox. This is a **fundamental security regression**.
 | Mitigation | Effectiveness | Complexity |
 |---|---|---|
 | **(M1) Block-only policy** | Instead of sandboxing, block all commands matching `run_shell.default = "sandbox"`. User must manually approve via separate tool. | High security, bad UX |
-| **(M2) OpenCode permission layer** | Rely on OpenCode's native permission system (if it has `bash: "ask"` equivalent). Harness policy becomes advisory. | Depends on OpenCode maturity |
+| **(M2) OpenCode permission layer** | Rely on OpenCode's native permission system (if it has `bash: "ask"` equivalent). Aegis policy becomes advisory. | Depends on OpenCode maturity |
 | **(M3) Feature request to OpenCode** | Request `tool.execute.before` to support command mutation (return modified event). | Long-term, no guarantee |
-| **(M4) CLAUDE.md / AGENTS.md instruction** | Inject immutable instruction: "ALL shell commands MUST be prefixed with `docker exec harness-sandbox bash -c`". Prompt-level enforcement. | Weak — agent can ignore |
+| **(M4) CLAUDE.md / AGENTS.md instruction** | Inject immutable instruction: "ALL shell commands MUST be prefixed with `docker exec aegis-sandbox bash -c`". Prompt-level enforcement. | Weak — agent can ignore |
 | **(M5) Wrapper detection** | In `tool.execute.after`, check if the command ran on host when it should have been sandboxed. Log a security violation. Detective, not preventive. | Medium — audit trail only |
 
 **Recommendation:** **(M1) + (M5)** — Block by default, detect violations as
@@ -684,7 +684,7 @@ take down the agent session. The security tool becomes a reliability risk.
 | Mitigation | Effectiveness |
 |---|---|
 | **(M1) Top-level try/catch in every handler** | Catches all sync/async errors. On catch: log error, allow the tool call (fail-open). |
-| **(M2) Fail-closed try/catch** | On catch: `throw new Error("Harness internal error — tool blocked for safety")`. Safer but annoying if buggy. |
+| **(M2) Fail-closed try/catch** | On catch: `throw new Error("Aegis internal error — tool blocked for safety")`. Safer but annoying if buggy. |
 | **(M3) Timeout wrapper** | Wrap each handler in `Promise.race([handler(), timeout(5000)])`. If the security check hangs, fail-open or fail-closed per policy. |
 
 **Recommendation:** **(M2) + (M3)** — Fail-closed with a 5-second timeout.
@@ -706,7 +706,7 @@ cause duplicate Docker container starts, redundant Varlock checks, or
 conflicting audit log writes.
 
 **Impact:** Mostly benign (duplicate work, confusing logs) but could cause
-Docker errors if two `docker run` commands try to create `harness-sandbox`
+Docker errors if two `docker run` commands try to create `aegis-sandbox`
 simultaneously.
 
 **Mitigations:**
@@ -729,6 +729,6 @@ preflight runs. Idempotent checks are good hygiene regardless.
 | ADR-001 | Shared logic | Extract `src/lib/security/` | Refactor effort vs. drift prevention |
 | ADR-002 | HITL model | Throw-to-block (interactive opt-in) | Stricter by default, worse UX |
 | ADR-003 | Session gate | Wrapper CLI + in-plugin lazy preflight | Belt-and-suspenders complexity |
-| ADR-004 | Plugin structure | Symlink from harness repo | Fragile paths vs. one source of truth |
+| ADR-004 | Plugin structure | Symlink from aegis repo | Fragile paths vs. one source of truth |
 | ADR-005 | Dual-runtime | Pure-core + thin shells | I/O injection verbosity |
-| ADR-006 | Install flow | Extend `harness install` with auto-detect | One command, conditional scaffolding |
+| ADR-006 | Install flow | Extend `aegis install` with auto-detect | One command, conditional scaffolding |

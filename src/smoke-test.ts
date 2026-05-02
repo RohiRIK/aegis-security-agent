@@ -70,13 +70,13 @@ async function main(): Promise<number> {
   });
 
   await runTest("T-004: Sandbox cannot read host sentinel", async () => {
-    const command = `echo 'SENTINEL' > /tmp/harness-canary && result=$(docker exec harness-sandbox cat /tmp/harness-canary 2>&1 || true); echo "$result" | grep -qv 'SENTINEL'`;
+    const command = `echo 'SENTINEL' > /tmp/aegis-canary && result=$(docker exec aegis-sandbox cat /tmp/aegis-canary 2>&1 || true); echo "$result" | grep -qv 'SENTINEL'`;
     return await shellSucceeds(command);
   });
 
   await runTestIfAvailable("T-005: Semgrep detects shell-injection vulnerability", "semgrep", async () => {
-    const tmpFile = join(ROOT, ".harness", `smoke-semgrep-${crypto.randomUUID()}.py`);
-    await ensureDir(join(ROOT, ".harness"));
+    const tmpFile = join(ROOT, ".aegis", `smoke-semgrep-${crypto.randomUUID()}.py`);
+    await ensureDir(join(ROOT, ".aegis"));
     await Bun.write(tmpFile, 'import subprocess\nuser_input = input()\nsubprocess.run(user_input, shell=True)\n');
     try {
       const result = await runShellCapture(`semgrep scan --config=p/python --json --metrics=off ${JSON.stringify(tmpFile)} 2>/dev/null`);
@@ -94,9 +94,9 @@ async function main(): Promise<number> {
   });
 
   await runTest("T-007: lean-ctx DB clean of sensitive patterns", async () => {
-    const harnessRuntimeDir = join(ROOT, ".harness");
-    await ensureDir(harnessRuntimeDir);
-    const tempDbPath = join(harnessRuntimeDir, `lean-ctx-smoke-${crypto.randomUUID()}.db`);
+    const aegisRuntimeDir = join(ROOT, ".aegis");
+    await ensureDir(aegisRuntimeDir);
+    const tempDbPath = join(aegisRuntimeDir, `lean-ctx-smoke-${crypto.randomUUID()}.db`);
 
     try {
       const database = new Database(tempDbPath, { create: true });
@@ -125,9 +125,9 @@ async function main(): Promise<number> {
     return Object.values(servers).every((server) => server.type === "stdio");
   });
 
-  await runTest("T-010: harness shred removes lean-ctx.db", async () => {
-    const dbPath = join(ROOT, ".harness", "lean-ctx.db");
-    await ensureDir(join(ROOT, ".harness"));
+  await runTest("T-010: aegis shred removes lean-ctx.db", async () => {
+    const dbPath = join(ROOT, ".aegis", "lean-ctx.db");
+    await ensureDir(join(ROOT, ".aegis"));
     await Bun.write(dbPath, "");
     const exitCode = await runCommandInherit(["bun", "run", join(ROOT, "src", "shred.ts")], {
       stdout: "ignore",

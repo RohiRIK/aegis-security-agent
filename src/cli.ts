@@ -3,15 +3,15 @@ import { join, resolve } from "node:path";
 import { fileExists, runCommandCapture, runCommandInherit } from "./lib/base.ts";
 import { c, icon, print, printHeader, println, printStatusTable } from "./lib/ui.ts";
 
-const HARNESS_DIR = resolve(import.meta.dir, "..");
+const AEGIS_DIR = resolve(import.meta.dir, "..");
 
 const HELP_TEXT = [
   `  ${c.bold("Commands")}`,
   `    ${c.cyan("start")}    ${c.dim("Run pre-flight checks then launch Claude Code")}`,
   `    ${c.cyan("stop")}     ${c.dim("Stop the sandbox container")}`,
   `    ${c.cyan("install")}  ${c.dim("Scaffold all config files in the current project")}`,
-  `    ${c.cyan("shred")}    ${c.dim("Delete all sensitive harness runtime data")}`,
-  `    ${c.cyan("status")}   ${c.dim("Show status of all harness components")}`,
+  `    ${c.cyan("shred")}    ${c.dim("Delete all sensitive aegis runtime data")}`,
+  `    ${c.cyan("status")}   ${c.dim("Show status of all aegis components")}`,
   `    ${c.cyan("help")}     ${c.dim("Show this help")}`,
 ].join("\n");
 
@@ -21,16 +21,16 @@ async function runBunScript(scriptPath: string, args: string[] = []): Promise<nu
 
 async function showStatus(): Promise<number> {
   const [sandbox, hooks, policy, schema, precommit] = await Promise.all([
-    runCommandCapture(["docker", "ps", "--filter", "name=harness-sandbox", "--filter", "status=running", "--format", "{{.Names}}"]),
-    fileExists(join(HARNESS_DIR, ".claude", "hooks.json")),
-    fileExists(join(HARNESS_DIR, "harness-policy.json")),
-    fileExists(join(HARNESS_DIR, ".env.schema")),
-    fileExists(join(HARNESS_DIR, ".git", "hooks", "pre-commit")),
+    runCommandCapture(["docker", "ps", "--filter", "name=aegis-sandbox", "--filter", "status=running", "--format", "{{.Names}}"]),
+    fileExists(join(AEGIS_DIR, ".claude", "hooks.json")),
+    fileExists(join(AEGIS_DIR, "aegis-policy.json")),
+    fileExists(join(AEGIS_DIR, ".env.schema")),
+    fileExists(join(AEGIS_DIR, ".git", "hooks", "pre-commit")),
   ]);
 
   printHeader();
   printStatusTable([
-    { label: "Sandbox container", value: sandbox.stdout.includes("harness-sandbox") ? "running" : "stopped", ok: sandbox.stdout.includes("harness-sandbox") },
+    { label: "Sandbox container", value: sandbox.stdout.includes("aegis-sandbox") ? "running" : "stopped", ok: sandbox.stdout.includes("aegis-sandbox") },
     { label: "Hooks config", value: hooks ? "present" : "missing", ok: hooks },
     { label: "Policy file", value: policy ? "present" : "missing", ok: policy },
     { label: ".env.schema", value: schema ? "present" : "missing", ok: schema },
@@ -48,7 +48,7 @@ async function main(): Promise<number> {
       printHeader();
       println(`  ${icon.lock} ${c.bold("Pre-flight")}  ${c.dim("verifying environment before agent launch")}`);
       println();
-      const preflightCode = await runBunScript(join(HARNESS_DIR, "src", "preflight.ts"));
+      const preflightCode = await runBunScript(join(AEGIS_DIR, "src", "preflight.ts"));
       if (preflightCode !== 0) return preflightCode;
       println(`  ${icon.fire} ${c.bold("Launching Claude Code…")}`);
       println();
@@ -56,17 +56,17 @@ async function main(): Promise<number> {
     }
     case "stop": {
       print(`  ${icon.info} Stopping sandbox… `);
-      const code = await runBunScript(join(HARNESS_DIR, "src", "sandbox", "stop.ts"));
+      const code = await runBunScript(join(AEGIS_DIR, "src", "sandbox", "stop.ts"));
       println(code === 0 ? icon.pass : icon.fail);
       return code;
     }
     case "install": {
-      println(`  ${icon.info} ${c.bold("Installing harness config files…")}`);
-      return await runBunScript(join(HARNESS_DIR, "src", "install.ts"));
+      println(`  ${icon.info} ${c.bold("Installing aegis config files…")}`);
+      return await runBunScript(join(AEGIS_DIR, "src", "install.ts"));
     }
     case "shred": {
       println(`  ${icon.warn} ${c.bold(c.yellow("Shredding sensitive runtime data…"))}`);
-      return await runBunScript(join(HARNESS_DIR, "src", "shred.ts"), args);
+      return await runBunScript(join(AEGIS_DIR, "src", "shred.ts"), args);
     }
     case "status":
       return await showStatus();
@@ -80,7 +80,7 @@ async function main(): Promise<number> {
     }
     default: {
       process.stderr.write(`  ${icon.fail} Unknown command: ${c.bold(command)}\n`);
-      process.stderr.write(`  Run ${c.cyan("harness help")} for usage.\n`);
+      process.stderr.write(`  Run ${c.cyan("aegis help")} for usage.\n`);
       return 1;
     }
   }
