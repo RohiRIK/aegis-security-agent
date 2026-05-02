@@ -748,7 +748,7 @@ Wave FINAL (After ALL — 4 parallel reviews):
   **Commit**: YES
   - Message: `build: add bun build pipeline for dist + CLI`
 
-- [ ] 12. GitHub Actions release workflow
+- [x] 12. GitHub Actions release workflow
 
   **What to do**:
   - Create `.github/workflows/release.yml`:
@@ -797,7 +797,7 @@ Wave FINAL (After ALL — 4 parallel reviews):
   **Commit**: YES (groups with 13)
   - Message: `ci: add release + CI workflows`
 
-- [ ] 13. Standalone binary compilation
+- [x] 13. Standalone binary compilation
 
   **What to do**:
   - Create `scripts/build-binaries.ts`:

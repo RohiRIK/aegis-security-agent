@@ -15,6 +15,7 @@
 # Bun
 node_modules/
 bun.lockb
+binaries/
 
 # Machine-specific config (absolute paths)
 .claude/

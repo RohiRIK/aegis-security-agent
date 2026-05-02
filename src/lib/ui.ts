@@ -43,7 +43,7 @@ export function clearLine(): void {
 
 export function printHeader(): void {
   println();
-  println(`  ${icon.shield}  ${c.bold(c.white("Harness"))} ${c.dim("· AI-Agent Security Harness")}`);
+  println(`  ${icon.shield}  ${c.bold(c.white("Aegis"))} ${c.dim("· AI-Agent Security")}`);
   println(c.dim("  ─────────────────────────────────────"));
   println();
 }
