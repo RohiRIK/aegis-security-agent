@@ -10,6 +10,15 @@ import { DEFAULT_SENSITIVE_VARS } from "../core/security.ts";
 export type HarnessPolicy = {
   high_risk_patterns?: string[];
   hitl_timeout_seconds?: number;
+  routing?: {
+    host_passthrough?: string[];
+    sandbox_required?: string[];
+  };
+  degraded_mode?: {
+    allow_host_passthrough?: boolean;
+    block_sandbox_required?: boolean;
+    warn_on_degraded?: boolean;
+  };
   actions?: {
     read_file?: { default?: string; deny_patterns?: string[] };
     edit_file?: { default?: string; allow_patterns?: string[]; deny_patterns?: string[] };
