@@ -4,8 +4,10 @@
   "workspaces": {
     "": {
       "name": "03-super-duper-security-agent",
-      "devDependencies": {
+      "dependencies": {
         "@opencode-ai/plugin": "^1.14.30",
+      },
+      "devDependencies": {
         "@types/bun": "latest",
       },
     },

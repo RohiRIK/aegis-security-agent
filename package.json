@@ -1,14 +1,32 @@
 {
-  "name": "03-super-duper-security-agent",
+  "name": "@aegis/opencode",
+  "version": "0.1.0",
   "type": "module",
-  "private": true,
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "aegis": "bin/aegis.js"
+  },
+  "files": ["dist", "bin"],
   "scripts": {
+    "build": "bun build src/opencode/index.ts --outdir dist --target bun --format esm --external @opencode-ai/plugin && bun build src/cli/index.ts --outdir dist/cli --target bun --format esm --external @opencode-ai/plugin",
+    "build:types": "tsc --emitDeclarationOnly --outDir dist --declaration",
+    "build:binaries": "bun run scripts/build-binaries.ts",
+    "prepublishOnly": "bun run build && bun run build:types && bun test",
     "preflight": "bun run src/preflight.ts",
     "smoke-test": "bun run src/smoke-test.ts",
-    "install-aegis": "bun run src/install.ts"
+    "install-aegis": "bun run src/install.ts",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "^1.14.30"
   },
   "devDependencies": {
-    "@opencode-ai/plugin": "^1.14.30",
     "@types/bun": "latest"
   }
 }

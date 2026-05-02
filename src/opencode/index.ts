@@ -45,7 +45,7 @@ function safe(handler: AnyHandler, opts?: { swallow?: boolean; onError?: () => v
   };
 }
 
-export const HarnessSecurityPlugin: Plugin = async ({ directory }) => {
+export const AegisSecurityPlugin: Plugin = async ({ directory }) => {
   const policy = JSON.parse(
     await Bun.file(join(directory, "aegis-policy.json")).text(),
   ) as HarnessPolicy;
@@ -82,4 +82,4 @@ export const HarnessSecurityPlugin: Plugin = async ({ directory }) => {
   };
 };
 
-export default HarnessSecurityPlugin;
+export default AegisSecurityPlugin;
