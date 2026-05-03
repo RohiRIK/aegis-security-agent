@@ -36,6 +36,7 @@
   ],
   "routing": {
     "host_passthrough": [
+      "^cd ",
       "^git ",
       "^bun (tsc|test|run)",
       "^ls\\b",
@@ -49,7 +50,13 @@
       "^tail ",
       "^wc ",
       "^sort ",
-      "^diff "
+      "^diff ",
+      "^semgrep ",
+      "^trivy ",
+      "^trufflehog ",
+      "^bunx varlock ",
+      "^bun audit",
+      "^docker inspect "
     ],
     "sandbox_required": [
       "^bun (install|add|x|pm)",
