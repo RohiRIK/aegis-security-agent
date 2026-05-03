@@ -26,7 +26,7 @@ You can install Aegis for different AI agents using the following paths.
 **For OpenCode users:**
 
 ```bash
-bunx aegis-security-agent install
+bunx aegis-security-agent install --opencode
 ```
 
 This command creates:
@@ -51,6 +51,8 @@ This command creates:
 - `aegis-policy.json`: Security policy.
 
 **Flags:**
+- `--opencode`: Install for OpenCode (default).
+- `--claude`: Install for Claude Code.
 - `--force`: Overwrite existing files.
 - `--skip-docker`: Skip the Docker availability check.
 

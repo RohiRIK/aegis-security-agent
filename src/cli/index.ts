@@ -16,6 +16,12 @@ const HELP_TEXT = [
   `    ${c.cyan("install")}  ${c.dim("Install Aegis config into the current project")}`,
   `    ${c.cyan("status")}   ${c.dim("Show installation status")}`,
   `    ${c.cyan("help")}     ${c.dim("Show this help")}`,
+  "",
+  `  ${c.bold("Install Flags")}`,
+  `    ${c.cyan("--opencode")}     ${c.dim("Install for OpenCode (default)")}`,
+  `    ${c.cyan("--claude")}       ${c.dim("Install for Claude Code")}`,
+  `    ${c.cyan("--force")}        ${c.dim("Overwrite existing files")}`,
+  `    ${c.cyan("--skip-docker")}  ${c.dim("Skip Docker availability check")}`,
 ].join("\n");
 
 function parseInstallFlags(args: string[]): InstallFlags {
@@ -37,7 +43,7 @@ async function runInstallCommand(args: string[]): Promise<number> {
 
 async function showStatus(): Promise<number> {
   printHeader();
-  println(`  ${icon.info} Use 'bunx aegis-security status' or install to get full status`);
+  println(`  ${icon.info} Use 'bunx aegis-security-agent status' or install to get full status`);
   println();
   return 0;
 }
