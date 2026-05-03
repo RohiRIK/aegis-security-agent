@@ -13,7 +13,7 @@
   "bin": {
     "aegis": "bin/aegis.ts"
   },
-  "files": ["dist", "bin"],
+  "files": ["dist", "bin", "scanners-manifest.json"],
   "scripts": {
     "build": "bun build src/opencode/index.ts --outdir dist --target bun --format esm --external @opencode-ai/plugin && bun build src/cli/index.ts --outdir dist/cli --target bun --format esm --external @opencode-ai/plugin",
     "build:types": "tsc --emitDeclarationOnly --outDir dist --declaration",

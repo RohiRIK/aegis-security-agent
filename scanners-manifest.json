@@ -1,0 +1,66 @@
+{
+  "scanners": {
+    "trivy": {
+      "version": "0.70.0",
+      "kind": "binary",
+      "platforms": {
+        "darwin-arm64": {
+          "url": "https://github.com/aquasecurity/trivy/releases/download/v0.70.0/trivy_0.70.0_macOS-ARM64.tar.gz",
+          "sha256": "68e543c51dcc96e1c344053a4fde9660cf602c25565d9f09dc17dd41e13b838a",
+          "binaryName": "trivy"
+        },
+        "darwin-x64": {
+          "url": "https://github.com/aquasecurity/trivy/releases/download/v0.70.0/trivy_0.70.0_macOS-64bit.tar.gz",
+          "sha256": "52d531452b19e7593da29366007d02a810e1e0080d02f9cf6a1afb46c35aaa93",
+          "binaryName": "trivy"
+        },
+        "linux-arm64": {
+          "url": "https://github.com/aquasecurity/trivy/releases/download/v0.70.0/trivy_0.70.0_Linux-ARM64.tar.gz",
+          "sha256": "2f6bb988b553a1bbac6bdd1ce890f5e412439564e17522b88a4541b4f364fc8d",
+          "binaryName": "trivy"
+        },
+        "linux-x64": {
+          "url": "https://github.com/aquasecurity/trivy/releases/download/v0.70.0/trivy_0.70.0_Linux-64bit.tar.gz",
+          "sha256": "8b4376d5d6befe5c24d503f10ff136d9e0c49f9127a4279fd110b727929a5aa9",
+          "binaryName": "trivy"
+        }
+      },
+      "checksumUrl": "https://github.com/aquasecurity/trivy/releases/download/v0.70.0/trivy_0.70.0_checksums.txt"
+    },
+    "trufflehog": {
+      "version": "3.95.2",
+      "kind": "binary",
+      "platforms": {
+        "darwin-arm64": {
+          "url": "https://github.com/trufflesecurity/trufflehog/releases/download/v3.95.2/trufflehog_3.95.2_darwin_arm64.tar.gz",
+          "sha256": "382c719794eda239e6d4944ea40efbdce65e8b6a36cd030948254068e666185c",
+          "binaryName": "trufflehog"
+        },
+        "darwin-x64": {
+          "url": "https://github.com/trufflesecurity/trufflehog/releases/download/v3.95.2/trufflehog_3.95.2_darwin_amd64.tar.gz",
+          "sha256": "e414f488fcf0c39f2b2ce283eaa15ab37cab4569e03a5763d19dc592ca4b0cdd",
+          "binaryName": "trufflehog"
+        },
+        "linux-arm64": {
+          "url": "https://github.com/trufflesecurity/trufflehog/releases/download/v3.95.2/trufflehog_3.95.2_linux_arm64.tar.gz",
+          "sha256": "5588f09da2d52e840273b6a8c57751021709182dff42574f09dbaf81ebdf8366",
+          "binaryName": "trufflehog"
+        },
+        "linux-x64": {
+          "url": "https://github.com/trufflesecurity/trufflehog/releases/download/v3.95.2/trufflehog_3.95.2_linux_amd64.tar.gz",
+          "sha256": "fded1c139fe4d3872d9fde65e1428d82d5556d655439e82f492d87ae8d846779",
+          "binaryName": "trufflehog"
+        }
+      },
+      "checksumUrl": "https://github.com/trufflesecurity/trufflehog/releases/download/v3.95.2/trufflehog_3.95.2_checksums.txt"
+    },
+    "semgrep": {
+      "version": "1.158.0",
+      "kind": "python-tool",
+      "commands": [
+        "pipx install semgrep==1.158.0",
+        "uv tool install semgrep==1.158.0"
+      ]
+    }
+  }
+}

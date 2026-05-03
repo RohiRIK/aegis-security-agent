@@ -12,6 +12,19 @@ import {
   writeCacheEntry,
 } from "./scan-cache.ts";
 
+export async function resolveScanner(scanner: string): Promise<string> {
+  try {
+    const { ensureLatest, resolveToolPath } = require("./provisioner/manager.ts") as {
+      ensureLatest: (scanner: string) => Promise<void>;
+      resolveToolPath: (scanner: string) => string | null;
+    };
+    await ensureLatest(scanner as never);
+    return resolveToolPath(scanner as never) ?? scanner;
+  } catch {
+    return scanner;
+  }
+}
+
 export type ScannerResult = {
   status: "ok" | "timeout" | "error" | "cached";
   exitCode: number;
@@ -95,7 +108,7 @@ async function getScannerVersion(scanner: string): Promise<string> {
   }
 
   try {
-    const proc = Bun.spawn([scanner, "--version"], { stdout: "pipe", stderr: "pipe" });
+    const proc = Bun.spawn([await resolveScanner(scanner), "--version"], { stdout: "pipe", stderr: "pipe" });
     const exitCode = await proc.exited;
     if (exitCode === 0) {
       const version = (await new Response(proc.stdout).text()).trim();
@@ -170,7 +183,7 @@ export async function wrapSemgrep(filePath: string): Promise<ScannerResult> {
   }
 
   const result = await scannerRunner.runScannerWithTimeout(
-    ["semgrep", "scan", "--config=p/security-audit", "--config=p/secrets", "--json", filePath],
+    [await resolveScanner("semgrep"), "scan", "--config=p/security-audit", "--config=p/secrets", "--json", filePath],
     SCANNER_BUDGETS.semgrep,
   );
 
@@ -186,7 +199,7 @@ export async function wrapTrivy(args: string[]): Promise<ScannerResult> {
     return cached;
   }
 
-  const result = await scannerRunner.runScannerWithTimeout(["trivy", ...args], SCANNER_BUDGETS.trivy);
+  const result = await scannerRunner.runScannerWithTimeout([await resolveScanner("trivy"), ...args], SCANNER_BUDGETS.trivy);
   await writeScannerCache("trivy", key, result);
   return result;
 }
@@ -200,7 +213,7 @@ export async function wrapTrufflehog(targetPath: string): Promise<ScannerResult>
   }
 
   const result = await scannerRunner.runScannerWithTimeout(
-    ["trufflehog", "filesystem", "--json", targetPath],
+    [await resolveScanner("trufflehog"), "filesystem", "--json", targetPath],
     SCANNER_BUDGETS.trufflehog,
   );
 

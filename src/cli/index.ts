@@ -15,6 +15,7 @@ const HELP_TEXT = [
   `  ${c.bold("Commands")}`,
   `    ${c.cyan("install")}  ${c.dim("Install Aegis config into the current project")}`,
   `    ${c.cyan("status")}   ${c.dim("Show installation status")}`,
+  `    ${c.cyan("tools")}    ${c.dim("Install, check, or remove scanner binaries")}`,
   `    ${c.cyan("help")}     ${c.dim("Show this help")}`,
   "",
   `  ${c.bold("Install Flags")}`,
@@ -57,6 +58,11 @@ async function main(): Promise<number> {
       return await runInstallCommand(args);
     case "status":
       return await showStatus();
+    case "tools": {
+      const { runToolsCommand } = await import("./tools.ts");
+      const [subcommand, ...toolArgs] = args;
+      return await runToolsCommand(subcommand ?? "status", toolArgs);
+    }
     case "help":
     case "--help":
     case "-h":

@@ -1,13 +1,15 @@
-import { describe, expect, spyOn, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import crypto from "node:crypto";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import * as manager from "./provisioner/manager.ts";
 import {
   SCANNER_BUDGETS,
   scannerRunner,
   runScannerWithTimeout,
+  resolveScanner,
   wrapSemgrep,
   wrapTrivy,
   type ScannerResult,
@@ -103,6 +105,16 @@ describe("runScannerWithTimeout", () => {
 });
 
 describe("scanner wrappers", () => {
+  let ensureSpy: ReturnType<typeof spyOn>;
+
+  beforeEach(() => {
+    ensureSpy = spyOn(manager, "ensureLatest").mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    ensureSpy.mockRestore();
+  });
+
   test("wrapSemgrep uses 120000ms budget", async () => {
     const runnerSpy = spyOn(scannerRunner, "runScannerWithTimeout").mockResolvedValue(okResult);
     const versionSpy = spyOn(scannerRunner, "getScannerVersion").mockResolvedValue("1.0.0");
@@ -112,7 +124,7 @@ describe("scanner wrappers", () => {
       await wrapSemgrep(targetPath);
 
       expect(runnerSpy).toHaveBeenCalledWith(
-        ["semgrep", "scan", "--config=p/security-audit", "--config=p/secrets", "--json", targetPath],
+        [await resolveScanner("semgrep"), "scan", "--config=p/security-audit", "--config=p/secrets", "--json", targetPath],
         SCANNER_BUDGETS.semgrep,
       );
     } finally {
@@ -130,12 +142,25 @@ describe("scanner wrappers", () => {
       await wrapTrivy(["fs", "--format", "json", targetPath]);
 
       expect(runnerSpy).toHaveBeenCalledWith(
-        ["trivy", "fs", "--format", "json", targetPath],
+        [await resolveScanner("trivy"), "fs", "--format", "json", targetPath],
         SCANNER_BUDGETS.trivy,
       );
     } finally {
       runnerSpy.mockRestore();
       versionSpy.mockRestore();
     }
+  });
+});
+
+describe("resolveScanner", () => {
+  test("returns provisioned path or bare name for known scanner", async () => {
+    const result = await resolveScanner("trivy");
+    expect(typeof result).toBe("string");
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  test("returns bare scanner name as fallback for unknown scanner", async () => {
+    const result = await resolveScanner("unknown-scanner-xyz");
+    expect(result).toBe("unknown-scanner-xyz");
   });
 });

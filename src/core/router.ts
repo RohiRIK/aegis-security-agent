@@ -3,7 +3,7 @@ import { matchHighRiskPattern } from "./security.ts";
 export type RouteDecision = "host" | "sandbox" | "hitl";
 
 const CHAIN_OPERATOR_PATTERN = /&&|\|\||;|\|/;
-const SAFE_CHAIN_COMMANDS = new Set(["exit", "head"]);
+const SAFE_CHAIN_COMMANDS = new Set(["exit", "head", "tail", "wc", "sort", "jq", "diff"]);
 
 export type RoutingPolicy = {
   high_risk_patterns?: string[];

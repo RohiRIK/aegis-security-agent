@@ -1,6 +1,554 @@
 // @bun
+var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+function __accessProp(key) {
+  return this[key];
+}
+var __toCommonJS = (from) => {
+  var entry = (__moduleCache ??= new WeakMap).get(from), desc;
+  if (entry)
+    return entry;
+  entry = __defProp({}, "__esModule", { value: true });
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (var key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(entry, key))
+        __defProp(entry, key, {
+          get: __accessProp.bind(from, key),
+          enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
+        });
+  }
+  __moduleCache.set(from, entry);
+  return entry;
+};
+var __moduleCache;
+var __returnValue = (v) => v;
+function __exportSetter(name, newValue) {
+  this[name] = __returnValue.bind(null, newValue);
+}
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, {
+      get: all[name],
+      enumerable: true,
+      configurable: true,
+      set: __exportSetter.bind(all, name)
+    });
+};
+var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
+
+// src/lib/provisioner/downloader.ts
+import crypto2 from "crypto";
+import { chmod, mkdir, readdir, rename, rm, stat } from "fs/promises";
+import { basename as basename2, join as join2 } from "path";
+function getToken(explicitToken) {
+  return explicitToken?.trim() || process.env.GITHUB_TOKEN?.trim() || process.env.GH_TOKEN?.trim();
+}
+function toErrorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+async function cleanupPath(path) {
+  await rm(path, { recursive: true, force: true });
+}
+async function ensureNoActiveTempFile(tempPath) {
+  try {
+    const tempStat = await stat(tempPath);
+    if (Date.now() - tempStat.mtimeMs < LOCK_MAX_AGE_MS) {
+      throw new ActiveProvisioningError("Provisioning already in progress");
+    }
+    await cleanupPath(tempPath);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return;
+    }
+    throw error;
+  }
+}
+async function findBinary(extractDir, binaryName) {
+  const entries = await readdir(extractDir, { recursive: true, withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isFile() || basename2(entry.name) !== binaryName) {
+      continue;
+    }
+    const relativePath = "parentPath" in entry && typeof entry.parentPath === "string" ? join2(entry.parentPath, entry.name) : join2(extractDir, entry.name);
+    return relativePath;
+  }
+  return null;
+}
+async function verifyChecksum(filePath, expectedSha256) {
+  const buffer = Buffer.from(await Bun.file(filePath).arrayBuffer());
+  return crypto2.createHash("sha256").update(buffer).digest("hex") === expectedSha256;
+}
+async function downloadFile(url, destPath, options) {
+  const token = getToken(options?.token);
+  const headers = {};
+  if (token) {
+    headers.Authorization = `token ${token}`;
+  }
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    throw new Error(`Download failed with status ${response.status}: ${response.statusText}`);
+  }
+  const buffer = Buffer.from(await response.arrayBuffer());
+  await Bun.write(destPath, buffer);
+}
+async function extractTarGz(archivePath, extractDir) {
+  await mkdir(extractDir, { recursive: true });
+  const proc = Bun.spawn(["tar", "xzf", archivePath, "-C", extractDir], {
+    stdout: "pipe",
+    stderr: "pipe"
+  });
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) {
+    throw new Error((await new Response(proc.stderr).text()).trim() || `tar exited with code ${exitCode}`);
+  }
+  const entries = await readdir(extractDir, { recursive: true, withFileTypes: true });
+  return entries.filter((entry) => entry.isFile()).map((entry) => entry.name);
+}
+async function atomicDownload(url, destDir, binaryName, expectedSha256) {
+  const tempPath = join2(destDir, `${binaryName}.tmp`);
+  const finalPath = join2(destDir, binaryName);
+  const extractDir = join2(destDir, ".extract");
+  try {
+    await mkdir(destDir, { recursive: true });
+    await ensureNoActiveTempFile(tempPath);
+    await cleanupPath(extractDir);
+    await downloadFile(url, tempPath);
+    const isValid = await verifyChecksum(tempPath, expectedSha256);
+    if (!isValid) {
+      await cleanupPath(tempPath);
+      return { success: false, toolPath: "", error: "SHA256 mismatch" };
+    }
+    await cleanupPath(finalPath);
+    if (url.endsWith(".tar.gz")) {
+      await extractTarGz(tempPath, extractDir);
+      const extractedBinary = await findBinary(extractDir, binaryName);
+      if (!extractedBinary) {
+        throw new Error(`Extracted archive did not contain ${binaryName}`);
+      }
+      await rename(extractedBinary, finalPath);
+      await cleanupPath(extractDir);
+      await cleanupPath(tempPath);
+    } else {
+      await rename(tempPath, finalPath);
+    }
+    await chmod(finalPath, 493);
+    return { success: true, toolPath: finalPath };
+  } catch (error) {
+    if (error instanceof ActiveProvisioningError) {
+      return {
+        success: false,
+        toolPath: "",
+        error: error.message
+      };
+    }
+    await Promise.all([cleanupPath(tempPath), cleanupPath(extractDir)]);
+    return {
+      success: false,
+      toolPath: "",
+      error: toErrorMessage(error)
+    };
+  }
+}
+var LOCK_MAX_AGE_MS, ActiveProvisioningError;
+var init_downloader = __esm(() => {
+  LOCK_MAX_AGE_MS = 10 * 60 * 1000;
+  ActiveProvisioningError = class ActiveProvisioningError extends Error {
+  };
+});
+
+// src/lib/provisioner/platform.ts
+import { homedir } from "os";
+import { join as join3 } from "path";
+function splitPlatform(platform) {
+  const [host, arch] = platform.split("-");
+  if (host === undefined || arch === undefined) {
+    throw new Error(`Unsupported platform: ${platform}`);
+  }
+  return { host, arch };
+}
+function detectPlatform() {
+  const platform = `${process.platform}-${process.arch}`;
+  if (platform === "darwin-arm64" || platform === "darwin-x64" || platform === "linux-arm64" || platform === "linux-x64") {
+    return platform;
+  }
+  throw new Error(`Unsupported platform: ${platform}`);
+}
+function mapPlatformToTrivy(platform) {
+  const { host, arch } = splitPlatform(platform);
+  return {
+    os: host === "darwin" ? "macOS" : "Linux",
+    arch: arch === "x64" ? "64bit" : "ARM64"
+  };
+}
+function mapPlatformToTrufflehog(platform) {
+  const { host, arch } = splitPlatform(platform);
+  return {
+    os: host,
+    arch: arch === "x64" ? "amd64" : "arm64"
+  };
+}
+function mapPlatformToScanner(platform, scanner) {
+  const { host, arch } = splitPlatform(platform);
+  if (scanner === "trivy")
+    return mapPlatformToTrivy(platform);
+  if (scanner === "trufflehog")
+    return mapPlatformToTrufflehog(platform);
+  return { os: host, arch };
+}
+function resolveDownloadUrl(urlTemplate, version, platform, scanner) {
+  const { os, arch } = mapPlatformToScanner(platform, scanner);
+  return urlTemplate.replaceAll("{VERSION}", version).replaceAll("{OS}", os).replaceAll("{ARCH}", arch);
+}
+function getToolPath(scanner, version, platform) {
+  const toolsDir = process.env.AEGIS_TOOLS_DIR?.trim() || join3(homedir(), ".aegis", "bin");
+  return `${join3(toolsDir, scanner, version, platform)}/`;
+}
+var init_platform = () => {};
+
+// src/lib/provisioner/registry.ts
+import { readFileSync } from "fs";
+import { join as join4 } from "path";
+function loadManifest() {
+  return JSON.parse(readFileSync(MANIFEST_PATH, "utf8"));
+}
+function resolveToolEntry(manifest, scanner, platform) {
+  const entry = manifest.scanners[scanner];
+  if (!entry) {
+    throw new Error(`Unknown scanner: ${scanner}`);
+  }
+  if (entry.kind === "python-tool") {
+    return entry;
+  }
+  const platformEntry = entry.platforms[platform];
+  if (!platformEntry) {
+    throw new Error(`No manifest entry for ${scanner} on ${platform}`);
+  }
+  return platformEntry;
+}
+function getExpectedVersion(manifest, scanner) {
+  const entry = manifest.scanners[scanner];
+  if (!entry) {
+    throw new Error(`Unknown scanner: ${scanner}`);
+  }
+  return entry.version;
+}
+var MANIFEST_PATH;
+var init_registry = __esm(() => {
+  MANIFEST_PATH = join4(import.meta.dir, "../../../scanners-manifest.json");
+});
+
+// src/lib/provisioner/semgrep.ts
+async function readStreamText(stream) {
+  if (!stream) {
+    return "";
+  }
+  return new Response(stream).text();
+}
+async function spawnCommand(argv) {
+  const proc = Bun.spawn(argv, {
+    stdout: "pipe",
+    stderr: "pipe"
+  });
+  const exitCode = await proc.exited;
+  const [stdout, stderr] = await Promise.all([readStreamText(proc.stdout), readStreamText(proc.stderr)]);
+  return { exitCode, stdout: stdout.trim(), stderr: stderr.trim() };
+}
+async function whichSemgrep() {
+  const result = await spawnCommand(["which", "semgrep"]);
+  return result.exitCode === 0 ? result.stdout : "";
+}
+async function semgrepVersion() {
+  const result = await spawnCommand(["semgrep", "--version"]);
+  return { version: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
+}
+async function isSemgrepAvailable() {
+  const path = await whichSemgrep();
+  if (!path) {
+    return { available: false, version: "", path: "" };
+  }
+  const versionResult = await semgrepVersion();
+  if (versionResult.exitCode !== 0 || !versionResult.version) {
+    return { available: false, version: "", path };
+  }
+  return { available: true, version: versionResult.version, path };
+}
+async function installWithPipx(version) {
+  const result = await spawnCommand(["pipx", "install", `semgrep==${version}`]);
+  return { ok: result.exitCode === 0, stderr: result.stderr };
+}
+async function installWithUv(version) {
+  const result = await spawnCommand(["uv", "tool", "install", `semgrep==${version}`]);
+  return { ok: result.exitCode === 0, stderr: result.stderr };
+}
+async function provisionSemgrep(version) {
+  const available = await isSemgrepAvailable();
+  if (available.available && available.version === version) {
+    return { success: true, toolPath: available.path };
+  }
+  const pipx = await installWithPipx(version);
+  if (pipx.ok) {
+    const installedPath = await whichSemgrep();
+    return { success: true, toolPath: installedPath || "semgrep" };
+  }
+  const uv = await installWithUv(version);
+  if (uv.ok) {
+    const installedPath = await whichSemgrep();
+    return { success: true, toolPath: installedPath || "semgrep" };
+  }
+  const errors = [pipx.stderr, uv.stderr].filter(Boolean).join(`
+`);
+  const suffix = errors ? `
+${errors}` : "";
+  return {
+    success: false,
+    toolPath: "",
+    error: `Could not install semgrep. Please install manually: pip install semgrep or pipx install semgrep${suffix}`
+  };
+}
+
+// src/lib/provisioner/types.ts
+import { homedir as homedir2 } from "os";
+import { join as join5 } from "path";
+function getToolsDir() {
+  return process.env.AEGIS_TOOLS_DIR?.trim() || TOOLS_DIR_DEFAULT;
+}
+var TOOLS_DIR_DEFAULT;
+var init_types = __esm(() => {
+  TOOLS_DIR_DEFAULT = join5(homedir2(), ".aegis", "bin");
+});
+
+// src/lib/provisioner/manager.ts
+var exports_manager = {};
+__export(exports_manager, {
+  resolveToolPath: () => resolveToolPath,
+  removeTool: () => removeTool,
+  listTools: () => listTools,
+  installTool: () => installTool,
+  getToolStatus: () => getToolStatus,
+  ensureLatest: () => ensureLatest,
+  _resetAutoUpdateCache: () => _resetAutoUpdateCache
+});
+import { existsSync, readFileSync as readFileSync2 } from "fs";
+import { rm as rm2 } from "fs/promises";
+import { join as join6, resolve } from "path";
+async function readStreamText2(stream) {
+  if (!stream) {
+    return "";
+  }
+  return (await new Response(stream).text()).trim();
+}
+async function runCommandCapture2(argv) {
+  const proc = Bun.spawn(argv, { stdout: "pipe", stderr: "pipe" });
+  const exitCode = await proc.exited;
+  const [stdout, stderr] = await Promise.all([readStreamText2(proc.stdout), readStreamText2(proc.stderr)]);
+  return { exitCode, stdout, stderr };
+}
+function parseVersion(output) {
+  const trimmed = output.trim();
+  if (!trimmed) {
+    return "unknown";
+  }
+  const match = trimmed.match(/\d+\.\d+\.\d+(?:[-+.][0-9A-Za-z.-]+)?/);
+  return match?.[0] ?? trimmed;
+}
+async function getCommandVersion(commandPath) {
+  const cached = versionCache.get(commandPath);
+  if (cached) {
+    return cached;
+  }
+  try {
+    const result = await runCommandCapture2([commandPath, "--version"]);
+    if (result.exitCode === 0) {
+      const version = parseVersion(result.stdout || result.stderr);
+      versionCache.set(commandPath, version);
+      return version;
+    }
+  } catch {}
+  versionCache.set(commandPath, "unknown");
+  return "unknown";
+}
+function getProvisionedBinaryPath(scanner) {
+  const manifest = loadManifest();
+  const entry = manifest.scanners[scanner];
+  if (!entry || entry.kind !== "binary") {
+    return null;
+  }
+  const platform = detectPlatform();
+  const resolvedEntry = resolveToolEntry(manifest, scanner, platform);
+  if ("kind" in resolvedEntry) {
+    return null;
+  }
+  return join6(getToolPath(scanner, entry.version, platform), resolvedEntry.binaryName);
+}
+async function getToolStatus(scanner) {
+  const manifest = loadManifest();
+  const expectedVersion = getExpectedVersion(manifest, scanner);
+  if (scanner === "semgrep") {
+    const semgrep = await isSemgrepAvailable();
+    if (!semgrep.available) {
+      return { name: scanner, state: "not_installed", version: "", path: "", source: "none" };
+    }
+    return {
+      name: scanner,
+      state: semgrep.version === expectedVersion ? "installed" : "outdated",
+      version: semgrep.version,
+      path: semgrep.path,
+      source: "system"
+    };
+  }
+  const platform = detectPlatform();
+  const resolvedEntry = resolveToolEntry(manifest, scanner, platform);
+  if ("kind" in resolvedEntry) {
+    throw new Error(`Expected binary manifest entry for ${scanner}`);
+  }
+  const provisionedPath = join6(getToolPath(scanner, expectedVersion, platform), resolvedEntry.binaryName);
+  if (existsSync(provisionedPath)) {
+    const version = await getCommandVersion(provisionedPath);
+    return {
+      name: scanner,
+      state: version === expectedVersion ? "installed" : "outdated",
+      version,
+      path: provisionedPath,
+      source: "provisioned"
+    };
+  }
+  const whichResult = await runCommandCapture2(["which", scanner]);
+  if (whichResult.exitCode === 0 && whichResult.stdout) {
+    const systemPath = whichResult.stdout;
+    const version = await getCommandVersion(systemPath);
+    return {
+      name: scanner,
+      state: "system",
+      version,
+      path: systemPath,
+      source: "system"
+    };
+  }
+  return { name: scanner, state: "not_installed", version: "", path: "", source: "none" };
+}
+async function isBrewAvailable() {
+  try {
+    const result = await runCommandCapture2(["brew", "--version"]);
+    return result.exitCode === 0;
+  } catch {
+    return false;
+  }
+}
+async function brewProvision(scanner) {
+  const formulaMap = {
+    trivy: "trivy",
+    trufflehog: "trufflehog",
+    semgrep: "semgrep"
+  };
+  const formula = formulaMap[scanner];
+  const listResult = await runCommandCapture2(["brew", "list", formula]);
+  const subcommand = listResult.exitCode === 0 ? "upgrade" : "install";
+  const result = await runCommandCapture2(["brew", subcommand, formula]);
+  if (result.exitCode !== 0 && subcommand === "upgrade" && result.stderr.includes("already installed")) {
+    const whichResult = await runCommandCapture2(["brew", "--prefix"]);
+    const brewPath = Bun.which(scanner);
+    return { success: true, toolPath: brewPath ?? scanner };
+  }
+  if (result.exitCode !== 0) {
+    return { success: false, toolPath: "", error: result.stderr || `brew ${subcommand} ${formula} failed` };
+  }
+  const toolPath = Bun.which(scanner);
+  return { success: true, toolPath: toolPath ?? scanner };
+}
+async function installTool(scanner, _options) {
+  const manifest = loadManifest();
+  const expectedVersion = getExpectedVersion(manifest, scanner);
+  if (await isBrewAvailable()) {
+    const brewResult = await brewProvision(scanner);
+    if (brewResult.success) {
+      return brewResult;
+    }
+  }
+  return installToolBinary(scanner, manifest, expectedVersion);
+}
+async function installToolBinary(scanner, manifest, expectedVersion) {
+  if (scanner === "semgrep") {
+    return provisionSemgrep(expectedVersion);
+  }
+  const platform = detectPlatform();
+  const resolvedEntry = resolveToolEntry(manifest, scanner, platform);
+  if ("kind" in resolvedEntry) {
+    throw new Error(`Expected binary manifest entry for ${scanner}`);
+  }
+  const destinationDir = getToolPath(scanner, expectedVersion, platform);
+  const downloadUrl = resolveDownloadUrl(resolvedEntry.url, expectedVersion, platform, scanner);
+  const result = await atomicDownload(downloadUrl, destinationDir, resolvedEntry.binaryName, resolvedEntry.sha256);
+  if (!result.success) {
+    return result;
+  }
+  const verification = await runCommandCapture2([result.toolPath, "--version"]);
+  if (verification.exitCode !== 0) {
+    return {
+      success: false,
+      toolPath: result.toolPath,
+      error: verification.stderr || verification.stdout || `Failed to verify ${scanner}`
+    };
+  }
+  versionCache.set(result.toolPath, parseVersion(verification.stdout || verification.stderr));
+  return result;
+}
+async function removeTool(scanner) {
+  await rm2(join6(getToolsDir(), scanner), { recursive: true, force: true });
+}
+async function listTools() {
+  const manifest = loadManifest();
+  const scanners = Object.keys(manifest.scanners);
+  return Promise.all(scanners.map((scanner) => getToolStatus(scanner)));
+}
+function resolveToolPath(scanner) {
+  const provisionedPath = getProvisionedBinaryPath(scanner);
+  if (provisionedPath && existsSync(provisionedPath)) {
+    return provisionedPath;
+  }
+  return Bun.which(scanner) ?? null;
+}
+function _resetAutoUpdateCache() {
+  checkedThisSession.clear();
+}
+function isAutoUpdateEnabled() {
+  try {
+    const policyPath = join6(resolve(import.meta.dirname, "../../.."), "aegis-policy.json");
+    const policy = JSON.parse(readFileSync2(policyPath, "utf-8"));
+    return policy.tools?.auto_update !== false;
+  } catch {
+    return true;
+  }
+}
+async function ensureLatest(scanner) {
+  if (checkedThisSession.has(scanner)) {
+    return;
+  }
+  checkedThisSession.add(scanner);
+  if (!isAutoUpdateEnabled()) {
+    return;
+  }
+  const status = await getToolStatus(scanner);
+  if (status.state === "installed") {
+    return;
+  }
+  try {
+    await installTool(scanner);
+  } catch {}
+}
+var versionCache, checkedThisSession;
+var init_manager = __esm(() => {
+  init_downloader();
+  init_platform();
+  init_registry();
+  init_types();
+  versionCache = new Map;
+  checkedThisSession = new Set;
+});
+
 // src/opencode/index.ts
-import { join as join6 } from "path";
+import { join as join11 } from "path";
 
 // src/core/security.ts
 import { basename } from "path";
@@ -107,7 +655,7 @@ function checkSensitiveFile(filePath, denyPatterns) {
 
 // src/core/router.ts
 var CHAIN_OPERATOR_PATTERN = /&&|\|\||;|\|/;
-var SAFE_CHAIN_COMMANDS = new Set(["exit", "head"]);
+var SAFE_CHAIN_COMMANDS = new Set(["exit", "head", "tail", "wc", "sort", "jq", "diff"]);
 function splitCommandSegments(command) {
   return command.split(CHAIN_OPERATOR_PATTERN).map((segment) => segment.trim()).filter((segment) => segment.length > 0);
 }
@@ -256,12 +804,12 @@ function formatDockerWarning(state) {
 // src/opencode/handlers/before.ts
 import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
-import { basename as basename2, join as join4 } from "path";
+import { basename as basename3, join as join9 } from "path";
 
 // src/lib/scanner.ts
-import crypto2 from "crypto";
-import { stat } from "fs/promises";
-import { join as join2 } from "path";
+import crypto3 from "crypto";
+import { stat as stat2 } from "fs/promises";
+import { join as join7 } from "path";
 
 // src/lib/scan-cache.ts
 import crypto from "crypto";
@@ -320,6 +868,15 @@ function getCacheTtl(scanner) {
 }
 
 // src/lib/scanner.ts
+async function resolveScanner(scanner) {
+  try {
+    const { ensureLatest: ensureLatest2, resolveToolPath: resolveToolPath2 } = (init_manager(), __toCommonJS(exports_manager));
+    await ensureLatest2(scanner);
+    return resolveToolPath2(scanner) ?? scanner;
+  } catch {
+    return scanner;
+  }
+}
 var SCANNER_BUDGETS = {
   semgrep: 120000,
   trivy: 60000,
@@ -331,8 +888,8 @@ async function runScannerWithTimeout(argv, budgetMs) {
     stdout: "pipe",
     stderr: "pipe"
   });
-  const timeout = new Promise((resolve) => {
-    setTimeout(() => resolve({ status: "timeout" }), budgetMs);
+  const timeout = new Promise((resolve2) => {
+    setTimeout(() => resolve2({ status: "timeout" }), budgetMs);
   });
   const completion = proc.exited.then((exitCode) => ({ status: "completed", exitCode }));
   const outcome = await Promise.race([completion, timeout]);
@@ -376,30 +933,30 @@ var scannerRunner = {
   runScannerWithTimeout,
   getScannerVersion
 };
-var versionCache = new Map;
+var versionCache2 = new Map;
 async function getScannerVersion(scanner) {
-  const cached = versionCache.get(scanner);
+  const cached = versionCache2.get(scanner);
   if (cached) {
     return cached;
   }
   try {
-    const proc = Bun.spawn([scanner, "--version"], { stdout: "pipe", stderr: "pipe" });
+    const proc = Bun.spawn([await resolveScanner(scanner), "--version"], { stdout: "pipe", stderr: "pipe" });
     const exitCode = await proc.exited;
     if (exitCode === 0) {
       const version = (await new Response(proc.stdout).text()).trim();
-      versionCache.set(scanner, version);
+      versionCache2.set(scanner, version);
       return version;
     }
   } catch {}
-  versionCache.set(scanner, "unknown");
+  versionCache2.set(scanner, "unknown");
   return "unknown";
 }
 function hashConfig(config) {
-  return crypto2.createHash("sha256").update(config).digest("hex").slice(0, 16);
+  return crypto3.createHash("sha256").update(config).digest("hex").slice(0, 16);
 }
 async function getMtimeMs(filePath) {
   try {
-    const fileStat = await stat(filePath);
+    const fileStat = await stat2(filePath);
     return fileStat.mtimeMs;
   } catch {
     return 0;
@@ -411,7 +968,7 @@ async function readScannerCache(scanner, config, scopePaths) {
   const version = await scannerRunner.getScannerVersion(scanner);
   const configHash = hashConfig(config);
   const key = computeCacheKey(scanner, version, configHash, scopeHash);
-  const entry = await readCacheEntry(join2(process.cwd(), CACHE_DIR), key);
+  const entry = await readCacheEntry(join7(process.cwd(), CACHE_DIR), key);
   if (!entry) {
     return { key, cached: null };
   }
@@ -427,7 +984,7 @@ async function writeScannerCache(scanner, key, result) {
   if (shouldSkipCache(result)) {
     return;
   }
-  await writeCacheEntry(join2(process.cwd(), CACHE_DIR), {
+  await writeCacheEntry(join7(process.cwd(), CACHE_DIR), {
     key,
     timestamp: Date.now(),
     ttl: getCacheTtl(scanner),
@@ -440,7 +997,7 @@ async function wrapSemgrep(filePath) {
   if (cached) {
     return cached;
   }
-  const result = await scannerRunner.runScannerWithTimeout(["semgrep", "scan", "--config=p/security-audit", "--config=p/secrets", "--json", filePath], SCANNER_BUDGETS.semgrep);
+  const result = await scannerRunner.runScannerWithTimeout([await resolveScanner("semgrep"), "scan", "--config=p/security-audit", "--config=p/secrets", "--json", filePath], SCANNER_BUDGETS.semgrep);
   await writeScannerCache("semgrep", key, result);
   return result;
 }
@@ -450,7 +1007,7 @@ async function wrapTrivy(args) {
   if (cached) {
     return cached;
   }
-  const result = await scannerRunner.runScannerWithTimeout(["trivy", ...args], SCANNER_BUDGETS.trivy);
+  const result = await scannerRunner.runScannerWithTimeout([await resolveScanner("trivy"), ...args], SCANNER_BUDGETS.trivy);
   await writeScannerCache("trivy", key, result);
   return result;
 }
@@ -464,12 +1021,12 @@ function logAegis(client, level, message) {
 }
 
 // src/lib/output-proxy.ts
-import crypto3 from "crypto";
-import { join as join3 } from "path";
+import crypto4 from "crypto";
+import { join as join8 } from "path";
 import { mkdirSync } from "fs";
 var SCANS_DIR = ".aegis/scans";
 function computeHash(content) {
-  return crypto3.createHash("sha256").update(content).digest("hex").slice(0, 12);
+  return crypto4.createHash("sha256").update(content).digest("hex").slice(0, 12);
 }
 function ensureScansDirSync() {
   try {
@@ -477,7 +1034,7 @@ function ensureScansDirSync() {
   } catch {}
 }
 function writeDetailAsync(hash, fullOutput) {
-  const detailPath = join3(SCANS_DIR, `${hash}.json`);
+  const detailPath = join8(SCANS_DIR, `${hash}.json`);
   Promise.resolve().then(async () => {
     try {
       ensureScansDirSync();
@@ -529,7 +1086,7 @@ function createBeforeHandler(policy, getPreflightPromise, preflightPassed, getDe
     if (["read", "write", "edit"].includes(input.tool)) {
       const filePath = output.args?.filePath ?? output.args?.path ?? "";
       if (filePath && checkSensitiveFile(filePath, policy.actions?.read_file?.deny_patterns ?? [])) {
-        throw new Error(`BLOCKED: access to sensitive file denied \u2014 ${basename2(filePath)}`);
+        throw new Error(`BLOCKED: access to sensitive file denied \u2014 ${basename3(filePath)}`);
       }
     }
     if (input.tool !== "bash")
@@ -544,9 +1101,9 @@ function createBeforeHandler(policy, getPreflightPromise, preflightPassed, getDe
     const pkg = parseInstallCommand(command);
     if (pkg) {
       const { filename, content } = makeLockfileContent(pkg);
-      const scanDir = mkdtempSync(join4(tmpdir(), "aegis-trivy-"));
+      const scanDir = mkdtempSync(join9(tmpdir(), "aegis-trivy-"));
       try {
-        await Bun.write(join4(scanDir, filename), content);
+        await Bun.write(join9(scanDir, filename), content);
         const result = await wrapTrivy([
           "fs",
           "--scanners",
@@ -602,7 +1159,7 @@ function createBeforeHandler(policy, getPreflightPromise, preflightPassed, getDe
 }
 
 // src/opencode/handlers/after.ts
-import { basename as basename3 } from "path";
+import { basename as basename4 } from "path";
 function createAfterHandler() {
   return async (input, output) => {
     if (!["write", "edit"].includes(input.tool))
@@ -613,7 +1170,7 @@ function createAfterHandler() {
     const result = await wrapSemgrep(filePath);
     const findings = result.status === "ok" ? parseSemgrepFindings(result.stdout) : [];
     if (findings.length > 0) {
-      const { summary } = proxyResult("semgrep", findings, { filename: basename3(filePath) });
+      const { summary } = proxyResult("semgrep", findings, { filename: basename4(filePath) });
       output.output += `
 
 ${summary}`;
@@ -627,17 +1184,17 @@ ${summary}`;
 }
 
 // src/opencode/handlers/session.ts
-import { join as join5 } from "path";
+import { join as join10 } from "path";
 async function runDefaultPreflight(directory, setDegraded, client) {
   const c = Bun.spawn(["bunx", "varlock", "--version"], { stdout: "ignore", stderr: "ignore" });
   if (await c.exited !== 0)
     throw new Error("varlock unavailable");
-  if (!await Bun.file(join5(directory, ".env.schema")).exists())
+  if (!await Bun.file(join10(directory, ".env.schema")).exists())
     throw new Error(".env.schema missing");
   const found = DEFAULT_SENSITIVE_VARS.filter((v) => (process.env[v] ?? "").length > 0);
   if (found.length > 0)
     throw new Error("live secrets in env");
-  const configPath = join5(directory, ".pre-commit-config.yaml");
+  const configPath = join10(directory, ".pre-commit-config.yaml");
   if (!await Bun.file(configPath).exists())
     throw new Error(".pre-commit-config.yaml missing");
   const text = await Bun.file(configPath).text();
@@ -727,7 +1284,7 @@ function safe(handler, opts) {
   };
 }
 var AegisSecurityPlugin = async ({ directory, client }) => {
-  const policy = JSON.parse(await Bun.file(join6(directory, "aegis-policy.json")).text());
+  const policy = JSON.parse(await Bun.file(join11(directory, "aegis-policy.json")).text());
   let preflightPassed = false;
   let preflightRan = false;
   let preflightPromise = null;

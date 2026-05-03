@@ -51,6 +51,7 @@
       "^wc ",
       "^sort ",
       "^diff ",
+      "^jq ",
       "^semgrep ",
       "^trivy ",
       "^trufflehog ",
@@ -77,6 +78,11 @@
     "allow_host_passthrough": true,
     "block_sandbox_required": true,
     "warn_on_degraded": true
+  },
+  "tools": {
+    "enabled": ["trivy", "trufflehog", "semgrep"],
+    "auto_provision": false,
+    "auto_update": true
   },
   "hitl_timeout_seconds": 120
 }

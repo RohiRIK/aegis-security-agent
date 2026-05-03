@@ -6,7 +6,7 @@ describe("routeCommand", () => {
   const policy = {
     high_risk_patterns: ["rm -rf", "DROP TABLE"],
     routing: {
-      host_passthrough: ["^git ", "^bun (tsc|test|run)", "^ls\\b", "^cat "],
+      host_passthrough: ["^git ", "^bun (tsc|test|run)", "^ls\\b", "^cat ", "^grep ", "^semgrep ", "^trivy ", "^jq "],
       sandbox_required: ["^curl ", "^python ", "^node "],
     },
   };
@@ -39,6 +39,10 @@ describe("routeCommand", () => {
     expect(routeCommand("cat file.txt", policy)).toBe("host");
   });
 
+  test("routes 'jq .results' to host", () => {
+    expect(routeCommand("jq .results", policy)).toBe("host");
+  });
+
   test("routes 'curl https://example.com' to sandbox", () => {
     expect(routeCommand("curl https://example.com", policy)).toBe("sandbox");
   });
@@ -49,6 +53,30 @@ describe("routeCommand", () => {
 
   test("routes 'node index.js' to sandbox", () => {
     expect(routeCommand("node index.js", policy)).toBe("sandbox");
+  });
+
+  test("routes 'semgrep scan --json . | jq .results' to host", () => {
+    expect(routeCommand("semgrep scan --json . | jq .results", policy)).toBe("host");
+  });
+
+  test("routes 'git log --oneline | tail -20' to host", () => {
+    expect(routeCommand("git log --oneline | tail -20", policy)).toBe("host");
+  });
+
+  test("routes 'trivy fs . | wc -l' to host", () => {
+    expect(routeCommand("trivy fs . | wc -l", policy)).toBe("host");
+  });
+
+  test("routes 'cat package.json | sort' to host", () => {
+    expect(routeCommand("cat package.json | sort", policy)).toBe("host");
+  });
+
+  test("routes 'grep -r TODO src | diff - expected.txt' to host", () => {
+    expect(routeCommand("grep -r TODO src | diff - expected.txt", policy)).toBe("host");
+  });
+
+  test("routes 'semgrep scan . | python3 -c \"import sys; print(sys.stdin.read())\"' to sandbox", () => {
+    expect(routeCommand("semgrep scan . | python3 -c \"import sys; print(sys.stdin.read())\"", policy)).toBe("sandbox");
   });
 
   test("routes 'rm -rf /' to hitl", () => {
