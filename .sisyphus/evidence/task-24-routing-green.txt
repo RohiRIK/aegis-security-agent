@@ -1,5 +1,0 @@
-Task: T-24
-Checks:
-- bun test src/hooks/pre-tool-use.test.ts: pass
-- bun tsc --noEmit: pass
-- routeCommand exported and integrated into main flow

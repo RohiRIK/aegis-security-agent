@@ -1,4 +1,0 @@
-Task: T-24 integration
-Checks:
-- routeCommand definition and main() usage present in src/hooks/pre-tool-use.ts
-- host/sandbox/hitl routing strings present

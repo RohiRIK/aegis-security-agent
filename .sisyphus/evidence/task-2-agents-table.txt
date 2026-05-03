@@ -1,3 +1,0 @@
-| `@aegis` | Harness-aware security analyst (read-only, structured verdicts) |
-Sisyphus MUST call @aegis when:
-Sisyphus MUST NOT call @aegis for:

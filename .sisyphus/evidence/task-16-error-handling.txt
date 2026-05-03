@@ -1,3 +1,0 @@
-Task: T-16 error handling
-Check:
-- catch block contains writeStderr and return 1

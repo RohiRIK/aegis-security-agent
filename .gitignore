@@ -12,14 +12,20 @@
 *_rsa
 *_rsa.pub
 
+# Build output
+dist/
+
 # Bun
 node_modules/
 bun.lockb
 binaries/
+*.bun-build
 
-# Machine-specific config (absolute paths)
+# Workspace / editor config
 .claude/
-.sisyphus/boulder.json
+.sisyphus/
+.opencode/
+.cursor/
 
 # macOS
 .DS_Store

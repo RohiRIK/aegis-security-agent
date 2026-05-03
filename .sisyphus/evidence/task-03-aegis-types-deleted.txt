@@ -1,6 +1,0 @@
-Task: T-03
-Checks:
-- src/types/aegis.ts deleted
-- grep for types/aegis imports under src: 0
-- lsp_diagnostics src/: clean
-- bun tsc --noEmit: pass

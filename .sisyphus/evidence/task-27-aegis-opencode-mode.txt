@@ -1,4 +1,0 @@
-Task: T-27
-Checks:
-- copied docs/agents/aegis.md to ~/.config/opencode/agents/aegis.md
-- runtime copy now has mode: agent

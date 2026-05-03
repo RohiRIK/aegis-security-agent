@@ -1,5 +1,0 @@
-Task: T-06
-Checks:
-- export function parseSemgrepFindings present in src/core/security.ts
-- lsp_diagnostics security.ts: clean
-- bun tsc --noEmit: pass

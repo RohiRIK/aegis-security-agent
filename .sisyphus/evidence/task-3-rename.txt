@@ -1,4 +1,0 @@
-Rename complete: HarnessSecurityPlugin -> AegisSecurityPlugin in src/opencode/index.ts
-No remaining HarnessSecurityPlugin references under src/
-bun tsc --noEmit: passed
-bun test: 115 pass, 0 fail

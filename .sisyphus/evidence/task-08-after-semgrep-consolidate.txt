@@ -1,6 +1,0 @@
-Task: T-08
-Checks:
-- local parseSemgrepFindings removed from src/opencode/handlers/after.ts
-- parseSemgrepFindings imported and used from core/security.ts
-- lsp_diagnostics after.ts: clean
-- bun tsc --noEmit: pass

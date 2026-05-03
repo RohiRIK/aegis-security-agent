@@ -1,4 +1,0 @@
-Task: T-26
-Checks:
-- docs/agents/aegis.md mode is agent
-- mode: subagent absent in docs copy

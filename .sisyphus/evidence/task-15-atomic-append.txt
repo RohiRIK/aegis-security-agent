@@ -1,6 +1,0 @@
-Task: T-15
-Checks:
-- appendFile present in src/lib/base.ts
-- read-modify-write append logic removed
-- lsp_diagnostics base.ts: clean
-- bun tsc --noEmit: pass

@@ -1,4 +1,0 @@
-test count: 31
- 0 fail
- 36 expect() calls
-Ran 31 tests across 1 file. [21.00ms]

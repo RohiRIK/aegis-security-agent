@@ -1,5 +1,0 @@
-Task: T-21
-Checks:
-- routing section added to harness-policy.json
-- host_passthrough and sandbox_required arrays present
-- JSON parses successfully

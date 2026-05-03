@@ -1,3 +1,0 @@
-@opencode-ai/plugin: ├── @opencode-ai/plugin@1.14.30
-semgrep: 1.157.0
-tsc: CLEAN

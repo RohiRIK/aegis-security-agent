@@ -1,7 +1,0 @@
-Task: T-09
-Checks:
-- local duplicate parseInstallCommand/makeLockfileContent/trivyScan/types removed from src/hooks/pre-tool-use.ts
-- core/security imports present in src/hooks/pre-tool-use.ts
-- matchHighRiskPattern imported from core/security.ts
-- lsp_diagnostics pre-tool-use.ts: clean
-- bun tsc --noEmit: pass

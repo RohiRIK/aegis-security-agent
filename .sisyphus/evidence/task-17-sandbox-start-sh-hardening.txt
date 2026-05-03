@@ -1,7 +1,0 @@
-Task: T-17
-Checks:
-- seccomp=unconfined removed from scripts/sandbox-start.sh
-- no-new-privileges present once
-- 65534:65534 present once
-- bash -n scripts/sandbox-start.sh: pass
-- bun tsc --noEmit: pass

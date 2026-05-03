@@ -1,3 +1,0 @@
-Task: T-13 syntax
-Check:
-- bash -n scripts/sandbox-exec.sh: pass

@@ -1,5 +1,0 @@
-2
-  edit: deny
-mode: subagent
-temperature: 0.1
-    "*": deny

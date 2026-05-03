@@ -1,5 +1,0 @@
-Task: T-22
-Checks:
-- HarnessPolicy includes host_passthrough and sandbox_required
-- routeCommand signature added to src/hooks/pre-tool-use.ts
-- bun tsc --noEmit: pass
