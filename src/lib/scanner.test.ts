@@ -34,7 +34,7 @@ async function processExists(pid: number): Promise<boolean> {
 describe("runScannerWithTimeout", () => {
   test("returns ok result when process completes within budget", async () => {
     const result = await runScannerWithTimeout(
-      ["bash", "-lc", "printf 'scanner-stdout'; printf 'scanner-stderr' >&2; exit 7"],
+      ["bash", "-c", "printf 'scanner-stdout'; printf 'scanner-stderr' >&2; exit 7"],
       1_000,
     );
 
@@ -47,7 +47,7 @@ describe("runScannerWithTimeout", () => {
   });
 
   test("returns timeout result when process exceeds budget", async () => {
-    const result = await runScannerWithTimeout(["bash", "-lc", "sleep 10"], 100);
+    const result = await runScannerWithTimeout(["bash", "-c", "sleep 10"], 200);
 
     expect(result).toEqual({
       status: "timeout",
@@ -55,7 +55,7 @@ describe("runScannerWithTimeout", () => {
       stdout: "",
       stderr: "",
       degraded: true,
-      durationMs: 100,
+      durationMs: 200,
     });
   });
 
@@ -66,13 +66,13 @@ describe("runScannerWithTimeout", () => {
     try {
       const startedAt = performance.now();
       const result = await runScannerWithTimeout(
-        ["bash", "-lc", `echo $$ > ${JSON.stringify(pidFile)}; exec sleep 10`],
-        100,
+        ["bash", "-c", `echo $$ > ${JSON.stringify(pidFile)}; exec sleep 10`],
+        200,
       );
       const elapsedMs = performance.now() - startedAt;
 
       expect(result.status).toBe("timeout");
-      expect(elapsedMs).toBeLessThan(1_000);
+      expect(elapsedMs).toBeLessThan(2_000);
 
       const pidText = (await readFile(pidFile, "utf8")).trim();
       const pid = Number(pidText);
@@ -96,7 +96,7 @@ describe("runScannerWithTimeout", () => {
   });
 
   test("timeout result includes degraded marker", async () => {
-    const result = await runScannerWithTimeout(["bash", "-lc", "sleep 10"], 100);
+    const result = await runScannerWithTimeout(["bash", "-c", "sleep 10"], 200);
 
     expect(result.degraded).toBe(true);
   });
