@@ -40,7 +40,7 @@ describe("integration", () => {
 
       const config = await Bun.file(join(tmpDir, "opencode.json")).json() as { plugin?: string[] };
       expect(Array.isArray(config.plugin)).toBe(true);
-      expect(config.plugin).toContain("aegis-security");
+      expect(config.plugin).toContain("aegis-security-agent");
 
       expect((await stat(join(tmpDir, ".aegis"))).isDirectory()).toBe(true);
     } finally {

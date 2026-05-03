@@ -81,3 +81,10 @@ Claude Code IS installed (`~/.local/bin/claude`) and `SessionStart` hook type IS
 - CLAUDE.md (1C-02), smoke tests (1C-01), repo scaffold (1A) are unaffected
 
 **The core of the harness is still sound. Two targeted fixes needed.**
+
+---
+
+## 2026-05-02: Changelog capture
+
+- Added root `CHANGELOG.md` for `@aegis/opencode` v0.1.0 using Keep a Changelog format.
+- Documented only verified shipped features: plugin hooks, router, sandbox detection, degraded mode, Semgrep/Trivy hooks, preflight checks, policy config, and `aegis status`.
