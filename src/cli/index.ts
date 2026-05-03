@@ -37,7 +37,7 @@ async function runInstallCommand(args: string[]): Promise<number> {
 
 async function showStatus(): Promise<number> {
   printHeader();
-  println(`  ${icon.info} Use 'bunx @aegis/opencode status' or install to get full status`);
+  println(`  ${icon.info} Use 'bunx aegis-security status' or install to get full status`);
   println();
   return 0;
 }

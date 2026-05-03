@@ -653,11 +653,12 @@ async function runDefaultPreflight(directory, setDegraded, client) {
   if (await vs.exited !== 0)
     throw new Error("varlock scan failed");
 }
-function createSessionHandler(directory, setPreflightPassed, setPreflightPromise, runPreflight, setDegraded, client) {
+function createSessionHandler(directory, setPreflightPassed, setPreflightPromise, runPreflight, setDegraded, setPreflightRan, client) {
   const handler = async (input) => {
     if (input.event.type !== "session.created")
       return;
     const promise = (async () => {
+      setPreflightRan?.(true);
       try {
         if (runPreflight) {
           await runPreflight(setDegraded ?? (() => {}));
@@ -678,10 +679,10 @@ function createSessionHandler(directory, setPreflightPassed, setPreflightPromise
 }
 
 // src/opencode/handlers/compaction.ts
-function createCompactionHandler(getPreflightPassed, getDegraded, policy) {
+function createCompactionHandler(getPreflightStatus, getDegraded, policy) {
   return async (output) => {
     const mode = getDegraded() ? "DEGRADED" : "full";
-    const preflight = getPreflightPassed() ? "passed" : "not-run";
+    const preflight = getPreflightStatus();
     const blockedPatterns = policy.high_risk_patterns?.length ?? 0;
     output.context.push(`[AEGIS] Security: routing=${mode}, preflight=${preflight}, blocked_patterns=${blockedPatterns}`);
   };
@@ -728,6 +729,7 @@ function safe(handler, opts) {
 var AegisSecurityPlugin = async ({ directory, client }) => {
   const policy = JSON.parse(await Bun.file(join6(directory, "aegis-policy.json")).text());
   let preflightPassed = false;
+  let preflightRan = false;
   let preflightPromise = null;
   let degraded = false;
   const { handler: sessionHandler } = createSessionHandler(directory, (val) => {
@@ -736,10 +738,12 @@ var AegisSecurityPlugin = async ({ directory, client }) => {
     preflightPromise = p;
   }, undefined, (val) => {
     degraded = val;
+  }, (val) => {
+    preflightRan = val;
   }, client);
   const beforeHandler = createBeforeHandler(policy, () => preflightPromise, () => preflightPassed, () => degraded, client);
   const afterHandler = createAfterHandler();
-  const compactionHandler = createCompactionHandler(() => preflightPassed, () => degraded, policy);
+  const compactionHandler = createCompactionHandler(() => preflightRan ? preflightPassed ? "passed" : "failed" : "not-run", () => degraded, policy);
   const envHandler = createEnvHandler(DEFAULT_SENSITIVE_VARS);
   const permissionHandler = createPermissionHandler(policy);
   return {
