@@ -23,7 +23,7 @@ function println(text = "") {
 }
 function printHeader() {
   println();
-  println(`  ${icon.shield}  ${c.bold(c.white("Harness"))} ${c.dim("\xB7 AI-Agent Security Harness")}`);
+  println(`  ${icon.shield}  ${c.bold(c.white("Aegis"))} ${c.dim("\xB7 AI-Agent Security")}`);
   println(c.dim("  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"));
   println();
 }
