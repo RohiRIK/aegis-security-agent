@@ -1,0 +1,9 @@
+# TruffleHog ignore — suppress false positives from non-source paths
+node_modules/
+.git/
+dist/
+.aegis/scans/
+.sisyphus/
+*.wasm
+*.min.js
+*.map

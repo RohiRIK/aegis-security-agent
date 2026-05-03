@@ -14,7 +14,7 @@ permission:
     "trivy image *": allow
     "trufflehog filesystem *": allow
     "bunx varlock *": allow
-    "bun run __AEGIS_DIR__/src/lib/verdict-log.ts *": allow
+    "bunx aegis-security-agent verdict *": allow
     "bun audit": allow
     "git diff *": allow
     "git log *": allow
@@ -93,14 +93,14 @@ For scoped tasks, run scanners ONLY on the relevant files/paths — not the enti
 
 ## Verdict History
 
-Use the verdict-log CLI to read past verdicts and write new ones:
+Use the verdict CLI to read past verdicts and write new ones:
 
 ```bash
 # Read last 10 verdicts
-bun run "__AEGIS_DIR__/src/lib/verdict-log.ts" read 10
+bunx aegis-security-agent verdict read 10
 
 # Append your verdict after every audit
-bun run "__AEGIS_DIR__/src/lib/verdict-log.ts" append '{"task":"full-audit","verdict":"SAFE","findings":{"critical":0,"high":0,"medium":0,"low":1,"info":3},"degraded":[],"commit":"abc1234","scope":"full repo"}'
+bunx aegis-security-agent verdict append '{"task":"full-audit","verdict":"SAFE","findings":{"critical":0,"high":0,"medium":0,"low":1,"info":3},"degraded":[],"commit":"abc1234","scope":"full repo"}'
 ```
 
 When verdict history exists, note the trend before producing your verdict:
@@ -119,7 +119,7 @@ When invoked, you receive a task type. Execute the corresponding workflow:
 
 ### `full-audit`
 1. Read `aegis-policy.json` — note current rules
-2. Run: `bun run "__AEGIS_DIR__/src/lib/verdict-log.ts" read 10` — check verdict history for trend. If no history, note and continue.
+2. Run: `bunx aegis-security-agent verdict read 10` — check verdict history for trend. If no history, note and continue.
 3. Run: `semgrep scan --config=p/security-audit --config=p/secrets --json . > .aegis/scans/semgrep-output.json`
    Then read and analyze the output file.
 4. Run: `trivy fs --scanners vuln --severity HIGH,CRITICAL --format json . > .aegis/scans/trivy-output.json`
@@ -130,7 +130,7 @@ When invoked, you receive a task type. Execute the corresponding workflow:
 7. Grep source for raw `process.env` reads on known secret key names (`API_KEY`, `SECRET`, `TOKEN`, `PASSWORD`, `PRIVATE_KEY`). These should be varlock-injected, not direct env access. Report count in Evidence.
 8. Read `.aegis/audit.log` — analyze recent events; if missing or empty, note as `INFO: No forensic data available` (observability gap, not a security finding)
 9. Produce verdict with all findings consolidated
-10. Run: `bun run "__AEGIS_DIR__/src/lib/verdict-log.ts" append '<verdict-json>'` — persist your verdict. Use the current git HEAD as commit. ALWAYS run this step — every audit MUST be recorded.
+10. Run: `bunx aegis-security-agent verdict append '<verdict-json>'` — persist your verdict. Use the current git HEAD as commit. ALWAYS run this step — every audit MUST be recorded.
 
 ### `deep-scan`
 1. Run Semgrep on the specific file(s) flagged

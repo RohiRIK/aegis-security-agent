@@ -79,6 +79,12 @@ async function installOpenCodeMode(targetDir: string, force: boolean): Promise<v
   await ensureDir(join(targetDir, ".aegis"));
   log("created", join(targetDir, ".aegis") + "/");
 
+  const auditLogPath = join(targetDir, ".aegis", "audit.log");
+  if (!await fileExists(auditLogPath)) {
+    await Bun.write(auditLogPath, "");
+    log("created", auditLogPath);
+  }
+
   await copyIfMissing(
     join(AEGIS_DIR, "aegis-policy.json"),
     join(targetDir, "aegis-policy.json"),
@@ -112,6 +118,13 @@ async function installOpenCodeMode(targetDir: string, force: boolean): Promise<v
 async function installClaudeMode(targetDir: string, force: boolean): Promise<void> {
   const hooksContent = HOOKS_TEMPLATE.replaceAll("__AEGIS_DIR__", AEGIS_DIR);
   await writeIfMissing(join(targetDir, ".claude", "hooks.json"), hooksContent, force);
+
+  await ensureDir(join(targetDir, ".aegis"));
+  const auditLogPath = join(targetDir, ".aegis", "audit.log");
+  if (!await fileExists(auditLogPath)) {
+    await Bun.write(auditLogPath, "");
+    log("created", auditLogPath);
+  }
 
   const agentSrc = join(AEGIS_DIR, "docs", "agents", "aegis.md");
   const agentDest = join(targetDir, ".claude", "agents", "aegis.md");

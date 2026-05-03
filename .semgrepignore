@@ -1,0 +1,6 @@
+# Semgrep ignore — suppress false positives from docs and non-source paths
+docs/
+.sisyphus/
+node_modules/
+dist/
+.aegis/

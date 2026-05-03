@@ -1,5 +1,5 @@
 {
-  "$schema": "https://harness.local/policy-schema/v1",
+  "$schema": "https://aegis.local/policy-schema/v1",
   "version": "1.0",
   "actions": {
     "read_file": {
@@ -81,7 +81,6 @@
   },
   "tools": {
     "enabled": ["trivy", "trufflehog", "semgrep"],
-    "auto_provision": false,
     "auto_update": true
   },
   "hitl_timeout_seconds": 120
