@@ -844,7 +844,7 @@ Wave FINAL (After ALL — 4 parallel reviews):
 
   **Commit**: YES (groups with 12)
 
-- [ ] 14. Integration test — full install → run flow
+- [x] 14. Integration test — full install → run flow
 
   **What to do**:
   - Create `src/opencode/integration.test.ts`:
