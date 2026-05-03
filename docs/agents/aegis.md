@@ -124,7 +124,7 @@ When invoked, you receive a task type. Execute the corresponding workflow:
    Then read and analyze the output file.
 4. Run: `trivy fs --scanners vuln --severity HIGH,CRITICAL --format json . > .aegis/scans/trivy-output.json`
    Then read and analyze the output file.
-5. Run: `trufflehog filesystem --json . > .aegis/scans/trufflehog-output.json`
+5. Run: `trufflehog filesystem --exclude-paths .trufflehogignore --json . > .aegis/scans/trufflehog-output.json`
    Then read and analyze the output file.
 6. Run: `bunx varlock scan --staged` — verify no secrets leak into staged files. ALWAYS report the result in Evidence, even when nothing is staged: `✅ varlock: no staged files` or `✅ varlock: 0 findings`. If varlock is unavailable, report `⚠️ varlock: not installed — skipped` and grep for raw `process.env` reads on secret keys as fallback.
 7. Grep source for raw `process.env` reads on known secret key names (`API_KEY`, `SECRET`, `TOKEN`, `PASSWORD`, `PRIVATE_KEY`). These should be varlock-injected, not direct env access. Report count in Evidence.
