@@ -6,13 +6,13 @@ type CompactionOutput = {
 };
 
 export function createCompactionHandler(
-  getPreflightPassed: () => boolean,
+  getPreflightStatus: () => "passed" | "failed" | "not-run",
   getDegraded: () => boolean,
   policy: HarnessPolicy,
 ) {
   return async (output: CompactionOutput) => {
     const mode = getDegraded() ? "DEGRADED" : "full";
-    const preflight = getPreflightPassed() ? "passed" : "not-run";
+    const preflight = getPreflightStatus();
     const blockedPatterns = policy.high_risk_patterns?.length ?? 0;
 
     output.context.push(

@@ -52,6 +52,7 @@ export const AegisSecurityPlugin: Plugin = async ({ directory, client }) => {
   ) as HarnessPolicy;
 
   let preflightPassed = false;
+  let preflightRan = false;
   let preflightPromise: Promise<void> | null = null;
   let degraded = false;
 
@@ -61,6 +62,7 @@ export const AegisSecurityPlugin: Plugin = async ({ directory, client }) => {
     (p) => { preflightPromise = p; },
     undefined,
     (val) => { degraded = val; },
+    (val) => { preflightRan = val; },
     client,
   );
 
@@ -74,7 +76,7 @@ export const AegisSecurityPlugin: Plugin = async ({ directory, client }) => {
 
   const afterHandler = createAfterHandler();
   const compactionHandler = createCompactionHandler(
-    () => preflightPassed,
+    () => (preflightRan ? (preflightPassed ? "passed" : "failed") : "not-run"),
     () => degraded,
     policy,
   );

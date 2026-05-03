@@ -39,12 +39,14 @@ export function createSessionHandler(
   setPreflightPromise?: (p: Promise<void>) => void,
   runPreflight?: (setDegraded: (val: boolean) => void) => Promise<void>,
   setDegraded?: (val: boolean) => void,
+  setPreflightRan?: (val: boolean) => void,
   client?: PluginInput["client"],
 ): { handler: (input: { event: { type: string; sessionID?: string } }) => Promise<void> } {
   const handler = async (input: { event: { type: string; sessionID?: string } }) => {
     if (input.event.type !== "session.created") return;
 
     const promise = (async () => {
+      setPreflightRan?.(true);
       try {
         if (runPreflight) {
           await runPreflight(setDegraded ?? (() => {}));
