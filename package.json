@@ -15,13 +15,12 @@
   },
   "files": ["dist", "bin", "scanners-manifest.json", "aegis-policy.json", "docs/agents/aegis.md", ".claudeignore"],
   "scripts": {
-    "build": "bun build src/opencode/index.ts --outdir dist --target bun --format esm --external @opencode-ai/plugin && bun build src/cli/index.ts --outdir dist/cli --target bun --format esm --external @opencode-ai/plugin",
-    "build:types": "tsc --emitDeclarationOnly --outDir dist --declaration",
+    "build": "bun build src/opencode/index.ts --outdir dist --target bun --format esm --external @opencode-ai/plugin && bun build src/cli/index.ts --outdir dist/cli --target bun --format esm --external @opencode-ai/plugin && bun run build:types",
+    "build:types": "tsc --emitDeclarationOnly --outDir dist --declaration --noEmit false",
     "build:binaries": "bun run scripts/build-binaries.ts",
     "prepublishOnly": "bun run build && bun run build:types && bun test",
     "preflight": "bun run src/preflight.ts",
     "smoke-test": "bun run src/smoke-test.ts",
-    "install-aegis": "bun run src/install.ts",
     "test": "bun test"
   },
   "dependencies": {
