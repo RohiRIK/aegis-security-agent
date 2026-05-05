@@ -4,8 +4,6 @@ import {
   matchHighRiskPattern,
   parseInstallCommand,
 } from "../../core/security.ts";
-import { routeCommand } from "../../core/router.ts";
-import { detectDockerState, formatDockerWarning, isDockerAvailable } from "../../sandbox/detect.ts";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
@@ -19,7 +17,6 @@ export function createBeforeHandler(
   policy: AegisPolicy,
   getPreflightPromise: () => Promise<void> | null,
   preflightPassed: () => boolean,
-  getDegraded?: () => boolean,
   client?: PluginInput["client"],
 ): (input: any, output: any) => Promise<void> {
   return async (input: any, output: any) => {
@@ -47,10 +44,6 @@ export function createBeforeHandler(
 
     const matched = matchHighRiskPattern(command, policy.high_risk_patterns ?? []);
     if (matched) throw new Error(`BLOCKED: HIGH-RISK pattern matched — ${matched}`);
-
-    const route = routeCommand(command, policy);
-
-    if (route === "host") return;
 
     const pkg = parseInstallCommand(command);
     if (pkg) {
@@ -82,31 +75,5 @@ export function createBeforeHandler(
         rmSync(scanDir, { recursive: true, force: true });
       }
     }
-
-    const degraded = getDegraded?.() ?? false;
-    let dockerAvailable = !degraded;
-
-    if (!degraded) {
-      const dockerState = await detectDockerState();
-      dockerAvailable = isDockerAvailable(dockerState);
-      if (!dockerAvailable) {
-        const warnOnDegraded = policy.degraded_mode?.warn_on_degraded !== false;
-        if (warnOnDegraded) {
-          logAegis(client, "warn", formatDockerWarning(dockerState));
-        }
-      }
-    }
-
-    if (!dockerAvailable) {
-      const blockSandbox = policy.degraded_mode?.block_sandbox_required !== false;
-      if (blockSandbox) {
-        throw new Error("[AEGIS] BLOCKED: sandbox-required command cannot run — Docker unavailable");
-      }
-      return;
-    }
-
-    const escaped = command.replace(/'/g, "'\\''");
-    output.args ??= {};
-    output.args.command = `docker exec aegis-sandbox bash -c '${escaped}'`;
   };
 }

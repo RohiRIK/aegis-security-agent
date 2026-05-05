@@ -111,21 +111,16 @@ describe("integration", () => {
     }
   });
 
-  test("degraded mode blocks sandbox-required commands while allowing host passthrough", async () => {
+  test("commands pass through without sandbox wrapping", async () => {
     const preflightPromise = Promise.resolve();
     const handler = createBeforeHandler(
       BEFORE_POLICY,
       () => preflightPromise,
       () => true,
-      () => true,
     );
 
-    const blockedOutput = { args: { command: "node index.js" } };
-    await expect(handler({ tool: "bash" }, blockedOutput)).rejects.toThrow("sandbox-required command cannot run");
-    expect(blockedOutput.args.command).toBe("node index.js");
-
-    const hostOutput = { args: { command: "git status" } };
-    await handler({ tool: "bash" }, hostOutput);
-    expect(hostOutput.args.command).toBe("git status");
+    const output = { args: { command: "node index.js" } };
+    await handler({ tool: "bash" }, output);
+    expect(output.args.command).toBe("node index.js");
   });
 });

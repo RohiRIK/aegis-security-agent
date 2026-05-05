@@ -70,7 +70,6 @@ export const AegisSecurityPlugin: Plugin = async ({ directory, client }) => {
     policy,
     () => preflightPromise,
     () => preflightPassed,
-    () => degraded,
     client,
   );
 

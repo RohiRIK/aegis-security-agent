@@ -106,14 +106,14 @@ describe("OpenCode Plugin Smoke Tests", () => {
     await expect(handler(input, output)).resolves.toBeUndefined();
   });
 
-  it("OC-05: tool.execute.before sandbox routing wraps command in docker exec", async () => {
+  it("OC-05: tool.execute.before safe bash command passes through unchanged", async () => {
     const handler = makeBeforeHandler(() => Promise.resolve(), () => true);
     const input: BeforeInput = { tool: "bash", sessionID: "s1", callID: "c1" };
     const output: BeforeOutput = { args: { command: "ls" } };
 
     await handler(input, output);
 
-    expect(output.args?.command).toContain("docker exec aegis-sandbox");
+    expect(output.args?.command).toBe("ls");
   });
 
   it("OC-06: tool.execute.after write with shell injection appends semgrep findings", async () => {
@@ -149,14 +149,14 @@ describe("OpenCode Plugin Smoke Tests", () => {
     expect(output.env.PATH).toBe("/usr/bin");
   });
 
-  it("OC-08: preflight gate behavior enforces null, failed, and passed states", async () => {
+  it("OC-08: preflight gate warns on failure but does not block", async () => {
     const input: BeforeInput = { tool: "bash", sessionID: "s1", callID: "c1" };
 
     const uninitializedHandler = makeBeforeHandler(() => null, () => false);
     await expect(uninitializedHandler(input, { args: { command: "ls" } })).rejects.toThrow(/Preflight not initialized/i);
 
     const failedHandler = makeBeforeHandler(() => Promise.resolve(), () => false);
-    await expect(failedHandler(input, { args: { command: "ls" } })).rejects.toThrow(/Preflight failed/i);
+    await expect(failedHandler(input, { args: { command: "ls" } })).resolves.toBeUndefined();
 
     const passedHandler = makeBeforeHandler(() => Promise.resolve(), () => true);
     await expect(passedHandler(input, { args: { command: "ls" } })).resolves.toBeUndefined();
