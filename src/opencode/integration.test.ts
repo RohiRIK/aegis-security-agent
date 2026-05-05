@@ -7,9 +7,9 @@ import { runInstall } from "../cli/install.ts";
 import { routeCommand, type RoutingPolicy } from "../core/router.ts";
 import { proxyResult } from "../lib/output-proxy.ts";
 import { createBeforeHandler } from "./handlers/before.ts";
-import { AegisSecurityPlugin, type HarnessPolicy } from "./index.ts";
+import { AegisSecurityPlugin, type AegisPolicy } from "./index.ts";
 
-const BEFORE_POLICY: HarnessPolicy = {
+const BEFORE_POLICY: AegisPolicy = {
   high_risk_patterns: ["rm\\s+-rf\\s+/"],
   routing: {
     host_passthrough: ["^git\\b", "^ls\\b", "^cat\\b"],

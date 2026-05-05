@@ -3,14 +3,14 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-import type { HarnessPolicy } from "./opencode/index.ts";
+import type { AegisPolicy } from "./opencode/index.ts";
 import { createAfterHandler } from "./opencode/handlers/after.ts";
 import { createBeforeHandler } from "./opencode/handlers/before.ts";
 import { createEnvHandler } from "./opencode/handlers/env.ts";
 import { DEFAULT_SENSITIVE_VARS } from "./core/security.ts";
 
 const ROOT = resolve(import.meta.dir, "..");
-const POLICY = JSON.parse(await Bun.file(join(ROOT, "aegis-policy.json")).text()) as HarnessPolicy;
+const POLICY = JSON.parse(await Bun.file(join(ROOT, "aegis-policy.json")).text()) as AegisPolicy;
 
 type BeforeInput = {
   tool: string;

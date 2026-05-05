@@ -13,10 +13,10 @@ import { wrapTrivy } from "../../lib/scanner.ts";
 import { logAegis } from "../../lib/aegis-log.ts";
 import { proxyResult } from "../../lib/output-proxy.ts";
 import type { PluginInput } from "@opencode-ai/plugin";
-import type { HarnessPolicy } from "../index.ts";
+import type { AegisPolicy } from "../index.ts";
 
 export function createBeforeHandler(
-  policy: HarnessPolicy,
+  policy: AegisPolicy,
   getPreflightPromise: () => Promise<void> | null,
   preflightPassed: () => boolean,
   getDegraded?: () => boolean,

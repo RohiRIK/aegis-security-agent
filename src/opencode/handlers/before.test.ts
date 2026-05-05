@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
 import { createBeforeHandler } from "./before.ts";
 import * as detect from "../../sandbox/detect.ts";
-import type { HarnessPolicy } from "../index.ts";
+import type { AegisPolicy } from "../index.ts";
 
-const POLICY: HarnessPolicy = {
+const POLICY: AegisPolicy = {
   high_risk_patterns: ["rm\\s+-rf\\s+/"],
   routing: {
     host_passthrough: ["^git\\b", "^ls\\b", "^cat\\b"],
@@ -105,7 +105,7 @@ describe("before handler — degraded mode", () => {
   });
 
   test("allows sandbox-required when block_sandbox_required is false", async () => {
-    const policy: HarnessPolicy = {
+    const policy: AegisPolicy = {
       ...POLICY,
       degraded_mode: { block_sandbox_required: false, warn_on_degraded: true },
     };

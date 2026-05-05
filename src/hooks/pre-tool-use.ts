@@ -17,7 +17,7 @@ import { routeCommand } from "../core/router.ts";
 const AEGIS_DIR = resolve(import.meta.dir, "..", "..");
 const POLICY_PATH = join(AEGIS_DIR, "aegis-policy.json");
 
-type HarnessPolicy = {
+type AegisPolicy = {
   high_risk_patterns?: string[];
   hitl_timeout_seconds?: number;
   routing?: {
@@ -40,7 +40,7 @@ async function main(): Promise<number> {
   await ensureDir(join(AEGIS_DIR, ".aegis"));
 
   if ((toolName === "Bash" || toolName === "bash") && bashCommand.length > 0) {
-    const policy = (await Bun.file(POLICY_PATH).json()) as HarnessPolicy;
+    const policy = (await Bun.file(POLICY_PATH).json()) as AegisPolicy;
     const route = routeCommand(bashCommand, policy);
     const matchedPattern = route === "hitl" ? matchHighRiskPattern(bashCommand, policy.high_risk_patterns ?? []) ?? "" : "";
 

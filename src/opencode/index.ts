@@ -8,7 +8,7 @@ import { createEnvHandler } from "./handlers/env.ts";
 import { createPermissionHandler } from "./handlers/permission.ts";
 import { DEFAULT_SENSITIVE_VARS } from "../core/security.ts";
 
-export type HarnessPolicy = {
+export type AegisPolicy = {
   high_risk_patterns?: string[];
   hitl_timeout_seconds?: number;
   routing?: {
@@ -49,7 +49,7 @@ function safe(handler: AnyHandler, opts?: { swallow?: boolean; onError?: () => v
 export const AegisSecurityPlugin: Plugin = async ({ directory, client }) => {
   const policy = JSON.parse(
     await Bun.file(join(directory, "aegis-policy.json")).text(),
-  ) as HarnessPolicy;
+  ) as AegisPolicy;
 
   let preflightPassed = false;
   let preflightRan = false;

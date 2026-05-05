@@ -1,4 +1,4 @@
-import type { HarnessPolicy } from "../index.ts";
+import type { AegisPolicy } from "../index.ts";
 
 type CompactionOutput = {
   context: string[];
@@ -8,7 +8,7 @@ type CompactionOutput = {
 export function createCompactionHandler(
   getPreflightStatus: () => "passed" | "failed" | "not-run",
   getDegraded: () => boolean,
-  policy: HarnessPolicy,
+  policy: AegisPolicy,
 ) {
   return async (output: CompactionOutput) => {
     const mode = getDegraded() ? "DEGRADED" : "full";
