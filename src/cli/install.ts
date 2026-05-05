@@ -158,8 +158,15 @@ async function installOpenCodeMode(targetDir: string, force: boolean): Promise<v
   // Always overwrite — excludes .git/objects/ to prevent TruffleHog timeouts
   await writeIfMissing(join(targetDir, ".trufflehogignore"), TRUFFLEHOG_IGNORE_CONTENT, true);
 
-  // Update cached node_modules to ensure old intercepting versions are replaced
+  // Remove npm lock file — it pins old versions and overrides bun on every OpenCode restart
   const opencodeDir = join(targetDir, ".opencode");
+  const npmLock = join(opencodeDir, "package-lock.json");
+  if (await fileExists(npmLock)) {
+    await Bun.file(npmLock).delete?.() ?? (await import("node:fs/promises")).unlink(npmLock);
+    log("updated", npmLock + " (removed stale npm lock)");
+  }
+
+  // Update cached node_modules to ensure old intercepting versions are replaced
   if (await fileExists(join(opencodeDir, "package.json"))) {
     const updateResult = await runCommandCapture(["bun", "update", "aegis-security-agent"], { cwd: opencodeDir });
     if (updateResult.exitCode === 0) {
