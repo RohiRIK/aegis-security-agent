@@ -12,6 +12,26 @@ export { AegisSecurityPlugin as default } from "aegis-security-agent";
 
 const OPENCODE_PKG_CONTENT = JSON.stringify({ dependencies: { "aegis-security-agent": "latest" } }, null, 2) + "\n";
 
+const ENV_SCHEMA_CONTENT = `# Aegis Security — Environment Schema
+# Add your secrets here. Mark sensitive values with @sensitive.
+# See https://varlock.dev for full syntax.
+#
+# Example:
+# @sensitive
+# MY_API_KEY=
+`;
+
+const PRE_COMMIT_CONFIG_CONTENT = `repos:
+  - repo: https://github.com/trufflesecurity/trufflehog
+    rev: v3.82.13
+    hooks:
+      - id: trufflehog
+        name: TruffleHog secret scan (Aegis)
+        entry: trufflehog git file://. --since-commit HEAD --only-verified --fail
+        language: system
+        stages: [pre-commit]
+`;
+
 function log(status: "created" | "skipped" | "updated", filePath: string): void {
   const badge =
     status === "created" ? icon.pass :
@@ -113,6 +133,9 @@ async function installOpenCodeMode(targetDir: string, force: boolean): Promise<v
       force,
     );
   }
+
+  await writeIfMissing(join(targetDir, ".env.schema"), ENV_SCHEMA_CONTENT, force);
+  await writeIfMissing(join(targetDir, ".pre-commit-config.yaml"), PRE_COMMIT_CONFIG_CONTENT, force);
 }
 
 async function installClaudeMode(targetDir: string, force: boolean): Promise<void> {

@@ -23,10 +23,16 @@ export function createBeforeHandler(
   client?: PluginInput["client"],
 ): (input: any, output: any) => Promise<void> {
   return async (input: any, output: any) => {
-    const pp = getPreflightPromise();
-    if (pp === null) throw new Error("Preflight not initialized — tool calls blocked");
+    let pp = getPreflightPromise();
+    if (pp === null) {
+      for (let i = 0; i < 10 && pp === null; i++) {
+        await new Promise(r => setTimeout(r, 50));
+        pp = getPreflightPromise();
+      }
+      if (pp === null) throw new Error("Preflight not initialized — tool calls blocked");
+    }
     await pp;
-    if (!preflightPassed()) throw new Error("Preflight failed — tool calls blocked");
+    if (!preflightPassed()) logAegis(client, "warn", "[AEGIS] preflight checks incomplete — proceeding in degraded mode");
 
     if (["read", "write", "edit"].includes(input.tool)) {
       const filePath = output.args?.filePath ?? output.args?.path ?? "";

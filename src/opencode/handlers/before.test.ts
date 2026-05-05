@@ -123,18 +123,40 @@ describe("before handler — degraded mode", () => {
 });
 
 describe("before handler — preflight gate", () => {
-  test("throws when preflight promise is null", async () => {
+  test("throws after 500ms when preflight promise stays null", async () => {
     const handler = createBeforeHandler(
       POLICY,
       () => null,
       () => false,
     );
+    const start = Date.now();
     await expect(handler(bashInput(), bashOutput("ls"))).rejects.toThrow("Preflight not initialized");
-  });
+    expect(Date.now() - start).toBeGreaterThanOrEqual(490);
+  }, 2000);
 
-  test("throws when preflight failed", async () => {
+  test("resolves once preflight promise is set during polling window", async () => {
+    let resolveDeferred!: () => void;
+    const deferred = new Promise<void>(r => { resolveDeferred = r; });
+    let promise: Promise<void> | null = null;
+
+    const handler = createBeforeHandler(
+      POLICY,
+      () => promise,
+      () => true,
+    );
+
+    setTimeout(() => {
+      promise = deferred;
+      resolveDeferred();
+    }, 100);
+
+    await expect(handler(bashInput(), bashOutput("ls"))).resolves.toBeUndefined();
+  }, 2000);
+
+  test("warns but continues when preflight failed", async () => {
     const handler = makeHandler({ preflightPassed: false });
-    await expect(handler(bashInput(), bashOutput("ls"))).rejects.toThrow("Preflight failed");
+    // Preflight failure is now advisory — warns via logAegis, does not block
+    await expect(handler(bashInput(), bashOutput("ls"))).resolves.toBeUndefined();
   });
 });
 

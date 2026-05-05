@@ -3,7 +3,7 @@ import type { PluginInput } from "@opencode-ai/plugin";
 import { DEFAULT_SENSITIVE_VARS } from "../../core/security.ts";
 import { detectDockerState, formatDockerWarning, isDegraded } from "../../sandbox/detect.ts";
 import { logAegis } from "../../lib/aegis-log.ts";
-import { ensureDir, fileExists } from "../../lib/base.ts";
+import { ensureDir, fileExists, runCommandCapture } from "../../lib/base.ts";
 
 /**
  * Bootstrap the `.aegis/` directory in the project root.
@@ -51,18 +51,28 @@ async function runDefaultPreflight(
   setDegraded: (val: boolean) => void,
   client?: PluginInput["client"],
 ): Promise<void> {
-  const c = Bun.spawn(["bunx", "varlock", "--version"], { stdout: "ignore", stderr: "ignore" });
-  if ((await c.exited) !== 0) throw new Error("varlock unavailable");
+  const varlockAvailable = (await runCommandCapture(["bunx", "varlock", "--version"])).exitCode === 0;
+  if (!varlockAvailable) {
+    logAegis(client, "warn", "[AEGIS] varlock not found — secret scanning disabled. Run 'bun add -d varlock' to install.");
+  }
 
-  if (!(await Bun.file(join(directory, ".env.schema")).exists())) throw new Error(".env.schema missing");
+  if (!(await Bun.file(join(directory, ".env.schema")).exists())) {
+    logAegis(client, "warn", "[AEGIS] .env.schema missing — run 'aegis install' to scaffold");
+  }
 
+  // Secrets can leak into the shell env without a .env file on disk — always check process.env.
   const found = DEFAULT_SENSITIVE_VARS.filter(v => (process.env[v] ?? "").length > 0);
   if (found.length > 0) throw new Error("live secrets in env");
 
   const configPath = join(directory, ".pre-commit-config.yaml");
-  if (!(await Bun.file(configPath).exists())) throw new Error(".pre-commit-config.yaml missing");
-  const text = await Bun.file(configPath).text();
-  if (!text.includes("trufflehog")) throw new Error("trufflehog hook missing");
+  try {
+    const text = await Bun.file(configPath).text();
+    if (!text.includes("trufflehog")) {
+      logAegis(client, "warn", "[AEGIS] trufflehog hook not found in .pre-commit-config.yaml");
+    }
+  } catch {
+    logAegis(client, "warn", "[AEGIS] .pre-commit-config.yaml missing — run 'aegis install' to scaffold");
+  }
 
   const dockerState = await detectDockerState();
   if (isDegraded(dockerState)) {
@@ -71,8 +81,10 @@ async function runDefaultPreflight(
     setDegraded(true);
   }
 
-  const vs = Bun.spawn(["bunx", "varlock", "scan", "--staged"], { stdout: "ignore", stderr: "ignore" });
-  if ((await vs.exited) !== 0) throw new Error("varlock scan failed");
+  if (varlockAvailable) {
+    const scan = await runCommandCapture(["bunx", "varlock", "scan", "--staged"]);
+    if (scan.exitCode !== 0) throw new Error("varlock scan failed — staged secrets detected");
+  }
 }
 
 export function createSessionHandler(
