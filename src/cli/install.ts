@@ -163,7 +163,7 @@ async function installOpenCodeMode(targetDir: string, force: boolean): Promise<v
   const opencodeDir = join(targetDir, ".opencode");
   const npmLock = join(opencodeDir, "package-lock.json");
   if (await fileExists(npmLock)) {
-    await Bun.file(npmLock).delete?.() ?? (await import("node:fs/promises")).unlink(npmLock);
+    await (await import("node:fs/promises")).rm(npmLock, { force: true });
     log("updated", npmLock + " (removed stale npm lock)");
   }
 
