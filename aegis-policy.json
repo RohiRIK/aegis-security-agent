@@ -76,7 +76,7 @@
   },
   "degraded_mode": {
     "allow_host_passthrough": true,
-    "block_sandbox_required": true,
+    "block_sandbox_required": false,
     "warn_on_degraded": true
   },
   "tools": {
