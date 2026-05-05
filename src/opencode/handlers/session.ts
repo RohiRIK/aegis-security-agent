@@ -62,7 +62,7 @@ async function runDefaultPreflight(
 
   // Secrets can leak into the shell env without a .env file on disk — always check process.env.
   const found = DEFAULT_SENSITIVE_VARS.filter(v => (process.env[v] ?? "").length > 0);
-  if (found.length > 0) throw new Error("live secrets in env");
+  if (found.length > 0) logAegis(client, "warn", `[AEGIS] ⚠️ live secrets detected in env: ${found.join(", ")}`);
 
   const configPath = join(directory, ".pre-commit-config.yaml");
   try {
@@ -83,7 +83,7 @@ async function runDefaultPreflight(
 
   if (varlockAvailable) {
     const scan = await runCommandCapture(["bunx", "varlock", "scan", "--staged"]);
-    if (scan.exitCode !== 0) throw new Error("varlock scan failed — staged secrets detected");
+    if (scan.exitCode !== 0) logAegis(client, "warn", "[AEGIS] ⚠️ varlock detected staged secrets — review before committing");
   }
 }
 

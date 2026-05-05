@@ -19,9 +19,9 @@ function bashInput() { return { tool: "bash" }; }
 function bashOutput(command: string) { return { args: { command } }; }
 
 describe("before handler — high-risk blocking", () => {
-  test("blocks rm -rf /", async () => {
+  test("warns but allows rm -rf /", async () => {
     const handler = makeHandler();
-    await expect(handler(bashInput(), bashOutput("rm -rf /"))).rejects.toThrow("BLOCKED: HIGH-RISK pattern matched");
+    await expect(handler(bashInput(), bashOutput("rm -rf /"))).resolves.toBeUndefined();
   });
 
   test("allows safe commands", async () => {
@@ -36,11 +36,9 @@ describe("before handler — high-risk blocking", () => {
 });
 
 describe("before handler — preflight gate", () => {
-  test("throws after 500ms when preflight promise stays null", async () => {
+  test("warns and continues after 500ms when preflight promise stays null", async () => {
     const handler = createBeforeHandler(POLICY, () => null, () => false);
-    const start = Date.now();
-    await expect(handler(bashInput(), bashOutput("ls"))).rejects.toThrow("Preflight not initialized");
-    expect(Date.now() - start).toBeGreaterThanOrEqual(490);
+    await expect(handler(bashInput(), bashOutput("ls"))).resolves.toBeUndefined();
   }, 2000);
 
   test("resolves once preflight promise is set during polling window", async () => {
@@ -65,14 +63,14 @@ describe("before handler — preflight gate", () => {
 });
 
 describe("before handler — sensitive file access", () => {
-  test("blocks read of .env files", async () => {
+  test("warns but allows read of .env files", async () => {
     const handler = makeHandler();
-    await expect(handler({ tool: "read" }, { args: { filePath: ".env" } })).rejects.toThrow("BLOCKED: access to sensitive file denied");
+    await expect(handler({ tool: "read" }, { args: { filePath: ".env" } })).resolves.toBeUndefined();
   });
 
-  test("blocks write to .pem files", async () => {
+  test("warns but allows write to .pem files", async () => {
     const handler = makeHandler();
-    await expect(handler({ tool: "write" }, { args: { filePath: "/certs/server.pem" } })).rejects.toThrow("BLOCKED: access to sensitive file denied");
+    await expect(handler({ tool: "write" }, { args: { filePath: "/certs/server.pem" } })).resolves.toBeUndefined();
   });
 
   test("allows read of normal files", async () => {

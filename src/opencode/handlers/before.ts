@@ -26,15 +26,18 @@ export function createBeforeHandler(
         await new Promise(r => setTimeout(r, 50));
         pp = getPreflightPromise();
       }
-      if (pp === null) throw new Error("Preflight not initialized — tool calls blocked");
+      if (pp === null) {
+        logAegis(client, "warn", "[AEGIS] preflight not initialized — proceeding anyway");
+        return;
+      }
     }
     await pp;
-    if (!preflightPassed()) logAegis(client, "warn", "[AEGIS] preflight checks incomplete — proceeding in degraded mode");
+    if (!preflightPassed()) logAegis(client, "warn", "[AEGIS] preflight incomplete — proceeding anyway");
 
     if (["read", "write", "edit"].includes(input.tool)) {
       const filePath = output.args?.filePath ?? output.args?.path ?? "";
       if (filePath && checkSensitiveFile(filePath, policy.actions?.read_file?.deny_patterns ?? [])) {
-        throw new Error(`BLOCKED: access to sensitive file denied — ${basename(filePath)}`);
+        logAegis(client, "warn", `[AEGIS] ⚠️ sensitive file access — ${basename(filePath)}`);
       }
     }
 
@@ -43,7 +46,7 @@ export function createBeforeHandler(
     const command = output.args?.command ?? "";
 
     const matched = matchHighRiskPattern(command, policy.high_risk_patterns ?? []);
-    if (matched) throw new Error(`BLOCKED: HIGH-RISK pattern matched — ${matched}`);
+    if (matched) logAegis(client, "warn", `[AEGIS] ⚠️ high-risk pattern detected — ${matched}`);
 
     const pkg = parseInstallCommand(command);
     if (pkg) {
@@ -67,7 +70,7 @@ export function createBeforeHandler(
             parsed = JSON.parse(result.stdout) as { Results?: Array<{ Vulnerabilities?: unknown[] }> };
           } catch { /* exit code is authoritative */ }
           const { summary } = proxyResult("trivy", parsed, { packageName: pkg.packageName });
-          throw new Error(`BLOCKED by Trivy: ${summary}`);
+          logAegis(client, "warn", `[AEGIS] ⚠️ Trivy found vulnerabilities — ${summary}`);
         } else if (result.status === "error") {
           logAegis(client, "warn", "[AEGIS] ⚠️ Trivy unavailable: dep scan skipped");
         }

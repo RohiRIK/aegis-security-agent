@@ -61,12 +61,12 @@ describe("OpenCode Plugin Smoke Tests", () => {
     }
   });
 
-  it("OC-01: tool.execute.before HIGH-RISK bash throws", async () => {
+  it("OC-01: tool.execute.before HIGH-RISK bash warns but does not throw", async () => {
     const handler = makeBeforeHandler(() => Promise.resolve(), () => true);
     const input: BeforeInput = { tool: "bash", sessionID: "s1", callID: "c1" };
     const output: BeforeOutput = { args: { command: "rm -rf /" } };
 
-    await expect(handler(input, output)).rejects.toThrow();
+    await expect(handler(input, output)).resolves.toBeUndefined();
   });
 
   it("OC-02: tool.execute.before safe bash resolves", async () => {
@@ -77,7 +77,7 @@ describe("OpenCode Plugin Smoke Tests", () => {
     await expect(handler(input, output)).resolves.toBeUndefined();
   });
 
-  it("OC-03: tool.execute.before reads .env throws", async () => {
+  it("OC-03: tool.execute.before reads .env warns but does not throw", async () => {
     const handler = createBeforeHandler(
       {
         ...POLICY,
@@ -95,7 +95,7 @@ describe("OpenCode Plugin Smoke Tests", () => {
     const input: BeforeInput = { tool: "read", sessionID: "s1", callID: "c1" };
     const output: BeforeOutput = { args: { filePath: "/project/.env" } };
 
-    await expect(handler(input, output)).rejects.toThrow();
+    await expect(handler(input, output)).resolves.toBeUndefined();
   });
 
   it("OC-04: tool.execute.before safe file read resolves", async () => {
@@ -149,11 +149,11 @@ describe("OpenCode Plugin Smoke Tests", () => {
     expect(output.env.PATH).toBe("/usr/bin");
   });
 
-  it("OC-08: preflight gate warns on failure but does not block", async () => {
+  it("OC-08: all preflight states warn but never block", async () => {
     const input: BeforeInput = { tool: "bash", sessionID: "s1", callID: "c1" };
 
     const uninitializedHandler = makeBeforeHandler(() => null, () => false);
-    await expect(uninitializedHandler(input, { args: { command: "ls" } })).rejects.toThrow(/Preflight not initialized/i);
+    await expect(uninitializedHandler(input, { args: { command: "ls" } })).resolves.toBeUndefined();
 
     const failedHandler = makeBeforeHandler(() => Promise.resolve(), () => false);
     await expect(failedHandler(input, { args: { command: "ls" } })).resolves.toBeUndefined();

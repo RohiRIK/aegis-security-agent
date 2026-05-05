@@ -114,10 +114,10 @@ describe("runDefaultPreflight — warn vs block", () => {
     await expect(runPreflight(tempDir)).resolves.toBeUndefined();
   });
 
-  test("live secrets in process.env block preflight regardless of .env file", async () => {
+  test("live secrets in process.env warn but do not block preflight", async () => {
     process.env["GITHUB_TOKEN"] = "ghp_fakesecretfortesting";
-    // No .env file on disk — but process.env has the secret, which must still block
-    await expect(runPreflight(tempDir)).rejects.toThrow("preflight set passed=false");
+    // Advisory only — warns but does not throw
+    await expect(runPreflight(tempDir)).resolves.toBeUndefined();
   });
 
   test(".pre-commit-config.yaml without trufflehog warns but does not block", async () => {
