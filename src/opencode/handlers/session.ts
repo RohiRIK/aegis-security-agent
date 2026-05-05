@@ -96,8 +96,15 @@ export function createSessionHandler(
   setPreflightRan?: (val: boolean) => void,
   client?: PluginInput["client"],
 ): { handler: (input: { event: { type: string; sessionID?: string } }) => Promise<void> } {
+  let preflightStarted = false;
+
   const handler = async (input: { event: { type: string; sessionID?: string } }) => {
     if (input.event.type !== "session.created") return;
+    // Guard against session.created firing multiple times — only run preflight once.
+    // Re-firing mid-session would reset preflightPromise to a pending promise and
+    // cause all concurrent tool calls to block on "Preflight not initialized".
+    if (preflightStarted) return;
+    preflightStarted = true;
 
     const promise = (async () => {
       await bootstrapAegisDir(directory, client);

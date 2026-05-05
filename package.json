@@ -1,6 +1,6 @@
 {
   "name": "aegis-security-agent",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "type": "module",
   "main": "./dist/index.js",
   "exports": {
@@ -13,7 +13,7 @@
   "bin": {
     "aegis": "bin/aegis.ts"
   },
-  "files": ["dist", "bin", "scanners-manifest.json", "aegis-policy.json", "docs/agents/aegis.md", ".claudeignore"],
+  "files": ["dist", "bin", "scanners-manifest.json", "aegis-policy.json", "docs/agents/aegis.md", ".claudeignore", ".trufflehogignore"],
   "scripts": {
     "build": "bun build src/opencode/index.ts --outdir dist --target bun --format esm --external @opencode-ai/plugin && bun build src/cli/index.ts --outdir dist/cli --target bun --format esm --external @opencode-ai/plugin && bun run build:types",
     "build:types": "tsc --emitDeclarationOnly --outDir dist --declaration --noEmit false",
