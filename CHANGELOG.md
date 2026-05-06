@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.16] - 2026-05-06
+
+### Fixed
+- Plugin no longer blocks tool calls when preflight hangs — `safe()` wrapper now always swallows errors (advisory-only mode)
+- `tool.execute.before` handler races preflight against a 5-second timeout instead of awaiting indefinitely
+- Plugin init survives missing or corrupt `aegis-policy.json` — falls back to empty policy instead of crashing
+
 ## [0.1.15] - 2026-05-06
 
 ### Added

@@ -32,24 +32,30 @@ export type AegisPolicy = {
 
 type AnyHandler = (...args: unknown[]) => Promise<void>;
 
-function safe(handler: AnyHandler, opts?: { swallow?: boolean; onError?: () => void }): AnyHandler {
+/**
+ * Wrap a handler so it NEVER throws — Aegis is advisory-only.
+ * All errors are swallowed and logged to stderr for debugging.
+ */
+function safe(handler: AnyHandler, opts?: { onError?: () => void }): AnyHandler {
   return async (...args) => {
     try {
       await handler(...args);
     } catch (err) {
-      if (opts?.swallow) {
-        opts.onError?.();
-      } else {
-        throw err;
-      }
+      console.error("[AEGIS] handler error (swallowed):", err instanceof Error ? err.message : String(err));
+      opts?.onError?.();
     }
   };
 }
 
 export const AegisSecurityPlugin: Plugin = async ({ directory, client }) => {
-  const policy = JSON.parse(
-    await Bun.file(join(directory, "aegis-policy.json")).text(),
-  ) as AegisPolicy;
+  let policy: AegisPolicy = {};
+  try {
+    policy = JSON.parse(
+      await Bun.file(join(directory, "aegis-policy.json")).text(),
+    ) as AegisPolicy;
+  } catch {
+    console.error("[AEGIS] aegis-policy.json not found or invalid — running with empty policy");
+  }
 
   let preflightPassed = false;
   let preflightRan = false;
@@ -86,7 +92,7 @@ export const AegisSecurityPlugin: Plugin = async ({ directory, client }) => {
     "tool.execute.before": safe(beforeHandler as AnyHandler),
     "tool.execute.after": safe(afterHandler as AnyHandler),
     "experimental.session.compacting": safe(compactionHandler as AnyHandler),
-    "event": safe(sessionHandler as AnyHandler, { swallow: true, onError: () => { preflightPassed = false; } }),
+    "event": safe(sessionHandler as AnyHandler, { onError: () => { preflightPassed = false; } }),
     "shell.env": safe(envHandler as AnyHandler),
     "permission.ask": safe(permissionHandler as AnyHandler),
   };

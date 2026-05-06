@@ -1,6 +1,6 @@
 # Aegis Security Agent — Architecture Reference
 
-> Version 0.1.15 · Last updated 2026-05-06
+> Version 0.1.16 · Last updated 2026-05-06
 
 ---
 
@@ -253,7 +253,7 @@ AegisSecurityPlugin({ directory, client })
        "permission.ask"               → permission handler (HITL escalation)
 ```
 
-All handlers are wrapped in `safe()` which catches errors — the `event` handler swallows errors and marks `preflightPassed = false`; all others re-throw (which surfaces the block message to the user).
+All handlers are wrapped in `safe()` which catches and swallows all errors — Aegis is advisory-only and must never block tool calls. Errors are logged to stderr. The `event` handler additionally marks `preflightPassed = false` on failure.
 
 ### 7.3 The 6 Hook Handlers
 

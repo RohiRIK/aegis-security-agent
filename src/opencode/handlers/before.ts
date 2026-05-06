@@ -20,6 +20,7 @@ export function createBeforeHandler(
   client?: PluginInput["client"],
 ): (input: any, output: any) => Promise<void> {
   return async (input: any, output: any) => {
+    // Wait for preflight with a hard timeout — NEVER block tool calls.
     let pp = getPreflightPromise();
     if (pp === null) {
       for (let i = 0; i < 10 && pp === null; i++) {
@@ -31,7 +32,9 @@ export function createBeforeHandler(
         return;
       }
     }
-    await pp;
+    // Race against a 5-second timeout so a hanging preflight never blocks the session.
+    const timeout = new Promise<void>(r => setTimeout(r, 5_000));
+    await Promise.race([pp, timeout]);
     if (!preflightPassed()) logAegis(client, "warn", "[AEGIS] preflight incomplete — proceeding anyway");
 
     if (["read", "write", "edit"].includes(input.tool)) {
