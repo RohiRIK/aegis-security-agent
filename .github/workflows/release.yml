@@ -21,6 +21,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Version sync
+        run: bun run scripts/verify-version-sync.ts
+
       - name: Test
         run: bun test
 

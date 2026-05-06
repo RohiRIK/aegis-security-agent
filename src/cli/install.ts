@@ -14,6 +14,8 @@ export default async () => ({});
 
 const OPENCODE_PKG_CONTENT = JSON.stringify({ dependencies: { "aegis-security-agent": AEGIS_VERSION } }, null, 2) + "\n";
 
+const SKILL_DIRS = ["AgentTrustBoundaries", "SecretSafeHandling", "CommandPathSafety"] as const;
+
 const ENV_SCHEMA_CONTENT = `# Aegis Security — Environment Schema
 # Add your secrets here. Mark sensitive values with @sensitive.
 # See https://varlock.dev for full syntax.
@@ -82,6 +84,19 @@ async function writeIfMissing(dest: string, content: string, force: boolean): Pr
   await ensureDir(dest.substring(0, dest.lastIndexOf("/")));
   await Bun.write(dest, content);
   log(existed ? "updated" : "created", dest);
+}
+
+async function installManagedSkills(targetDir: string, hostDir: ".claude" | ".opencode"): Promise<void> {
+  const { readdir } = await import("node:fs/promises");
+  await Promise.all(SKILL_DIRS.map(async (skillDir) => {
+    const srcDir = join(AEGIS_DIR, "docs", "skills", skillDir);
+    const entries = await readdir(srcDir, { recursive: true });
+    const mdFiles = entries.filter((e) => e.endsWith(".md"));
+    for (const relPath of mdFiles) {
+      const content = await Bun.file(join(srcDir, relPath)).text();
+      await writeIfMissing(join(targetDir, hostDir, "skills", skillDir, relPath), content, true);
+    }
+  }));
 }
 
 async function patchOpencodeJson(targetDir: string): Promise<void> {
@@ -153,6 +168,8 @@ async function installOpenCodeMode(targetDir: string, force: boolean): Promise<v
     );
   }
 
+  await installManagedSkills(targetDir, ".opencode");
+
   await writeIfMissing(join(targetDir, ".env.schema"), ENV_SCHEMA_CONTENT, force);
   await writeIfMissing(join(targetDir, ".pre-commit-config.yaml"), PRE_COMMIT_CONFIG_CONTENT, force);
   // Always overwrite — excludes .git/objects/ to prevent TruffleHog timeouts
@@ -190,6 +207,8 @@ async function installClaudeMode(targetDir: string, force: boolean): Promise<voi
   const agentDest = join(targetDir, ".claude", "agents", "aegis.md");
   const agentContent = (await Bun.file(agentSrc).text()).replaceAll("__AEGIS_DIR__", AEGIS_DIR);
   await writeIfMissing(agentDest, agentContent, force);
+
+  await installManagedSkills(targetDir, ".claude");
 
   const claudeignoreSrc = join(AEGIS_DIR, ".claudeignore");
   const claudeignoreDest = join(targetDir, ".claudeignore");

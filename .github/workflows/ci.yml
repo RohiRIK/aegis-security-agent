@@ -27,5 +27,8 @@ jobs:
       - name: Typecheck
         run: bunx tsc --noEmit
 
+      - name: Version sync
+        run: bun run scripts/verify-version-sync.ts
+
       - name: Test
         run: bun test

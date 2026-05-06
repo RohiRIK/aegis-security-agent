@@ -43,6 +43,26 @@ describe("integration", () => {
       expect(config.plugin).toContain("aegis-security-agent");
 
       expect((await stat(join(tmpDir, ".aegis"))).isDirectory()).toBe(true);
+
+      const skillFiles: Record<string, string[]> = {
+        AgentTrustBoundaries: [
+          "SKILL.md", "TrustBoundaryPatterns.md", "ContextCrushDefense.md",
+          "Workflows/HandleUntrustedContent.md", "Workflows/DefendContextCrush.md",
+        ],
+        SecretSafeHandling: [
+          "SKILL.md", "CloudCredentialPatterns.md", "SecretHandlingPlaybook.md",
+          "Workflows/DesignSecretSafeFlow.md", "Workflows/RemoveSecretExposure.md",
+        ],
+        CommandPathSafety: [
+          "SKILL.md", "CommandInjectionPatterns.md", "PathTraversalAndInstallerSafety.md",
+          "Workflows/HardenCommandExecution.md", "Workflows/EnforcePathBoundaries.md",
+        ],
+      };
+      for (const [skill, files] of Object.entries(skillFiles)) {
+        for (const file of files) {
+          expect(await Bun.file(join(tmpDir, ".opencode", "skills", skill, file)).exists()).toBe(true);
+        }
+      }
     } finally {
       await rm(tmpDir, { recursive: true, force: true });
     }
