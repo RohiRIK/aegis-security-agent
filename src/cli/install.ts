@@ -49,7 +49,6 @@ build/
 *.egg
 `;
 
-
 function log(status: "created" | "skipped" | "updated", filePath: string): void {
   const badge =
     status === "created" ? icon.pass :
@@ -143,14 +142,14 @@ async function installOpenCodeMode(targetDir: string, force: boolean): Promise<v
     true,
   );
 
-  // Agent definition — enables @aegis in the OpenCode agent picker
+  // Always overwrite — generated agent definition, must stay in sync with package version
   const agentSrc = join(AEGIS_DIR, "docs", "agents", "aegis.md");
   if (await fileExists(agentSrc)) {
     const agentContent = (await Bun.file(agentSrc).text()).replaceAll("__AEGIS_DIR__", AEGIS_DIR);
     await writeIfMissing(
       join(targetDir, ".opencode", "agents", "aegis.md"),
       agentContent,
-      force,
+      true,
     );
   }
 
@@ -189,16 +188,8 @@ async function installClaudeMode(targetDir: string, force: boolean): Promise<voi
 
   const agentSrc = join(AEGIS_DIR, "docs", "agents", "aegis.md");
   const agentDest = join(targetDir, ".claude", "agents", "aegis.md");
-
-  if (!force && await fileExists(agentDest)) {
-    log("skipped", agentDest);
-  } else {
-    const agentContent = (await Bun.file(agentSrc).text()).replaceAll("__AEGIS_DIR__", AEGIS_DIR);
-    const existed = await fileExists(agentDest);
-    await ensureDir(join(targetDir, ".claude", "agents"));
-    await Bun.write(agentDest, agentContent);
-    log(existed ? "updated" : "created", agentDest);
-  }
+  const agentContent = (await Bun.file(agentSrc).text()).replaceAll("__AEGIS_DIR__", AEGIS_DIR);
+  await writeIfMissing(agentDest, agentContent, force);
 
   const claudeignoreSrc = join(AEGIS_DIR, ".claudeignore");
   const claudeignoreDest = join(targetDir, ".claudeignore");

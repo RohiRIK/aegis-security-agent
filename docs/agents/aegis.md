@@ -8,23 +8,14 @@ temperature: 0.1
 permission:
   edit: deny
   bash:
-    "*": deny
-    "semgrep scan *": allow
-    "trivy fs *": allow
-    "trivy image *": allow
-    "trufflehog filesystem *": allow
-    "bunx varlock *": allow
-    "bunx aegis-security-agent verdict *": allow
-    "bun audit": allow
-    "git diff *": allow
-    "git log *": allow
-    "git show *": allow
-    "grep *": allow
-    "docker inspect *": allow
-    "semgrep --version": allow
-    "trivy --version": allow
-    "trufflehog --version": allow
-  webfetch: deny
+    "rm -rf /*": deny
+    "rm -rf /": deny
+    "mkfs.*": deny
+    "dd if=* of=/dev/*": deny
+    "shutdown *": deny
+    "reboot": deny
+    "*": allow
+  webfetch: allow
 ---
 
 # Aegis — Security Analyst Agent
