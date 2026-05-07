@@ -2,7 +2,6 @@ import { join } from "node:path";
 import type { Plugin } from "@opencode-ai/plugin";
 import { createBeforeHandler } from "./handlers/before.ts";
 import { createAfterHandler } from "./handlers/after.ts";
-import { createSessionHandler } from "./handlers/session.ts";
 import { createCompactionHandler } from "./handlers/compaction.ts";
 import { createEnvHandler } from "./handlers/env.ts";
 import { createPermissionHandler } from "./handlers/permission.ts";
@@ -36,13 +35,12 @@ type AnyHandler = (...args: unknown[]) => Promise<void>;
  * Wrap a handler so it NEVER throws — Aegis is advisory-only.
  * All errors are swallowed and logged to stderr for debugging.
  */
-function safe(handler: AnyHandler, opts?: { onError?: () => void }): AnyHandler {
+function safe(handler: AnyHandler): AnyHandler {
   return async (...args) => {
     try {
       await handler(...args);
     } catch (err) {
       console.error("[AEGIS] handler error (swallowed):", err instanceof Error ? err.message : String(err));
-      opts?.onError?.();
     }
   };
 }
@@ -57,34 +55,9 @@ export const AegisSecurityPlugin: Plugin = async ({ directory, client }) => {
     console.error("[AEGIS] aegis-policy.json not found or invalid — running with empty policy");
   }
 
-  let preflightPassed = false;
-  let preflightRan = false;
-  let preflightPromise: Promise<void> | null = null;
-  let degraded = false;
-
-  const { handler: sessionHandler } = createSessionHandler(
-    directory,
-    (val) => { preflightPassed = val; },
-    (p) => { preflightPromise = p; },
-    undefined,
-    (val) => { degraded = val; },
-    (val) => { preflightRan = val; },
-    client,
-  );
-
-  const beforeHandler = createBeforeHandler(
-    policy,
-    () => preflightPromise,
-    () => preflightPassed,
-    client,
-  );
-
+  const beforeHandler = createBeforeHandler(policy, client);
   const afterHandler = createAfterHandler();
-  const compactionHandler = createCompactionHandler(
-    () => (preflightRan ? (preflightPassed ? "passed" : "failed") : "not-run"),
-    () => degraded,
-    policy,
-  );
+  const compactionHandler = createCompactionHandler(policy);
   const envHandler = createEnvHandler(DEFAULT_SENSITIVE_VARS);
   const permissionHandler = createPermissionHandler(policy);
 
@@ -92,7 +65,6 @@ export const AegisSecurityPlugin: Plugin = async ({ directory, client }) => {
     "tool.execute.before": safe(beforeHandler as AnyHandler),
     "tool.execute.after": safe(afterHandler as AnyHandler),
     "experimental.session.compacting": safe(compactionHandler as AnyHandler),
-    "event": safe(sessionHandler as AnyHandler, { onError: () => { preflightPassed = false; } }),
     "shell.env": safe(envHandler as AnyHandler),
     "permission.ask": safe(permissionHandler as AnyHandler),
   };

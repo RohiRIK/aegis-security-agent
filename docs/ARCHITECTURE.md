@@ -1,6 +1,6 @@
 # Aegis Security Agent — Architecture Reference
 
-> Version 0.1.16 · Last updated 2026-05-06
+> Version 0.1.17 · Last updated 2026-05-07
 
 ---
 
@@ -242,46 +242,18 @@ The hooks.json wires `src/hooks/pre-tool-use.ts` as a `PreToolUse` hook. Claude 
 ```
 AegisSecurityPlugin({ directory, client })
   ├── reads aegis-policy.json from project root
-  ├── creates shared state: preflightPassed, preflightRan, preflightPromise, degraded
-  ├── creates 6 handlers (each is a closure over the shared state)
+  ├── creates 5 handlers
   └── returns hook map:
-       "event"                        → session handler (preflight)
        "shell.env"                    → env handler (secret stripping)
-       "tool.execute.before"          → before handler (block/allow)
+       "tool.execute.before"          → before handler (warnings + Trivy)
        "tool.execute.after"           → after handler (Semgrep scan)
        "experimental.session.compacting" → compaction handler (context injection)
        "permission.ask"               → permission handler (HITL escalation)
 ```
 
-All handlers are wrapped in `safe()` which catches and swallows all errors — Aegis is advisory-only and must never block tool calls. Errors are logged to stderr. The `event` handler additionally marks `preflightPassed = false` on failure.
+All handlers are wrapped in `safe()` which catches and swallows all errors — Aegis is advisory-only and must never block tool calls. Errors are logged to stderr.
 
-### 7.3 The 6 Hook Handlers
-
-#### `event` — Session Handler (preflight)
-
-Fires when OpenCode emits `session.created`.
-
-Flow:
-1. `bootstrapAegisDir()` — idempotently creates `.aegis/`, `.aegis/scans/`, `.aegis/audit.log`, patches `.gitignore`
-2. `runDefaultPreflight()`:
-   - Check if `bunx varlock --version` exits 0 → warn if not found
-   - Check if `.env.schema` exists → warn if missing
-   - Scan `process.env` for known sensitive variable names → **BLOCK** if any found (live secrets in env = active risk)
-   - Check `.pre-commit-config.yaml` for TruffleHog hook → warn if missing
-   - Check Docker state → set `degraded = true` if Docker unavailable (warn only)
-   - If varlock available: run `bunx varlock scan --staged` → **BLOCK** if staged secrets detected
-3. Sets `preflightPassed` and resolves `preflightPromise`
-
-**Block vs warn summary:**
-
-| Check | Blocks? | Why |
-|-------|---------|-----|
-| varlock not installed | Warn only | Advisory gap |
-| `.env.schema` missing | Warn only | Advisory gap |
-| Live secrets in `process.env` | **BLOCK** | Active exfiltration risk |
-| `.pre-commit-config.yaml` missing | Warn only | Advisory gap |
-| Docker unavailable | Warn + degraded | Sandbox fallback |
-| Staged secrets detected (varlock) | **BLOCK** | About to commit secrets |
+### 7.3 The 5 Hook Handlers
 
 #### `shell.env` — Env Handler
 
@@ -293,13 +265,12 @@ Default sensitive vars: `AWS_SECRET_ACCESS_KEY`, `AWS_ACCESS_KEY_ID`, `GITHUB_TO
 
 #### `tool.execute.before` — Before Handler
 
-Fires before every tool call. The preflight must complete first.
+Fires before every tool call.
 
 Flow:
-1. **Preflight gate** — polls up to 500ms for `preflightPromise` to be set; throws if still null ("Preflight not initialized"). Warns (does not block) if `preflightPassed = false`.
-2. **Sensitive file check** — for `read`, `write`, `edit` tools: checks `filePath` against `actions.read_file.deny_patterns` in policy → **BLOCK** if matched
-3. **High-risk pattern check** — for `bash` tool: checks command against `high_risk_patterns` array → **BLOCK** if matched
-4. **Trivy dependency scan** — if command is a package install (`bun add X`, `npm install X`, etc.): writes a lockfile to a temp dir and runs `trivy fs` → **BLOCK** if HIGH/CRITICAL CVEs found
+1. **Sensitive file check** — for `read`, `write`, `edit` tools: checks `filePath` against `actions.read_file.deny_patterns` in policy → warns if matched
+2. **High-risk pattern check** — for `bash` tool: checks command against `high_risk_patterns` array → warns if matched
+3. **Trivy dependency scan** — if command is a package install (`bun add X`, `npm install X`, etc.): writes a lockfile to a temp dir and runs `trivy fs` → warns if HIGH/CRITICAL CVEs found
 
 #### `tool.execute.after` — After Handler
 
@@ -313,7 +284,7 @@ Fires when OpenCode compacts the session context.
 
 Appends a status line to `output.context`:
 ```
-[AEGIS] Security: routing=full, preflight=passed, blocked_patterns=42
+[AEGIS] Security: blocked_patterns=42
 ```
 
 This ensures the AI always knows Aegis is running even after context compaction.
@@ -360,22 +331,12 @@ Installed to the target project. Tells Claude Code never to read:
 ## 9. Security Enforcement Layers (in execution order)
 
 ```
-Session start
-    └── [event] bootstrapAegisDir + runDefaultPreflight
-             ├── WARN: varlock missing
-             ├── WARN: .env.schema missing
-             ├── BLOCK: live secrets in process.env  ← hard block
-             ├── WARN: .pre-commit-config.yaml missing
-             ├── WARN: Docker unavailable → degraded=true
-             └── BLOCK: staged secrets (varlock scan)  ← hard block
-
 Each tool call
     ├── [shell.env]             Strip sensitive vars from env
     ├── [tool.execute.before]
-    │       ├── Wait for preflight
-    │       ├── BLOCK: sensitive file access (.env, *.pem, *.key)
-    │       ├── BLOCK: high-risk pattern match (rm -rf, DROP TABLE, etc.)
-    │       └── BLOCK: Trivy CVE on package install
+    │       ├── WARN: sensitive file access (.env, *.pem, *.key)
+    │       ├── WARN: high-risk pattern match (rm -rf, DROP TABLE, etc.)
+    │       └── WARN: Trivy CVE on package install
     ├── [permission.ask]        Escalate to HITL if high-risk
     └── [tool.execute.after]
             └── Semgrep scan on write/edit → append findings to output

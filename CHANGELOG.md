@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.17] - 2026-05-07
+
+### Removed
+- Entire preflight system — no more `session.created` event handler, no Docker detection, no varlock checks, no subprocess calls at plugin startup
+- Shared mutable state (`preflightPassed`, `preflightRan`, `preflightPromise`, `degraded`) from plugin factory
+- Preflight gate (polling loop + timeout race) from `tool.execute.before` handler
+- `createSessionHandler` and `runDefaultPreflight` from session handler module
+
+### Fixed
+- **"Preflight not initialized — tool calls blocked"** can no longer occur — the plugin loads instantly with zero async I/O beyond policy file read
+- Plugin factory returns 5 hooks (was 6) — no `"event"` hook registered
+
+### Changed
+- `createBeforeHandler` signature simplified: `(policy, client?)` instead of `(policy, getPreflightPromise, preflightPassed, client?)`
+- `createCompactionHandler` signature simplified: `(policy)` instead of `(getPreflightStatus, getDegraded, policy)`
+- `bootstrapAegisDir` kept as standalone export for `@aegis` agent use
+
 ## [0.1.16] - 2026-05-06
 
 ### Fixed

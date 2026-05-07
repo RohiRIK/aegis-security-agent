@@ -1,6 +1,4 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": [
-    "aegis-security-agent"
-  ]
+  "plugin": ["aegis-security-agent"]
 }

@@ -9,10 +9,8 @@ const POLICY: AegisPolicy = {
   },
 };
 
-function makeHandler(opts?: { preflightPassed?: boolean }) {
-  const preflightPassed = opts?.preflightPassed ?? true;
-  const promise = Promise.resolve();
-  return createBeforeHandler(POLICY, () => promise, () => preflightPassed);
+function makeHandler() {
+  return createBeforeHandler(POLICY);
 }
 
 function bashInput() { return { tool: "bash" }; }
@@ -35,30 +33,20 @@ describe("before handler — high-risk blocking", () => {
   });
 });
 
-describe("before handler — preflight gate", () => {
-  test("warns and continues after 500ms when preflight promise stays null", async () => {
-    const handler = createBeforeHandler(POLICY, () => null, () => false);
+describe("before handler — no preflight gate", () => {
+  test("completes instantly without any preflight check", async () => {
+    const handler = makeHandler();
+    const start = performance.now();
+    await handler(bashInput(), bashOutput("ls"));
+    const elapsed = performance.now() - start;
+    expect(elapsed).toBeLessThan(100);
+  });
+
+  test("never throws regardless of input", async () => {
+    const handler = makeHandler();
     await expect(handler(bashInput(), bashOutput("ls"))).resolves.toBeUndefined();
-  }, 2000);
-
-  test("resolves once preflight promise is set during polling window", async () => {
-    let resolveDeferred!: () => void;
-    const deferred = new Promise<void>(r => { resolveDeferred = r; });
-    let promise: Promise<void> | null = null;
-
-    const handler = createBeforeHandler(POLICY, () => promise, () => true);
-
-    setTimeout(() => {
-      promise = deferred;
-      resolveDeferred();
-    }, 100);
-
-    await expect(handler(bashInput(), bashOutput("ls"))).resolves.toBeUndefined();
-  }, 2000);
-
-  test("warns but continues when preflight failed", async () => {
-    const handler = makeHandler({ preflightPassed: false });
-    await expect(handler(bashInput(), bashOutput("ls"))).resolves.toBeUndefined();
+    await expect(handler({ tool: "read" }, { args: {} })).resolves.toBeUndefined();
+    await expect(handler({ tool: "write" }, { args: {} })).resolves.toBeUndefined();
   });
 });
 

@@ -128,7 +128,7 @@ bun tsc --noEmit  # Typecheck
 
 ### Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for details. The current version is 0.1.16.
+See [CHANGELOG.md](CHANGELOG.md) for details. The current version is 0.1.17.
 
 ### License
 

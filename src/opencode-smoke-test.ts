@@ -41,8 +41,8 @@ type AfterOutput = {
   output: string;
 };
 
-function makeBeforeHandler(getPreflightPromise: () => Promise<void> | null, getPreflightPassed: () => boolean) {
-  return createBeforeHandler(POLICY, getPreflightPromise, getPreflightPassed);
+function makeBeforeHandler() {
+  return createBeforeHandler(POLICY);
 }
 
 describe("OpenCode Plugin Smoke Tests", () => {
@@ -62,7 +62,7 @@ describe("OpenCode Plugin Smoke Tests", () => {
   });
 
   it("OC-01: tool.execute.before HIGH-RISK bash warns but does not throw", async () => {
-    const handler = makeBeforeHandler(() => Promise.resolve(), () => true);
+    const handler = makeBeforeHandler();
     const input: BeforeInput = { tool: "bash", sessionID: "s1", callID: "c1" };
     const output: BeforeOutput = { args: { command: "rm -rf /" } };
 
@@ -70,7 +70,7 @@ describe("OpenCode Plugin Smoke Tests", () => {
   });
 
   it("OC-02: tool.execute.before safe bash resolves", async () => {
-    const handler = makeBeforeHandler(() => Promise.resolve(), () => true);
+    const handler = makeBeforeHandler();
     const input: BeforeInput = { tool: "bash", sessionID: "s1", callID: "c1" };
     const output: BeforeOutput = { args: { command: "ls -la" } };
 
@@ -78,20 +78,16 @@ describe("OpenCode Plugin Smoke Tests", () => {
   });
 
   it("OC-03: tool.execute.before reads .env warns but does not throw", async () => {
-    const handler = createBeforeHandler(
-      {
-        ...POLICY,
-        actions: {
-          ...POLICY.actions,
-          read_file: {
-            ...POLICY.actions?.read_file,
-            deny_patterns: [...(POLICY.actions?.read_file?.deny_patterns ?? []), "/project/.env"],
-          },
+    const handler = createBeforeHandler({
+      ...POLICY,
+      actions: {
+        ...POLICY.actions,
+        read_file: {
+          ...POLICY.actions?.read_file,
+          deny_patterns: [...(POLICY.actions?.read_file?.deny_patterns ?? []), "/project/.env"],
         },
       },
-      () => Promise.resolve(),
-      () => true,
-    );
+    });
     const input: BeforeInput = { tool: "read", sessionID: "s1", callID: "c1" };
     const output: BeforeOutput = { args: { filePath: "/project/.env" } };
 
@@ -99,7 +95,7 @@ describe("OpenCode Plugin Smoke Tests", () => {
   });
 
   it("OC-04: tool.execute.before safe file read resolves", async () => {
-    const handler = makeBeforeHandler(() => Promise.resolve(), () => true);
+    const handler = makeBeforeHandler();
     const input: BeforeInput = { tool: "read", sessionID: "s1", callID: "c1" };
     const output: BeforeOutput = { args: { filePath: "src/index.ts" } };
 
@@ -107,7 +103,7 @@ describe("OpenCode Plugin Smoke Tests", () => {
   });
 
   it("OC-05: tool.execute.before safe bash command passes through unchanged", async () => {
-    const handler = makeBeforeHandler(() => Promise.resolve(), () => true);
+    const handler = makeBeforeHandler();
     const input: BeforeInput = { tool: "bash", sessionID: "s1", callID: "c1" };
     const output: BeforeOutput = { args: { command: "ls" } };
 
@@ -149,16 +145,14 @@ describe("OpenCode Plugin Smoke Tests", () => {
     expect(output.env.PATH).toBe("/usr/bin");
   });
 
-  it("OC-08: all preflight states warn but never block", async () => {
+  it("OC-08: before handler completes instantly with no preflight", async () => {
+    const handler = makeBeforeHandler();
     const input: BeforeInput = { tool: "bash", sessionID: "s1", callID: "c1" };
 
-    const uninitializedHandler = makeBeforeHandler(() => null, () => false);
-    await expect(uninitializedHandler(input, { args: { command: "ls" } })).resolves.toBeUndefined();
+    const start = performance.now();
+    await handler(input, { args: { command: "ls" } });
+    const elapsed = performance.now() - start;
 
-    const failedHandler = makeBeforeHandler(() => Promise.resolve(), () => false);
-    await expect(failedHandler(input, { args: { command: "ls" } })).resolves.toBeUndefined();
-
-    const passedHandler = makeBeforeHandler(() => Promise.resolve(), () => true);
-    await expect(passedHandler(input, { args: { command: "ls" } })).resolves.toBeUndefined();
+    expect(elapsed).toBeLessThan(100);
   });
 });

@@ -15,28 +15,9 @@ import type { AegisPolicy } from "../index.ts";
 
 export function createBeforeHandler(
   policy: AegisPolicy,
-  getPreflightPromise: () => Promise<void> | null,
-  preflightPassed: () => boolean,
   client?: PluginInput["client"],
 ): (input: any, output: any) => Promise<void> {
   return async (input: any, output: any) => {
-    // Wait for preflight with a hard timeout — NEVER block tool calls.
-    let pp = getPreflightPromise();
-    if (pp === null) {
-      for (let i = 0; i < 10 && pp === null; i++) {
-        await new Promise(r => setTimeout(r, 50));
-        pp = getPreflightPromise();
-      }
-      if (pp === null) {
-        logAegis(client, "warn", "[AEGIS] preflight not initialized — proceeding anyway");
-        return;
-      }
-    }
-    // Race against a 5-second timeout so a hanging preflight never blocks the session.
-    const timeout = new Promise<void>(r => setTimeout(r, 5_000));
-    await Promise.race([pp, timeout]);
-    if (!preflightPassed()) logAegis(client, "warn", "[AEGIS] preflight incomplete — proceeding anyway");
-
     if (["read", "write", "edit"].includes(input.tool)) {
       const filePath = output.args?.filePath ?? output.args?.path ?? "";
       if (filePath && checkSensitiveFile(filePath, policy.actions?.read_file?.deny_patterns ?? [])) {

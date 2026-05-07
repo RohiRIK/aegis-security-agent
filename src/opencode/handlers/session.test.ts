@@ -1,9 +1,8 @@
-import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { bootstrapAegisDir, createSessionHandler } from "./session.ts";
-import * as detect from "../../sandbox/detect.ts";
+import { bootstrapAegisDir } from "./session.ts";
 
 let tempDir: string;
 
@@ -67,62 +66,5 @@ describe("bootstrapAegisDir", () => {
 
   test("never throws — even on invalid directory", async () => {
     await expect(bootstrapAegisDir("/nonexistent/path/that/cannot/exist")).resolves.toBeUndefined();
-  });
-});
-
-describe("runDefaultPreflight — warn vs block", () => {
-  let tempDir: string;
-
-  beforeEach(async () => {
-    tempDir = await mkdtemp(join(tmpdir(), "aegis-preflight-"));
-    spyOn(detect, "detectDockerState").mockResolvedValue("running");
-    spyOn(detect, "isDegraded").mockReturnValue(false);
-    // varlock unavailable in test environment — that's fine, it's advisory
-  });
-
-  afterEach(async () => {
-    await rm(tempDir, { recursive: true, force: true });
-    mock.restore();
-    delete process.env["GITHUB_TOKEN"];
-  });
-
-  function runPreflight(dir: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      let passed = false;
-      const { handler } = createSessionHandler(
-        dir,
-        (val) => { passed = val; },
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-      );
-      handler({ event: { type: "session.created" } })
-        .then(() => passed ? resolve() : reject(new Error("preflight set passed=false")))
-        .catch(reject);
-    });
-  }
-
-  test("missing .env.schema does not block preflight", async () => {
-    // tempDir has no .env.schema — should warn, not throw
-    await expect(runPreflight(tempDir)).resolves.toBeUndefined();
-  });
-
-  test("missing .pre-commit-config.yaml does not block preflight", async () => {
-    await Bun.write(join(tempDir, ".env.schema"), "# schema\n");
-    // no .pre-commit-config.yaml — advisory warn only
-    await expect(runPreflight(tempDir)).resolves.toBeUndefined();
-  });
-
-  test("live secrets in process.env warn but do not block preflight", async () => {
-    process.env["GITHUB_TOKEN"] = "ghp_fakesecretfortesting";
-    // Advisory only — warns but does not throw
-    await expect(runPreflight(tempDir)).resolves.toBeUndefined();
-  });
-
-  test(".pre-commit-config.yaml without trufflehog warns but does not block", async () => {
-    await Bun.write(join(tempDir, ".env.schema"), "# schema\n");
-    await Bun.write(join(tempDir, ".pre-commit-config.yaml"), "repos: []\n");
-    await expect(runPreflight(tempDir)).resolves.toBeUndefined();
   });
 });

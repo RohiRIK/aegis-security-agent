@@ -68,7 +68,7 @@ describe("integration", () => {
     }
   });
 
-  test("plugin returns correct hook keys", async () => {
+  test("plugin returns correct hook keys — no event handler", async () => {
     const tmpDir = await mkdtemp(join(tmpdir(), "aegis-plugin-"));
 
     try {
@@ -81,17 +81,37 @@ describe("integration", () => {
       );
 
       const plugin = await AegisSecurityPlugin({ directory: tmpDir, client: undefined } as never);
-      expect(Object.keys(plugin).sort()).toEqual([
-        "tool.execute.before",
-        "tool.execute.after",
+      const keys = Object.keys(plugin).sort();
+      expect(keys).toEqual([
         "experimental.session.compacting",
-        "event",
-        "shell.env",
         "permission.ask",
-      ].sort());
+        "shell.env",
+        "tool.execute.after",
+        "tool.execute.before",
+      ]);
+      expect(keys).not.toContain("event");
     } finally {
       await rm(tmpDir, { recursive: true, force: true });
     }
+  });
+
+  test("plugin loads with missing aegis-policy.json", async () => {
+    const tmpDir = await mkdtemp(join(tmpdir(), "aegis-nopolicy-"));
+
+    try {
+      const plugin = await AegisSecurityPlugin({ directory: tmpDir, client: undefined } as never);
+      expect(Object.keys(plugin).length).toBe(5);
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test("before handler completes instantly — no preflight polling", async () => {
+    const handler = createBeforeHandler(BEFORE_POLICY);
+    const start = performance.now();
+    await handler({ tool: "bash" }, { args: { command: "ls" } });
+    const elapsed = performance.now() - start;
+    expect(elapsed).toBeLessThan(100);
   });
 
   test("command routing correctly handles chained commands", () => {
@@ -132,12 +152,7 @@ describe("integration", () => {
   });
 
   test("commands pass through without sandbox wrapping", async () => {
-    const preflightPromise = Promise.resolve();
-    const handler = createBeforeHandler(
-      BEFORE_POLICY,
-      () => preflightPromise,
-      () => true,
-    );
+    const handler = createBeforeHandler(BEFORE_POLICY);
 
     const output = { args: { command: "node index.js" } };
     await handler({ tool: "bash" }, output);
