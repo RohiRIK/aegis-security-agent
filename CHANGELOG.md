@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Project logo (`assets/logo.svg`) and wired to README header
+- `timeout 300` wrappers on all 6 scanner commands in `docs/agents/aegis.md` with exit-code 124 handling
+
+### Changed
+- Rewrote `docs/AEGIS.md` — fixed 7 factual errors, documented timeout/caching/verdict-history/provisioner-CLI/runtime-dirs
+- Bumped @aegis agent prompt from "Aegis v1" to "Aegis v2"
+
 ## [0.1.17] - 2026-05-07
 
 ### Removed

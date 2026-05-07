@@ -110,12 +110,12 @@ When invoked, you receive a task type. Execute the corresponding workflow:
 ### `full-audit`
 1. Read `aegis-policy.json` — note current rules
 2. Run: `bunx aegis-security-agent verdict read 10` — check verdict history for trend. If no history, note and continue.
-3. Run: `semgrep scan --config=p/security-audit --config=p/secrets --json . > .aegis/scans/semgrep-output.json`
-   Then read and analyze the output file.
-4. Run: `trivy fs --scanners vuln --severity HIGH,CRITICAL --format json . > .aegis/scans/trivy-output.json`
-   Then read and analyze the output file.
-5. Run: `trufflehog filesystem --exclude-paths .trufflehogignore --json . > .aegis/scans/trufflehog-output.json`
-   Then read and analyze the output file.
+3. Run: `timeout 300 semgrep scan --config=p/security-audit --config=p/secrets --json . > .aegis/scans/semgrep-output.json`
+   Then read and analyze the output file. If exit code 124, scanner timed out — note as `⚠️ DEGRADED: semgrep timed out` and fall back to grep heuristics.
+4. Run: `timeout 300 trivy fs --scanners vuln --severity HIGH,CRITICAL --format json . > .aegis/scans/trivy-output.json`
+   Then read and analyze the output file. If exit code 124, scanner timed out — note as `⚠️ DEGRADED: trivy timed out` and fall back to grep heuristics.
+5. Run: `timeout 300 trufflehog filesystem --exclude-paths .trufflehogignore --json . > .aegis/scans/trufflehog-output.json`
+   Then read and analyze the output file. If exit code 124, scanner timed out — note as `⚠️ DEGRADED: trufflehog timed out` and fall back to grep heuristics.
 6. Run: `bunx varlock scan --staged` — verify no secrets leak into staged files. ALWAYS report the result in Evidence, even when nothing is staged: `✅ varlock: no staged files` or `✅ varlock: 0 findings`. If varlock is unavailable, report `⚠️ varlock: not installed — skipped` and grep for raw `process.env` reads on secret keys as fallback.
 7. Grep source for raw `process.env` reads on known secret key names (`API_KEY`, `SECRET`, `TOKEN`, `PASSWORD`, `PRIVATE_KEY`). These should be varlock-injected, not direct env access. Report count in Evidence.
 8. Read `.aegis/audit.log` — analyze recent events; if missing or empty, note as `INFO: No forensic data available` (observability gap, not a security finding)
@@ -129,8 +129,8 @@ When invoked, you receive a task type. Execute the corresponding workflow:
 4. Produce verdict focused on the flagged area
 
 ### `dependency-audit`
-1. Run: `trivy fs --scanners vuln --format json . > .aegis/scans/trivy-output.json`
-   Then read and analyze the output file.
+1. Run: `timeout 300 trivy fs --scanners vuln --format json . > .aegis/scans/trivy-output.json`
+   Then read and analyze the output file. If exit code 124, note `⚠️ DEGRADED: trivy timed out`.
 2. Run: `bun audit`
 3. Cross-reference with `aegis-policy.json` allowed packages
 4. Report CVEs with upgrade paths
@@ -138,8 +138,8 @@ When invoked, you receive a task type. Execute the corresponding workflow:
 ### `auth-review`
 1. Identify target files — use files specified in the task, or run `git diff --name-only HEAD~5` to find recently changed files
 2. Grep target files for auth/crypto patterns: `jwt`, `bcrypt`, `oauth`, `cipher`, `private_key`
-3. Run Semgrep with auth-focused rules on target files only: `semgrep scan --config=p/security-audit --json <target-files> > .aegis/scans/semgrep-output.json`
-   Then read and analyze the output file.
+3. Run Semgrep with auth-focused rules on target files only: `timeout 300 semgrep scan --config=p/security-audit --json <target-files> > .aegis/scans/semgrep-output.json`
+   Then read and analyze the output file. If exit code 124, note `⚠️ DEGRADED: semgrep timed out`.
 4. Check for hardcoded secrets, weak hashing, missing input validation
 5. Produce verdict focused on auth surface
 
@@ -157,8 +157,8 @@ When invoked, you receive a task type. Execute the corresponding workflow:
 
 ### `infra-review`
 1. Locate Dockerfiles, docker-compose files, k8s manifests, terraform files
-2. Run: `trivy fs --scanners config --format json . > .aegis/scans/trivy-output.json`
-   Then read and analyze the output file.
+2. Run: `timeout 300 trivy fs --scanners config --format json . > .aegis/scans/trivy-output.json`
+   Then read and analyze the output file. If exit code 124, note `⚠️ DEGRADED: trivy timed out`.
 3. Check for privileged containers, exposed ports, missing resource limits
 4. Produce verdict on infrastructure security posture
 
@@ -188,7 +188,7 @@ ALWAYS respond with this exact structure:
 <optional: aegis-policy.json changes if applicable>
 
 ---
-Scanned by: Aegis v1 | Scanners: semgrep, trivy, trufflehog
+Scanned by: Aegis v2 | Scanners: semgrep, trivy, trufflehog
 ```
 
 **Verdict definitions:**

@@ -1,5 +1,9 @@
 # aegis-security-agent
 
+<p align="center">
+  <img src="assets/logo.svg" alt="Aegis Security Agent" width="128" height="128" />
+</p>
+
 Security layer for AI coding agents, command routing, scanner integration, and policy enforcement
 
 [![npm version](https://img.shields.io/npm/v/aegis-security-agent.svg)](https://www.npmjs.com/package/aegis-security-agent)

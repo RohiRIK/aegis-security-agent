@@ -1,0 +1,39 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="shieldGradient" x1="100" y1="0" x2="412" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00C6FF" />
+      <stop offset="100%" stop-color="#0072FF" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="15" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Main Shield Shape -->
+  <path d="M256 40L60 110V240C60 360 145 460 256 500C367 460 452 360 452 240V110L256 40Z" 
+        stroke="url(#shieldGradient)" stroke-width="24" fill="none" stroke-linejoin="round" />
+
+  <!-- Inner Circuitry / Tech Lines -->
+  <!-- Top Vertical Line -->
+  <path d="M256 60V180" stroke="url(#shieldGradient)" stroke-width="16" stroke-linecap="round" />
+  
+  <!-- Central Node -->
+  <circle cx="256" cy="240" r="40" stroke="url(#shieldGradient)" stroke-width="16" fill="none" />
+  
+  <!-- Circuit Paths -->
+  <path d="M256 280V450" stroke="url(#shieldGradient)" stroke-width="16" stroke-linecap="round" />
+  
+  <path d="M216 240H110" stroke="url(#shieldGradient)" stroke-width="16" stroke-linecap="round" />
+  <circle cx="110" cy="240" r="8" fill="#00C6FF" />
+  
+  <path d="M296 240H402" stroke="url(#shieldGradient)" stroke-width="16" stroke-linecap="round" />
+  <circle cx="402" cy="240" r="8" fill="#00C6FF" />
+  
+  <path d="M226 210L150 140" stroke="url(#shieldGradient)" stroke-width="16" stroke-linecap="round" />
+  <path d="M286 210L362 140" stroke="url(#shieldGradient)" stroke-width="16" stroke-linecap="round" />
+
+  <path d="M226 270L150 340" stroke="url(#shieldGradient)" stroke-width="16" stroke-linecap="round" />
+  <path d="M286 270L362 340" stroke="url(#shieldGradient)" stroke-width="16" stroke-linecap="round" />
+
+</svg>
