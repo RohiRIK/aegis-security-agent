@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.17](https://github.com/RohiRIK/aegis-security-agent/compare/v0.1.16...v0.1.17) (2026-05-07)
+
+
+### Bug Fixes
+
+* strip preflight system — plugin loads instantly, never blocks tool calls ([0c3dc54](https://github.com/RohiRIK/aegis-security-agent/commit/0c3dc5488671458c2199e9d226bde5f5814fa1f1))
+
 ## [Unreleased]
 
 ## [0.1.17] - 2026-05-07
