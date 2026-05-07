@@ -16,5 +16,38 @@ jobs:
     steps:
       - name: Release Please
         uses: googleapis/release-please-action@v4
+        id: release
         with:
           release-type: node
+
+      - name: Checkout
+        if: ${{ steps.release.outputs.releases_created }}
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        if: ${{ steps.release.outputs.releases_created }}
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        if: ${{ steps.release.outputs.releases_created }}
+        run: bun install --frozen-lockfile
+
+      - name: Version sync
+        if: ${{ steps.release.outputs.releases_created }}
+        run: bun run scripts/verify-version-sync.ts
+
+      - name: Test
+        if: ${{ steps.release.outputs.releases_created }}
+        run: bun test
+
+      - name: Build
+        if: ${{ steps.release.outputs.releases_created }}
+        run: bun run build
+
+      - name: Publish
+        if: ${{ steps.release.outputs.releases_created }}
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
