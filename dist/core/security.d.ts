@@ -10,16 +10,6 @@ export type SemgrepFinding = {
     message: string;
     line: number;
 };
-export type SemgrepResult = {
-    check_id?: string;
-    extra?: {
-        severity?: string;
-        message?: string;
-    };
-    start?: {
-        line?: number;
-    };
-};
 export declare function parseSemgrepFindings(stdout: string): SemgrepFinding[];
 export declare const DEFAULT_SENSITIVE_VARS: string[];
 /**

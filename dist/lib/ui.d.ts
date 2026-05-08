@@ -18,25 +18,5 @@ export declare const icon: {
     lock: string;
     fire: string;
 };
-export declare function print(text: string): void;
 export declare function println(text?: string): void;
-export declare function clearLine(): void;
 export declare function printHeader(): void;
-export type StepResult = "ok" | "warn" | "fail" | "skip";
-export interface Step {
-    label: string;
-    run: () => Promise<{
-        result: StepResult;
-        detail?: string;
-    }>;
-}
-export declare function runSteps(steps: Step[]): Promise<{
-    passed: number;
-    warned: number;
-    failed: number;
-}>;
-export declare function printStatusTable(rows: Array<{
-    label: string;
-    value: string;
-    ok: boolean;
-}>): void;

@@ -22,7 +22,7 @@ export type SemgrepFinding = {
   line: number;
 };
 
-export type SemgrepResult = {
+type SemgrepResult = {
   check_id?: string;
   extra?: {
     severity?: string;
