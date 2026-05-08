@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.18](https://github.com/RohiRIK/aegis-security-agent/compare/v0.1.17...v0.1.18) (2026-05-08)
+
+
+### Bug Fixes
+
+* release workflow — publish inline on release-please, add manual dispatch fallback ([6d127d3](https://github.com/RohiRIK/aegis-security-agent/commit/6d127d312e9c04fd386c1a50877013029b3d20a1))
+* remove all preflight dead code, bump v0.1.18 ([72214d6](https://github.com/RohiRIK/aegis-security-agent/commit/72214d685a6a19255054afee962fe6de3eca1a30))
+* skip npm publish when version already exists — prevents false CI failures ([24f52f2](https://github.com/RohiRIK/aegis-security-agent/commit/24f52f2eab9e79603b3ce3aec1a97eccbb0c3051))
+
 ## [0.1.17](https://github.com/RohiRIK/aegis-security-agent/compare/v0.1.16...v0.1.17) (2026-05-07)
 
 
