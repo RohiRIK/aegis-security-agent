@@ -33,8 +33,8 @@ describe("before handler — high-risk blocking", () => {
   });
 });
 
-describe("before handler — no preflight gate", () => {
-  test("completes instantly without any preflight check", async () => {
+describe("before handler — latency gate", () => {
+  test("completes instantly", async () => {
     const handler = makeHandler();
     const start = performance.now();
     await handler(bashInput(), bashOutput("ls"));

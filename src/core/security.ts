@@ -53,7 +53,7 @@ export function parseSemgrepFindings(stdout: string): SemgrepFinding[] {
 }
 
 // ---------------------------------------------------------------------------
-// Default sensitive vars (from src/preflight.ts)
+// Default sensitive vars
 // ---------------------------------------------------------------------------
 
 export const DEFAULT_SENSITIVE_VARS = [

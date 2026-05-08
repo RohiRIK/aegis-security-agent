@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * strip preflight system — plugin loads instantly, never blocks tool calls ([0c3dc54](https://github.com/RohiRIK/aegis-security-agent/commit/0c3dc5488671458c2199e9d226bde5f5814fa1f1))
 
-## [Unreleased]
+## [0.1.18] - 2026-05-08
 
 ### Added
 - Project logo (`assets/logo.svg`) and wired to README header
@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Rewrote `docs/AEGIS.md` — fixed 7 factual errors, documented timeout/caching/verdict-history/provisioner-CLI/runtime-dirs
 - Bumped @aegis agent prompt from "Aegis v1" to "Aegis v2"
+
+### Removed
+- All remaining preflight dead code from source: `printPreflightSummary` (ui.ts), T-001/T-002 smoke tests, `preflight` npm script, stale comments and test names referencing preflight
+- `src/preflight.ts` deleted entirely
+
+## [Unreleased]
 
 ## [0.1.17] - 2026-05-07
 

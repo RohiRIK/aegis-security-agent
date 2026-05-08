@@ -145,7 +145,7 @@ describe("OpenCode Plugin Smoke Tests", () => {
     expect(output.env.PATH).toBe("/usr/bin");
   });
 
-  it("OC-08: before handler completes instantly with no preflight", async () => {
+  it("OC-08: before handler completes instantly", async () => {
     const handler = makeBeforeHandler();
     const input: BeforeInput = { tool: "bash", sessionID: "s1", callID: "c1" };
 

@@ -117,18 +117,7 @@ export async function runSteps(
   return { passed, warned, failed };
 }
 
-export function printPreflightSummary(passed: number, warned: number, failed: number, total: number): void {
-  println();
-  if (failed > 0) {
-    println(`  ${icon.fail}  ${c.bold(c.red("Pre-flight FAILED"))}  ${c.dim(`${failed} error(s) — agent session blocked`)}`);
-  } else if (warned > 0) {
-    println(`  ${icon.warn}  ${c.bold(c.yellow("Pre-flight passed with warnings"))}  ${c.dim(`${warned} warning(s)`)}`);
-    println(`  ${c.dim("Agent session will start — fix warnings when possible")}`);
-  } else {
-    println(`  ${icon.pass}  ${c.bold(c.green(`All ${total} checks passed`))}  ${c.dim("Agent session starting…")}`);
-  }
-  println();
-}
+
 
 export function printStatusTable(rows: Array<{ label: string; value: string; ok: boolean }>): void {
   println();

@@ -106,7 +106,7 @@ describe("integration", () => {
     }
   });
 
-  test("before handler completes instantly — no preflight polling", async () => {
+  test("before handler completes instantly", async () => {
     const handler = createBeforeHandler(BEFORE_POLICY);
     const start = performance.now();
     await handler({ tool: "bash" }, { args: { command: "ls" } });

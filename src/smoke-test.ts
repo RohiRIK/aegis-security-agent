@@ -55,14 +55,6 @@ async function shellSucceeds(command: string): Promise<boolean> {
 async function main(): Promise<number> {
   writeStdout("=== Security Smoke Test ===\n\n");
 
-  await runTest("T-001: Pre-flight blocks real secret in env", async () => {
-    return !(await shellSucceeds(`AWS_SECRET_ACCESS_KEY=fake123 bun run ${JSON.stringify(join(ROOT, "src", "preflight.ts"))}`));
-  });
-
-  await runTest("T-002: Pre-flight passes clean environment", async () => {
-    return await shellSucceeds(`bun run ${JSON.stringify(join(ROOT, "src", "preflight.ts"))}`);
-  });
-
   await runTestIfAvailable("T-003: TruffleHog pre-commit hook installed", "trufflehog", async () => {
     const hookPath = join(ROOT, ".git", "hooks", "pre-commit");
     if (!(await fileExists(hookPath))) return false;

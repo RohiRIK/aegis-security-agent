@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@opencode-ai/plugin": "1.14.39",
-    "aegis-security-agent": "0.1.17"
+    "@opencode-ai/plugin": "1.14.41",
+    "aegis-security-agent": "0.1.18"
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "aegis-security-agent",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "type": "module",
   "main": "./dist/index.js",
   "exports": {
@@ -28,7 +28,6 @@
     "build:types": "tsc --emitDeclarationOnly --outDir dist --declaration --noEmit false",
     "build:binaries": "bun run scripts/build-binaries.ts",
     "prepublishOnly": "bun run build && bun run build:types && bun test",
-    "preflight": "bun run src/preflight.ts",
     "smoke-test": "bun run src/smoke-test.ts",
     "test": "bun test"
   },

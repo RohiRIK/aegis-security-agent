@@ -1,6 +1,6 @@
 # Aegis Security Agent — Architecture Reference
 
-> Version 0.1.17 · Last updated 2026-05-07
+> Version 0.1.18 · Last updated 2026-05-08
 
 ---
 
