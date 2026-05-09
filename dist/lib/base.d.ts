@@ -25,7 +25,6 @@ export declare function ensureDir(dirPath: string): Promise<void>;
 export declare function fileExists(filePath: string): Promise<boolean>;
 export declare function deleteFileIfExists(filePath: string): Promise<void>;
 export declare function appendText(filePath: string, text: string): Promise<void>;
-export declare function formatTimestamp(): string;
 export declare function shellQuote(value: string): string;
 export declare function readStdinText(): Promise<string>;
 export declare function isRecord(value: unknown): value is Record<string, unknown>;

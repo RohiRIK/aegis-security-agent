@@ -79,20 +79,20 @@ describe("routeCommand", () => {
     expect(routeCommand("semgrep scan . | python3 -c \"import sys; print(sys.stdin.read())\"", policy)).toBe("sandbox");
   });
 
-  test("routes 'rm -rf /' to hitl", () => {
-    expect(routeCommand("rm -rf /", policy)).toBe("hitl");
+  test("routes 'rm -rf /' to sandbox", () => {
+    expect(routeCommand("rm -rf /", policy)).toBe("sandbox");
   });
 
-  test("routes 'DROP TABLE users' to hitl", () => {
-    expect(routeCommand("DROP TABLE users", policy)).toBe("hitl");
+  test("routes 'DROP TABLE users' to sandbox", () => {
+    expect(routeCommand("DROP TABLE users", policy)).toBe("sandbox");
   });
 
-  test("hitl overrides host_passthrough when both match", () => {
+  test("high-risk overrides host_passthrough when both match", () => {
     const overridePolicy = {
       high_risk_patterns: ["^git push --force"],
       routing: { host_passthrough: ["^git "], sandbox_required: [] },
     };
-    expect(routeCommand("git push --force origin main", overridePolicy)).toBe("hitl");
+    expect(routeCommand("git push --force origin main", overridePolicy)).toBe("sandbox");
   });
 
   test("routes unknown commands to sandbox", () => {
@@ -128,7 +128,7 @@ describe("routeCommand", () => {
   });
 
   test("blocks chained high-risk command in later segment", () => {
-    expect(routeCommand("ls; rm -rf /", policy)).toBe("hitl");
+    expect(routeCommand("ls; rm -rf /", policy)).toBe("sandbox");
   });
 
   test("routes safe fallback chain to host", () => {

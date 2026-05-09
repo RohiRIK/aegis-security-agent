@@ -13,7 +13,7 @@ const AEGIS_DIR = join(resolve(import.meta.dir, ".."), ".aegis");
 async function main(): Promise<number> {
   const auditFlag = Bun.argv[2] ?? "";
   const leanCtxPath = join(AEGIS_DIR, "lean-ctx.db");
-  const auditLogPath = join(AEGIS_DIR, "audit.log");
+  const auditLogPath = join(AEGIS_DIR, "audit.jsonl");
 
   if (auditFlag === "--audit") {
     writeStdout("[shred] Scanning .aegis/ for sensitive patterns before deletion...\n");
@@ -35,7 +35,7 @@ async function main(): Promise<number> {
   }
   if (await fileExists(auditLogPath)) {
     await deleteFileIfExists(auditLogPath);
-    writeStdout("[shred] Removed audit.log\n");
+    writeStdout("[shred] Removed audit.jsonl\n");
   }
 
   writeStdout("[shred] Done.\n");

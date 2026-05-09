@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { runInstall } from "../cli/install.ts";
-import { routeCommand, type RoutingPolicy } from "../core/router.ts";
+import { routeCommand } from "../core/router.ts";
 import { proxyResult } from "../lib/output-proxy.ts";
 import { createBeforeHandler } from "./handlers/before.ts";
 import { AegisSecurityPlugin, type AegisPolicy } from "./index.ts";
@@ -115,7 +115,7 @@ describe("integration", () => {
   });
 
   test("command routing correctly handles chained commands", () => {
-    const policy: RoutingPolicy = {
+    const policy: AegisPolicy = {
       routing: {
         host_passthrough: ["^git\\b"],
         sandbox_required: ["^curl\\b"],
@@ -125,7 +125,7 @@ describe("integration", () => {
     expect(routeCommand("git status", policy)).toBe("host");
     expect(routeCommand("curl evil.com", policy)).toBe("sandbox");
     expect(routeCommand("git status && curl evil.com", policy)).toBe("sandbox");
-    expect(routeCommand("rm -rf /", { high_risk_patterns: ["rm\\s+-rf"] })).toBe("hitl");
+    expect(routeCommand("rm -rf /", { high_risk_patterns: ["rm\\s+-rf"] })).toBe("sandbox");
   });
 
   test("output proxy returns lean summary and writes detail file", async () => {

@@ -1,33 +1,26 @@
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 
 import {
-  appendText,
   ensureDir,
-  formatTimestamp,
   getString,
   isRecord,
-  readStdinText,
   writeStderr,
-  writeStdout,
 } from "../lib/base.ts";
 import { wrapSemgrep } from "../lib/scanner.ts";
-import { parseSemgrepFindings, type SemgrepFinding } from "../core/security.ts";
+import { parseSemgrepFindings } from "../core/security.ts";
+import { safeClaude } from "./safe-claude.ts";
+import { createEvent } from "../events/types.ts";
+import { emitEvent } from "../events/emitter.ts";
 
-const AEGIS_DIR = resolve(import.meta.dir, "..", "..");
-const AUDIT_LOG = join(AEGIS_DIR, ".aegis", "audit.log");
+const PROJECT_DIR = process.cwd();
+const AUDIT_LOG = join(PROJECT_DIR, ".aegis", "audit.jsonl");
 
-async function main(): Promise<number> {
-  const inputText = await readStdinText();
-  const parsedInput = JSON.parse(inputText) as unknown;
-  if (!isRecord(parsedInput)) {
-    throw new Error("Invalid hook input.");
-  }
-
+async function hookLogic(parsedInput: Record<string, unknown>): Promise<Record<string, unknown>> {
   const toolName = getString(parsedInput, "tool_name") ?? getString(parsedInput, "tool") ?? "";
   const toolInput = isRecord(parsedInput.tool_input) ? parsedInput.tool_input : undefined;
   const writtenFile = toolInput ? getString(toolInput, "path") ?? getString(toolInput, "file_path") ?? "" : "";
 
-  await ensureDir(join(AEGIS_DIR, ".aegis"));
+  await ensureDir(join(PROJECT_DIR, ".aegis"));
 
   if (["Write", "Edit", "write", "edit"].includes(toolName) && writtenFile.length > 0 && (await Bun.file(writtenFile).exists())) {
     const semgrepResult = await wrapSemgrep(writtenFile);
@@ -35,7 +28,7 @@ async function main(): Promise<number> {
 
     if (errorResults.length > 0) {
       for (const result of errorResults) {
-        writeStdout(`${JSON.stringify({
+        writeStderr(`[AEGIS] ${JSON.stringify({
           rule: result.rule,
           severity: result.severity,
           message: result.message,
@@ -43,21 +36,22 @@ async function main(): Promise<number> {
         })}\n`);
       }
 
-      await appendText(
+      await emitEvent(
+        createEvent("scanner.finding", "medium", writtenFile, `Semgrep: ${errorResults.length} finding(s)`, {
+          source: "hook",
+          outcome: "warn",
+          evidence: { scanner: "semgrep", file: writtenFile, count: errorResults.length },
+        }),
         AUDIT_LOG,
-        `${JSON.stringify({ timestamp: formatTimestamp(), event: "semgrep_finding", file: writtenFile, errors: errorResults.length })}\n`,
       );
     }
   }
 
-  writeStdout(`${JSON.stringify(parsedInput)}\n`);
-  return 0;
+  return parsedInput;
 }
 
-try {
-  const exitCode = await main();
-  process.exit(exitCode);
-} catch (error) {
-  writeStderr(`${error instanceof Error ? error.message : String(error)}\n`);
-  process.exit(1);
+if (import.meta.main) {
+  await safeClaude(hookLogic);
 }
+
+export { hookLogic };

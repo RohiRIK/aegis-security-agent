@@ -11,7 +11,7 @@ Security layer for AI coding agents, command routing, scanner integration, and p
 
 ### What is Aegis?
 
-Aegis is a silent security plugin that runs inside your AI coding agent, such as OpenCode or Claude Code. It intercepts every tool call to route commands between a sandbox and the host, block high-risk patterns, and scan file writes with Semgrep. It also scans package installs with Trivy to ensure your development environment remains secure.
+Aegis is a silent security plugin that runs inside your AI coding agent, such as OpenCode or Claude Code. It intercepts every tool call to warn on high-risk patterns and scan file writes with Semgrep. It also scans package installs with Trivy to ensure your development environment remains secure.
 
 Aegis includes a deep-scan security analyst agent, `@aegis`, for on-demand audits. It works with or without Docker, though it operates in a degraded mode if Docker isn't available.
 
@@ -19,7 +19,7 @@ Aegis includes a deep-scan security analyst agent, `@aegis`, for on-demand audit
 
 Aegis consists of three primary components:
 
-1. **Plugin**: Silent hooks that intercept `tool.execute.before/after`, `shell.env`, `permission.ask`, and session compaction. It routes commands based on `aegis-policy.json`, blocks secrets from the environment, and scans output using a lean proxy.
+1. **Plugin**: Silent hooks that intercept `tool.execute.before/after`, `shell.env`, `permission.ask`, and session compaction. It evaluates commands based on `aegis-policy.json`, warns on secrets from the environment, and scans output using a lean proxy.
 2. **Agent (@aegis)**: A deep security analyst capable of running full-repo Semgrep scans, Trivy dependency audits, TruffleHog secrets scans, and threat modeling. It produces structured SAFE, RISKY, or BLOCKED verdicts.
 3. **CLI (aegis)**: An installer and status tool for managing the Aegis environment.
 
@@ -63,9 +63,7 @@ This command creates:
 ### Usage
 
 Once installed, Aegis works silently in the background. No code changes are required. The plugin performs the following actions:
-- Routes safe commands like `git`, `bun test`, `ls`, and `cat` to the host.
-- Routes commands like `curl`, `npm install`, and `python` to the Docker sandbox.
-- Blocks high-risk commands such as `rm -rf`, `DROP TABLE`, and `kubectl apply`, requiring human approval.
+- Warns on high-risk patterns such as `rm -rf`, `DROP TABLE`, and `kubectl apply`.
 - Scans file writes with Semgrep for vulnerabilities.
 - Scans package installs with Trivy for CVEs.
 - Strips secrets from the shell environment.
@@ -84,39 +82,38 @@ The `aegis-policy.json` file defines how Aegis handles different commands and pa
 {
   "routing": {
     "host_passthrough": ["^git ", "^bun (tsc|test|run)", "^ls\\b", "^cat "],
-    "sandbox_required": ["^curl ", "^npm ", "^python[23]? ", "^node "]
+    "sandbox_required": ["^curl ", "^npm ", "^python[23]? ", "^node "] // Legacy
   },
   "high_risk_patterns": ["rm -rf", "DROP TABLE", "kubectl apply", "terraform apply"],
   "degraded_mode": {
     "allow_host_passthrough": true,
-    "block_sandbox_required": true,
+    "warn_on_sandbox_required": true,
     "warn_on_degraded": true
   },
   "actions": {
     "read_file": { "default": "allow", "deny_patterns": [".env", "**/*.pem"] },
     "edit_file": { "default": "ask", "allow_patterns": ["src/**", "tests/**"] },
-    "run_shell": { "default": "sandbox", "high_risk_patterns": ["rm -rf"] }
+    "run_shell": { "default": "host", "high_risk_patterns": ["rm -rf"] }
   }
 }
 ```
 
 - `routing.host_passthrough`: Regex patterns for commands that can run safely on the host.
-- `routing.sandbox_required`: Regex patterns for commands that must run inside the Docker sandbox.
-- `high_risk_patterns`: Patterns that trigger a human-in-the-loop (HITL) check.
-- `degraded_mode`: Determines behavior when Docker is unavailable.
+- `routing.sandbox_required`: Legacy — previously used for Docker sandbox routing.
+- `high_risk_patterns`: Patterns that trigger a security warning.
+- `degraded_mode`: Legacy — informational only.
 - `actions`: Default behavior for specific actions like reading or editing files.
 
 ### Degraded Mode
 
 If Docker isn't available, Aegis runs in degraded mode. In this state:
 - Host-passthrough commands continue to function.
-- Sandbox-required commands are blocked by default, though this is configurable in the policy.
+- Sandbox-required commands are warned by default, though this is configurable in the policy.
 - A warning is displayed during installation and at runtime.
 
 ### Requirements
 
 - Bun >= 1.0
-- Docker (optional, for full sandbox mode)
 - Semgrep (optional, for SAST scanning)
 - Trivy (optional, for dependency scanning)
 - TruffleHog (optional, for secrets scanning)
@@ -132,7 +129,7 @@ bun tsc --noEmit  # Typecheck
 
 ### Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for details. The current version is 0.1.18.
+See [CHANGELOG.md](CHANGELOG.md) for details. The current version is 0.2.1.
 
 ### License
 

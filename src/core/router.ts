@@ -1,17 +1,10 @@
 import { matchHighRiskPattern } from "./security.ts";
+import type { AegisPolicy } from "../types/policy.ts";
 
-export type RouteDecision = "host" | "sandbox" | "hitl";
+export type RouteDecision = "host" | "sandbox";
 
 const CHAIN_OPERATOR_PATTERN = /&&|\|\||;|\|/;
 const SAFE_CHAIN_COMMANDS = new Set(["exit", "head", "tail", "wc", "sort", "jq", "diff"]);
-
-export type RoutingPolicy = {
-  high_risk_patterns?: string[];
-  routing?: {
-    host_passthrough?: string[];
-    sandbox_required?: string[];
-  };
-};
 
 function splitCommandSegments(command: string): string[] {
   return command
@@ -38,9 +31,9 @@ function isSafeChainCommand(segment: string): boolean {
   return SAFE_CHAIN_COMMANDS.has(extractBaseCommand(segment));
 }
 
-function routeSingleSegment(segment: string, policy: RoutingPolicy): RouteDecision {
+function routeSingleSegment(segment: string, policy: Pick<AegisPolicy, "high_risk_patterns" | "routing">): RouteDecision {
   const highRiskPatterns = Array.isArray(policy.high_risk_patterns) ? policy.high_risk_patterns : [];
-  if (matchHighRiskPattern(segment, highRiskPatterns) !== null) return "hitl";
+  if (matchHighRiskPattern(segment, highRiskPatterns) !== null) return "sandbox";
 
   const sandboxRequired = policy.routing?.sandbox_required ?? [];
   if (matchesRoutingPatterns(segment, sandboxRequired)) return "sandbox";
@@ -55,12 +48,12 @@ function routeSingleSegment(segment: string, policy: RoutingPolicy): RouteDecisi
  * Determines where a command should execute based on policy patterns.
  *
  * Priority order:
- * 1. HITL (high-risk patterns) — always checked first
+ * 1. High-risk patterns → sandbox (advisory warning emitted separately)
  * 2. Sandbox (sandbox_required patterns)
  * 3. Host (host_passthrough patterns)
  * 4. Default: sandbox (unknown commands are sandboxed)
  */
-export function routeCommand(command: string, policy: RoutingPolicy): RouteDecision {
+export function routeCommand(command: string, policy: Pick<AegisPolicy, "high_risk_patterns" | "routing">): RouteDecision {
   if (!command) return "sandbox";
 
   const segments = splitCommandSegments(command);
@@ -72,7 +65,6 @@ export function routeCommand(command: string, policy: RoutingPolicy): RouteDecis
     return routeSingleSegment(segment, policy);
   });
 
-  if (decisions.includes("hitl")) return "hitl";
   if (decisions.includes("sandbox")) return "sandbox";
   if (decisions.every((decision) => decision === "host")) return "host";
 

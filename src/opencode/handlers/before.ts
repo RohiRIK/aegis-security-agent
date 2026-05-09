@@ -10,6 +10,8 @@ import { basename, join } from "node:path";
 import { wrapTrivy } from "../../lib/scanner.ts";
 import { logAegis } from "../../lib/aegis-log.ts";
 import { proxyResult } from "../../lib/output-proxy.ts";
+import { createEvent } from "../../events/types.ts";
+import { emitEvent } from "../../events/emitter.ts";
 import type { PluginInput } from "@opencode-ai/plugin";
 import type { AegisPolicy } from "../index.ts";
 
@@ -22,6 +24,13 @@ export function createBeforeHandler(
       const filePath = output.args?.filePath ?? output.args?.path ?? "";
       if (filePath && checkSensitiveFile(filePath, policy.actions?.read_file?.deny_patterns ?? [])) {
         logAegis(client, "warn", `[AEGIS] ⚠️ sensitive file access — ${basename(filePath)}`);
+        await emitEvent(
+          createEvent("policy.match", "medium", filePath, `Sensitive file access: ${basename(filePath)}`, {
+            source: "plugin",
+            outcome: "warn",
+            policy: { rule: "deny_patterns", action: input.tool },
+          }),
+        );
       }
     }
 
@@ -30,10 +39,26 @@ export function createBeforeHandler(
     const command = output.args?.command ?? "";
 
     const matched = matchHighRiskPattern(command, policy.high_risk_patterns ?? []);
-    if (matched) logAegis(client, "warn", `[AEGIS] ⚠️ high-risk pattern detected — ${matched}`);
+    if (matched) {
+      logAegis(client, "warn", `[AEGIS] ⚠️ high-risk pattern detected — ${matched}`);
+      await emitEvent(
+        createEvent("policy.match", "high", command, `High-risk pattern: ${matched}`, {
+          source: "plugin",
+          outcome: "warn",
+          policy: { rule: matched, action: "run_shell" },
+        }),
+      );
+    }
 
     const pkg = parseInstallCommand(command);
     if (pkg) {
+      await emitEvent(
+        createEvent("install.warning", "info", command, `Install detected: ${pkg.packageName}`, {
+          source: "plugin",
+          evidence: { ecosystem: pkg.ecosystem, package: pkg.packageName },
+        }),
+      );
+
       const { filename, content } = makeLockfileContent(pkg);
       const scanDir = mkdtempSync(join(tmpdir(), "aegis-trivy-"));
       try {
@@ -48,6 +73,14 @@ export function createBeforeHandler(
 
         if (result.degraded) {
           logAegis(client, "warn", "[AEGIS] ⚠️ Trivy DEGRADED: dep scan timed out");
+          await emitEvent(
+            createEvent("scanner.summary", "medium", command, "Trivy scan timed out", {
+              source: "plugin",
+              outcome: "skip",
+              degraded: true,
+              evidence: { scanner: "trivy", package: pkg.packageName },
+            }),
+          );
         } else if (result.status === "ok" && result.exitCode === 1) {
           let parsed: { Results?: Array<{ Vulnerabilities?: unknown[] }> } = {};
           try {
@@ -55,8 +88,22 @@ export function createBeforeHandler(
           } catch { /* exit code is authoritative */ }
           const { summary } = proxyResult("trivy", parsed, { packageName: pkg.packageName });
           logAegis(client, "warn", `[AEGIS] ⚠️ Trivy found vulnerabilities — ${summary}`);
+          await emitEvent(
+            createEvent("scanner.finding", "high", command, `Trivy: ${pkg.packageName} — ${summary}`, {
+              source: "plugin",
+              outcome: "warn",
+              evidence: { scanner: "trivy", package: pkg.packageName, summary },
+            }),
+          );
         } else if (result.status === "error") {
           logAegis(client, "warn", "[AEGIS] ⚠️ Trivy unavailable: dep scan skipped");
+          await emitEvent(
+            createEvent("scanner.summary", "low", command, "Trivy unavailable — scan skipped", {
+              source: "plugin",
+              outcome: "skip",
+              evidence: { scanner: "trivy", status: "unavailable" },
+            }),
+          );
         }
       } finally {
         rmSync(scanDir, { recursive: true, force: true });

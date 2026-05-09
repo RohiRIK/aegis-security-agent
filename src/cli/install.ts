@@ -131,7 +131,7 @@ async function installOpenCodeMode(targetDir: string, force: boolean): Promise<v
   await ensureDir(join(targetDir, ".aegis"));
   log("created", join(targetDir, ".aegis") + "/");
 
-  const auditLogPath = join(targetDir, ".aegis", "audit.log");
+  const auditLogPath = join(targetDir, ".aegis", "audit.jsonl");
   if (!await fileExists(auditLogPath)) {
     await Bun.write(auditLogPath, "");
     log("created", auditLogPath);
@@ -197,7 +197,7 @@ async function installClaudeMode(targetDir: string, force: boolean): Promise<voi
   await writeIfMissing(join(targetDir, ".claude", "hooks.json"), hooksContent, force);
 
   await ensureDir(join(targetDir, ".aegis"));
-  const auditLogPath = join(targetDir, ".aegis", "audit.log");
+  const auditLogPath = join(targetDir, ".aegis", "audit.jsonl");
   if (!await fileExists(auditLogPath)) {
     await Bun.write(auditLogPath, "");
     log("created", auditLogPath);

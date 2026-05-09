@@ -1,4 +1,6 @@
 import { matchHighRiskPattern } from "../../core/security.ts";
+import { createEvent } from "../../events/types.ts";
+import { emitEvent } from "../../events/emitter.ts";
 import type { AegisPolicy } from "../index.ts";
 
 export function createPermissionHandler(policy: AegisPolicy): (input: any, output: any) => Promise<void> {
@@ -8,6 +10,13 @@ export function createPermissionHandler(policy: AegisPolicy): (input: any, outpu
     const matched = matchHighRiskPattern(command, policy.high_risk_patterns ?? []);
     if (matched) {
       output.status = "ask";
+      await emitEvent(
+        createEvent("permission.warning", "high", command, `Permission escalation: ${matched}`, {
+          source: "plugin",
+          outcome: "warn",
+          policy: { rule: matched, action: "permission.ask" },
+        }),
+      );
     }
   };
 }

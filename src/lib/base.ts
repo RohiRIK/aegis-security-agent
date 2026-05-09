@@ -114,10 +114,6 @@ export async function appendText(filePath: string, text: string): Promise<void> 
   appendFileSync(filePath, text, { encoding: "utf-8" });
 }
 
-export function formatTimestamp(): string {
-  return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-}
-
 export function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'"'"'`)}'`;
 }

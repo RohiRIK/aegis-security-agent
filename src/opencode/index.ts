@@ -6,28 +6,10 @@ import { createCompactionHandler } from "./handlers/compaction.ts";
 import { createEnvHandler } from "./handlers/env.ts";
 import { createPermissionHandler } from "./handlers/permission.ts";
 import { DEFAULT_SENSITIVE_VARS } from "../core/security.ts";
+import type { AegisPolicy } from "../types/policy.ts";
+import { validatePolicy } from "../types/policy.ts";
 
-export type AegisPolicy = {
-  high_risk_patterns?: string[];
-  hitl_timeout_seconds?: number;
-  routing?: {
-    host_passthrough?: string[];
-    sandbox_required?: string[];
-  };
-  degraded_mode?: {
-    allow_host_passthrough?: boolean;
-    block_sandbox_required?: boolean;
-    warn_on_degraded?: boolean;
-  };
-  actions?: {
-    read_file?: { default?: string; deny_patterns?: string[] };
-    edit_file?: { default?: string; allow_patterns?: string[]; deny_patterns?: string[] };
-    run_shell?: { default?: string; high_risk_patterns?: string[] };
-    fetch_domain?: { default?: string; allow_list?: string[] };
-    use_secret?: { default?: string; allowed_via?: string };
-    approve_deploy?: { default?: string; hitl_timeout_seconds?: number };
-  };
-};
+export type { AegisPolicy } from "../types/policy.ts";
 
 type AnyHandler = (...args: unknown[]) => Promise<void>;
 
@@ -48,9 +30,14 @@ function safe(handler: AnyHandler): AnyHandler {
 export const AegisSecurityPlugin: Plugin = async ({ directory, client }) => {
   let policy: AegisPolicy = {};
   try {
-    policy = JSON.parse(
+    const raw = JSON.parse(
       await Bun.file(join(directory, "aegis-policy.json")).text(),
-    ) as AegisPolicy;
+    );
+    const result = validatePolicy(raw);
+    policy = result.policy;
+    for (const w of result.warnings) {
+      console.error(`[AEGIS] Policy warning: ${w}`);
+    }
   } catch {
     console.error("[AEGIS] aegis-policy.json not found or invalid — running with empty policy");
   }

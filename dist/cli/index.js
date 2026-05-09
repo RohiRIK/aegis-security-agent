@@ -114,7 +114,7 @@ var HOOKS_TEMPLATE = `{
         "hooks": [
           {
             "type": "command",
-            "command": "bun run \\"__AEGIS_DIR__/src/hooks/pre-tool-use.ts\\""
+            "command": "bun run \\"__AEGIS_DIR__/dist/hooks/pre-tool-use.js\\""
           }
         ]
       }
@@ -125,7 +125,7 @@ var HOOKS_TEMPLATE = `{
         "hooks": [
           {
             "type": "command",
-            "command": "bun run \\"__AEGIS_DIR__/src/hooks/post-tool-use.ts\\""
+            "command": "bun run \\"__AEGIS_DIR__/dist/hooks/post-tool-use.js\\""
           }
         ]
       }
@@ -136,7 +136,7 @@ var HOOKS_TEMPLATE = `{
         "hooks": [
           {
             "type": "command",
-            "command": "echo \\"{\\\\\\"timestamp\\\\\\":\\\\\\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\\\\\\",\\\\\\"event\\\\\\":\\\\\\"session_end\\\\\\"}\\" >> \\"__AEGIS_DIR__/.aegis/audit.log\\""
+            "command": "bun run \\"__AEGIS_DIR__/dist/hooks/stop.js\\""
           }
         ]
       }
@@ -214,7 +214,7 @@ async function installOpenCodeMode(targetDir, force) {
   await patchOpencodeJson(targetDir);
   await ensureDir(join(targetDir, ".aegis"));
   log("created", join(targetDir, ".aegis") + "/");
-  const auditLogPath = join(targetDir, ".aegis", "audit.log");
+  const auditLogPath = join(targetDir, ".aegis", "audit.jsonl");
   if (!await fileExists(auditLogPath)) {
     await Bun.write(auditLogPath, "");
     log("created", auditLogPath);
@@ -249,7 +249,7 @@ async function installClaudeMode(targetDir, force) {
   const hooksContent = HOOKS_TEMPLATE.replaceAll("__AEGIS_DIR__", AEGIS_DIR);
   await writeIfMissing(join(targetDir, ".claude", "hooks.json"), hooksContent, force);
   await ensureDir(join(targetDir, ".aegis"));
-  const auditLogPath = join(targetDir, ".aegis", "audit.log");
+  const auditLogPath = join(targetDir, ".aegis", "audit.jsonl");
   if (!await fileExists(auditLogPath)) {
     await Bun.write(auditLogPath, "");
     log("created", auditLogPath);
@@ -350,7 +350,7 @@ export default async () => ({});
 });
 
 // src/lib/provisioner/downloader.ts
-import crypto from "crypto";
+import crypto2 from "crypto";
 import { chmod, mkdir, readdir, rename, rm, stat } from "fs/promises";
 import { basename, join as join2 } from "path";
 function getToken(explicitToken) {
@@ -389,7 +389,7 @@ async function findBinary(extractDir, binaryName) {
 }
 async function verifyChecksum(filePath, expectedSha256) {
   const buffer = Buffer.from(await Bun.file(filePath).arrayBuffer());
-  return crypto.createHash("sha256").update(buffer).digest("hex") === expectedSha256;
+  return crypto2.createHash("sha256").update(buffer).digest("hex") === expectedSha256;
 }
 async function downloadFile(url, destPath, options) {
   const token = getToken(options?.token);
@@ -922,22 +922,93 @@ var init_tools = __esm(() => {
 `);
 });
 
+// src/events/types.ts
+function createEvent(kind, severity, subject, message, overrides) {
+  return {
+    schema: "aegis/v1",
+    id: crypto.randomUUID(),
+    ts: new Date().toISOString(),
+    source: "plugin",
+    kind,
+    severity,
+    subject,
+    outcome: "warn",
+    message,
+    ...overrides
+  };
+}
+
+// src/events/emitter.ts
+import { join as join7 } from "path";
+async function emitEvent(event, logPath) {
+  const targetPath = logPath ?? join7(process.cwd(), ".aegis", "audit.jsonl");
+  const dir = targetPath.substring(0, targetPath.lastIndexOf("/"));
+  await ensureDir(dir);
+  await appendText(targetPath, JSON.stringify(event) + `
+`);
+}
+var init_emitter = __esm(() => {
+  init_base();
+});
+
 // src/lib/verdict-log.ts
 var exports_verdict_log = {};
 __export(exports_verdict_log, {
   readRecentVerdicts: () => readRecentVerdicts,
   formatVerdictEvent: () => formatVerdictEvent,
+  createVerdictEvent: () => createVerdictEvent,
   appendVerdictEvent: () => appendVerdictEvent
 });
-import { resolve as resolve3 } from "path";
+function createVerdictEvent(event) {
+  const severity = event.verdict === "BLOCKED" ? "critical" : event.verdict === "RISKY" ? "high" : "info";
+  const outcome = event.verdict === "BLOCKED" ? "block" : event.verdict === "RISKY" ? "warn" : "allow";
+  return createEvent("scanner.summary", severity, event.scope, `${event.task}: ${event.verdict} \u2014 C:${event.findings.critical} H:${event.findings.high} M:${event.findings.medium} L:${event.findings.low} I:${event.findings.info}`, {
+    source: "agent",
+    outcome,
+    degraded: event.degraded.length > 0 ? true : undefined,
+    evidence: {
+      verdict: event.verdict,
+      task: event.task,
+      findings: event.findings,
+      degraded: event.degraded,
+      commit: event.commit,
+      scope: event.scope
+    }
+  });
+}
 function formatVerdictEvent(event) {
-  return JSON.stringify({ type: "aegis_verdict", ts: new Date().toISOString(), ...event }) + `
+  return JSON.stringify(createVerdictEvent(event)) + `
 `;
 }
 async function appendVerdictEvent(auditLogPath, event) {
-  const dir = resolve3(auditLogPath, "..");
-  await ensureDir(dir);
-  await appendText(auditLogPath, formatVerdictEvent(event));
+  await emitEvent(createVerdictEvent(event), auditLogPath);
+}
+function parseVerdictLine(line) {
+  let parsed;
+  try {
+    parsed = JSON.parse(line);
+  } catch {
+    return null;
+  }
+  if (parsed.type === "aegis_verdict") {
+    return parsed;
+  }
+  if (parsed.schema === "aegis/v1" && parsed.kind === "scanner.summary" && parsed.evidence) {
+    const evidence = parsed.evidence;
+    if (typeof evidence.verdict === "string" && typeof evidence.task === "string") {
+      return {
+        type: "aegis_verdict",
+        ts: parsed.ts ?? new Date().toISOString(),
+        task: evidence.task,
+        verdict: evidence.verdict,
+        findings: evidence.findings ?? { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
+        degraded: evidence.degraded ?? [],
+        commit: evidence.commit ?? "",
+        scope: evidence.scope ?? ""
+      };
+    }
+  }
+  return null;
 }
 async function readRecentVerdicts(auditLogPath, count) {
   if (!await fileExists(auditLogPath)) {
@@ -948,25 +1019,22 @@ async function readRecentVerdicts(auditLogPath, count) {
 `).filter(Boolean);
   const verdicts = [];
   for (const line of lines) {
-    try {
-      const parsed = JSON.parse(line);
-      if (parsed.type === "aegis_verdict") {
-        verdicts.push(parsed);
-      }
-    } catch {
-      continue;
+    const verdict = parseVerdictLine(line);
+    if (verdict) {
+      verdicts.push(verdict);
     }
   }
   return verdicts.slice(-count);
 }
 var init_verdict_log = __esm(async () => {
   init_base();
+  init_emitter();
   if (false) {}
 });
 
 // src/cli/index.ts
 init_ui();
-import { resolve as resolve4 } from "path";
+import { resolve as resolve3 } from "path";
 var HELP_TEXT = [
   `  ${c.bold("Usage")}`,
   `    ${c.cyan("aegis")} ${c.dim("<command> [flags]")}`,
@@ -1021,7 +1089,7 @@ async function main() {
     case "verdict": {
       const { appendVerdictEvent: appendVerdictEvent2, readRecentVerdicts: readRecentVerdicts2 } = await init_verdict_log().then(() => exports_verdict_log);
       const [subcommand, ...verdictArgs] = args;
-      const logPath = resolve4(process.cwd(), ".aegis", "audit.log");
+      const logPath = resolve3(process.cwd(), ".aegis", "audit.jsonl");
       if (subcommand === "read") {
         const count = Number(verdictArgs[0]) || 10;
         const verdicts = await readRecentVerdicts2(logPath, count);

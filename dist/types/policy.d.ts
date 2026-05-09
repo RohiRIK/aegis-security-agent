@@ -23,10 +23,6 @@ export type AegisPolicy = {
             default?: string;
             allowed_via?: string;
         };
-        approve_deploy?: {
-            default?: string;
-            hitl_timeout_seconds?: number;
-        };
     };
     high_risk_patterns?: string[];
     routing?: {
@@ -42,12 +38,14 @@ export type AegisPolicy = {
         enabled?: string[];
         auto_update?: boolean;
     };
-    /** @deprecated Removed in v0.2.0 — HITL gateway no longer exists */
-    hitl_timeout_seconds?: number;
 };
 export type PolicyDecision = {
     action: string;
     effect: "allow" | "warn" | "log";
     reason: string;
     pattern?: string;
+};
+export declare function validatePolicy(raw: unknown): {
+    policy: AegisPolicy;
+    warnings: string[];
 };

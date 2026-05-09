@@ -1,0 +1,211 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`AegisEvent format snapshots policy.match — high-risk pattern 1`] = `
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "kind": "policy.match",
+  "message": "High-risk pattern: rm\\s+-rf",
+  "outcome": "warn",
+  "policy": {
+    "action": "run_shell",
+    "rule": "rm\\s+-rf",
+  },
+  "schema": "aegis/v1",
+  "severity": "high",
+  "source": "hook",
+  "subject": "rm -rf /",
+  "ts": "2026-01-01T00:00:00.000Z",
+}
+`;
+
+exports[`AegisEvent format snapshots policy.match — sensitive file access 1`] = `
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "kind": "policy.match",
+  "message": "Sensitive file access: .env.local",
+  "outcome": "warn",
+  "policy": {
+    "action": "read",
+    "rule": "deny_patterns",
+  },
+  "schema": "aegis/v1",
+  "severity": "medium",
+  "source": "plugin",
+  "subject": ".env.local",
+  "ts": "2026-01-01T00:00:00.000Z",
+}
+`;
+
+exports[`AegisEvent format snapshots scanner.finding — semgrep 1`] = `
+{
+  "evidence": {
+    "count": 3,
+    "file": "src/api/auth.ts",
+    "scanner": "semgrep",
+    "summary": "3 findings",
+  },
+  "id": "00000000-0000-0000-0000-000000000000",
+  "kind": "scanner.finding",
+  "message": "Semgrep: auth.ts — 3 finding(s)",
+  "outcome": "warn",
+  "schema": "aegis/v1",
+  "severity": "medium",
+  "source": "plugin",
+  "subject": "src/api/auth.ts",
+  "ts": "2026-01-01T00:00:00.000Z",
+}
+`;
+
+exports[`AegisEvent format snapshots scanner.finding — trivy CVE 1`] = `
+{
+  "evidence": {
+    "package": "lodash",
+    "reason": "CVE-2021-23337",
+    "scanner": "trivy",
+  },
+  "id": "00000000-0000-0000-0000-000000000000",
+  "kind": "scanner.finding",
+  "message": "Trivy: lodash — CVE-2021-23337",
+  "outcome": "warn",
+  "schema": "aegis/v1",
+  "severity": "high",
+  "source": "hook",
+  "subject": "bun add lodash",
+  "ts": "2026-01-01T00:00:00.000Z",
+}
+`;
+
+exports[`AegisEvent format snapshots scanner.summary — degraded 1`] = `
+{
+  "degraded": true,
+  "evidence": {
+    "package": "express",
+    "scanner": "trivy",
+  },
+  "id": "00000000-0000-0000-0000-000000000000",
+  "kind": "scanner.summary",
+  "message": "Trivy scan timed out",
+  "outcome": "skip",
+  "schema": "aegis/v1",
+  "severity": "medium",
+  "source": "plugin",
+  "subject": "bun add express",
+  "ts": "2026-01-01T00:00:00.000Z",
+}
+`;
+
+exports[`AegisEvent format snapshots scanner.summary — verdict 1`] = `
+{
+  "evidence": {
+    "commit": "abc1234",
+    "degraded": [],
+    "findings": {
+      "critical": 0,
+      "high": 0,
+      "info": 3,
+      "low": 2,
+      "medium": 1,
+    },
+    "scope": "full repo",
+    "task": "full-audit",
+    "verdict": "SAFE",
+  },
+  "id": "00000000-0000-0000-0000-000000000000",
+  "kind": "scanner.summary",
+  "message": "full-audit: SAFE — C:0 H:0 M:1 L:2 I:3",
+  "outcome": "allow",
+  "schema": "aegis/v1",
+  "severity": "info",
+  "source": "agent",
+  "subject": "full repo",
+  "ts": "2026-01-01T00:00:00.000Z",
+}
+`;
+
+exports[`AegisEvent format snapshots env.redaction 1`] = `
+{
+  "evidence": {
+    "redacted_vars": [
+      "AWS_SECRET_ACCESS_KEY",
+      "GITHUB_TOKEN",
+    ],
+  },
+  "id": "00000000-0000-0000-0000-000000000000",
+  "kind": "env.redaction",
+  "message": "Redacted 2 sensitive var(s): AWS_SECRET_ACCESS_KEY, GITHUB_TOKEN",
+  "outcome": "allow",
+  "schema": "aegis/v1",
+  "severity": "info",
+  "source": "plugin",
+  "subject": "shell.env",
+  "ts": "2026-01-01T00:00:00.000Z",
+}
+`;
+
+exports[`AegisEvent format snapshots permission.warning 1`] = `
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "kind": "permission.warning",
+  "message": "Permission escalation: kubectl apply",
+  "outcome": "warn",
+  "policy": {
+    "action": "permission.ask",
+    "rule": "kubectl apply",
+  },
+  "schema": "aegis/v1",
+  "severity": "high",
+  "source": "plugin",
+  "subject": "kubectl apply -f deploy.yaml",
+  "ts": "2026-01-01T00:00:00.000Z",
+}
+`;
+
+exports[`AegisEvent format snapshots install.warning 1`] = `
+{
+  "evidence": {
+    "ecosystem": "npm",
+    "package": "axios",
+  },
+  "id": "00000000-0000-0000-0000-000000000000",
+  "kind": "install.warning",
+  "message": "Install detected: axios",
+  "outcome": "warn",
+  "schema": "aegis/v1",
+  "severity": "info",
+  "source": "hook",
+  "subject": "bun add axios",
+  "ts": "2026-01-01T00:00:00.000Z",
+}
+`;
+
+exports[`AegisEvent format snapshots session.start 1`] = `
+{
+  "evidence": {
+    "directory": "/projects/myapp",
+    "hasGit": true,
+  },
+  "id": "00000000-0000-0000-0000-000000000000",
+  "kind": "session.start",
+  "message": "Aegis session started — .aegis/ bootstrapped",
+  "outcome": "allow",
+  "schema": "aegis/v1",
+  "severity": "info",
+  "source": "plugin",
+  "subject": "/projects/myapp",
+  "ts": "2026-01-01T00:00:00.000Z",
+}
+`;
+
+exports[`AegisEvent format snapshots session.end 1`] = `
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "kind": "session.end",
+  "message": "Aegis session ended",
+  "outcome": "allow",
+  "schema": "aegis/v1",
+  "severity": "info",
+  "source": "plugin",
+  "subject": "/projects/myapp",
+  "ts": "2026-01-01T00:00:00.000Z",
+}
+`;

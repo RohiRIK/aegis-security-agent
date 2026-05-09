@@ -79,12 +79,6 @@ async function main(): Promise<number> {
     }
   });
 
-  await runTest("T-006: HITL gateway denies on 'no' input", async () => {
-    const payload = '{"hitl_request":{"id":"t006","timestamp":"2026-01-01T00:00:00Z","session_id":"test","action":{"tool":"bash","command":"rm -rf /","risk_reason":"test","risk_level":"HIGH","reversible":false},"context":{"current_task":"test","working_directory":"/tmp"},"instructions":"test"}}';
-    const command = `! echo 'no' | bun run ${JSON.stringify(join(ROOT, "src", "hitl-gateway.ts"))} '${payload}'`;
-    return await shellSucceeds(command);
-  });
-
   await runTest("T-007: lean-ctx DB clean of sensitive patterns", async () => {
     const aegisRuntimeDir = join(ROOT, ".aegis");
     await ensureDir(aegisRuntimeDir);

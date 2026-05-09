@@ -19,7 +19,7 @@ describe("bootstrapAegisDir", () => {
     tempDir = await makeTempDir();
     await bootstrapAegisDir(tempDir);
 
-    expect(await Bun.file(join(tempDir, ".aegis", "audit.log")).exists()).toBe(true);
+    expect(await Bun.file(join(tempDir, ".aegis", "audit.jsonl")).exists()).toBe(true);
     expect(await Bun.file(join(tempDir, ".aegis", "scans")).exists()).toBe(false);
     const stat = Bun.spawnSync(["test", "-d", join(tempDir, ".aegis", "scans")]);
     expect(stat.exitCode).toBe(0);
@@ -61,7 +61,7 @@ describe("bootstrapAegisDir", () => {
     const content = await Bun.file(join(tempDir, ".gitignore")).text();
     const matches = content.match(/\.aegis\//g);
     expect(matches?.length).toBe(1);
-    expect(await Bun.file(join(tempDir, ".aegis", "audit.log")).exists()).toBe(true);
+    expect(await Bun.file(join(tempDir, ".aegis", "audit.jsonl")).exists()).toBe(true);
   });
 
   test("never throws — even on invalid directory", async () => {

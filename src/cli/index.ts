@@ -68,7 +68,7 @@ async function main(): Promise<number> {
     case "verdict": {
       const { appendVerdictEvent, readRecentVerdicts } = await import("../lib/verdict-log.ts");
       const [subcommand, ...verdictArgs] = args;
-      const logPath = resolve(process.cwd(), ".aegis", "audit.log");
+      const logPath = resolve(process.cwd(), ".aegis", "audit.jsonl");
 
       if (subcommand === "read") {
         const count = Number(verdictArgs[0]) || 10;

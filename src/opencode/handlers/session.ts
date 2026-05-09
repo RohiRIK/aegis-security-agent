@@ -2,6 +2,8 @@ import { join } from "node:path";
 import type { PluginInput } from "@opencode-ai/plugin";
 import { logAegis } from "../../lib/aegis-log.ts";
 import { ensureDir, fileExists } from "../../lib/base.ts";
+import { createEvent } from "../../events/types.ts";
+import { emitEvent } from "../../events/emitter.ts";
 
 /**
  * Bootstrap the `.aegis/` directory in the project root.
@@ -14,7 +16,7 @@ export async function bootstrapAegisDir(
   try {
     await ensureDir(join(directory, ".aegis", "scans"));
 
-    const auditLogPath = join(directory, ".aegis", "audit.log");
+    const auditLogPath = join(directory, ".aegis", "audit.jsonl");
     if (!(await fileExists(auditLogPath))) {
       await Bun.write(auditLogPath, "");
     }
@@ -36,6 +38,15 @@ export async function bootstrapAegisDir(
     if (!hasGit) {
       logAegis(client, "warn", "[AEGIS] no .git directory found — consider using git for audit trail integrity");
     }
+
+    await emitEvent(
+      createEvent("session.start", "info", directory, "Aegis session started — .aegis/ bootstrapped", {
+        source: "plugin",
+        outcome: "allow",
+        evidence: { directory, hasGit },
+      }),
+      auditLogPath,
+    );
   } catch (err) {
     logAegis(client, "warn", `[AEGIS] .aegis/ bootstrap failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`);
   }

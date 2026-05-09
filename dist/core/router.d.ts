@@ -1,10 +1,10 @@
 import type { AegisPolicy } from "../types/policy.ts";
-export type RouteDecision = "host" | "sandbox" | "hitl";
+export type RouteDecision = "host" | "sandbox";
 /**
  * Determines where a command should execute based on policy patterns.
  *
  * Priority order:
- * 1. HITL (high-risk patterns) — always checked first
+ * 1. High-risk patterns → sandbox (advisory warning emitted separately)
  * 2. Sandbox (sandbox_required patterns)
  * 3. Host (host_passthrough patterns)
  * 4. Default: sandbox (unknown commands are sandboxed)

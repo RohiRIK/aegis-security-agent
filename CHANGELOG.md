@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.2.1] - 2026-05-09
+
+### Changed
+- `RouteDecision` type simplified from `"host" | "sandbox" | "hitl"` to `"host" | "sandbox"` — high-risk commands now route to sandbox with advisory warning
+- Audit log renamed from `.aegis/audit.log` to `.aegis/audit.jsonl` to reflect NDJSON format
+
+### Removed
+- `"hitl"` variant from `RouteDecision` — HITL routing fully removed from router
+- `approve_deploy` action and `hitl_timeout_seconds` field from `AegisPolicy` type
+- `hitl_timeout_seconds` from known/deprecated policy keys — now treated as unknown key
+
+## [0.2.0] - 2026-05-08
+
+### Added
+- Unified `AegisEvent` envelope type (`src/events/types.ts`) with `schema: "aegis/v1"`, typed `AegisEventKind` (8 kinds), and `AegisEventSeverity`
+- `createEvent()` helper for constructing typed events
+- `emitEvent()` for writing NDJSON to `.aegis/audit.log`
+- Typed event emission in all OpenCode handlers (before, after, env, permission, session)
+- Typed event emission in Claude Code `pre-tool-use` hook
+- `validatePolicy()` runtime validation with deprecation warnings and regex syntax checking
+- Golden output snapshot tests for all event kinds (`src/events/snapshot.test.ts`)
+- Backward-compatible audit log reader: parses both legacy `type: "aegis_verdict"` and new `schema: "aegis/v1"` records
+
+### Changed
+- `AegisPolicy` type unified into `src/types/policy.ts` — 3 duplicate definitions eliminated
+- `VerdictEvent` now written in `AegisEvent` format (`kind: "scanner.summary"`) with evidence payload
+- `appendVerdictEvent` and `readRecentVerdicts` use the new format while reading both old and new
+- Claude hooks are now fully audit-only (never block, always exit 0)
+- `safeClaude()` error boundary guarantees JSON output even on parse failures
+
+### Removed
+- HITL gateway (`src/hitl-gateway.ts`) — deleted entirely
+- Sandbox command rewriting — deferred indefinitely, commands pass through unchanged
+- `RoutingPolicy` duplicate type — replaced by `Pick<AegisPolicy, ...>`
+
+### Deprecated
+- `hitl_timeout_seconds` policy field — ignored with deprecation warning via `validatePolicy()`
+
 ## [0.1.18](https://github.com/RohiRIK/aegis-security-agent/compare/v0.1.17...v0.1.18) (2026-05-08)
 
 
@@ -34,8 +74,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - All remaining preflight dead code from source: `printPreflightSummary` (ui.ts), T-001/T-002 smoke tests, `preflight` npm script, stale comments and test names referencing preflight
 - `src/preflight.ts` deleted entirely
-
-## [Unreleased]
 
 ## [0.1.17] - 2026-05-07
 

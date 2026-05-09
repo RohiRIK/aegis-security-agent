@@ -1,11 +1,11 @@
 {
   "name": "aegis-security-agent",
-  "version": "0.1.18",
+  "version": "0.2.1",
   "type": "module",
   "main": "./dist/index.js",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./dist/opencode/index.d.ts",
       "import": "./dist/index.js"
     },
     "./policy-schema": "./aegis-policy.json"
@@ -24,7 +24,7 @@
     ".trufflehogignore"
   ],
   "scripts": {
-    "build": "bun build src/opencode/index.ts --outdir dist --target bun --format esm --external @opencode-ai/plugin && bun build src/cli/index.ts --outdir dist/cli --target bun --format esm --external @opencode-ai/plugin && bun run build:types",
+    "build": "rm -rf dist && bun build src/opencode/index.ts --outdir dist --target bun --format esm --external @opencode-ai/plugin && bun build src/cli/index.ts --outdir dist/cli --target bun --format esm --external @opencode-ai/plugin && bun build src/hooks/pre-tool-use.ts src/hooks/post-tool-use.ts src/hooks/stop.ts --outdir dist/hooks --target bun --format esm && bun run build:types",
     "build:types": "tsc --emitDeclarationOnly --outDir dist --declaration --noEmit false",
     "build:binaries": "bun run scripts/build-binaries.ts",
     "prepublishOnly": "bun run build && bun run build:types && bun test",

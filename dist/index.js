@@ -39,7 +39,7 @@ var __export = (target, all) => {
 var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
 
 // src/lib/provisioner/downloader.ts
-import crypto2 from "crypto";
+import crypto3 from "crypto";
 import { chmod, mkdir, readdir, rename, rm, stat } from "fs/promises";
 import { basename as basename2, join as join2 } from "path";
 function getToken(explicitToken) {
@@ -78,7 +78,7 @@ async function findBinary(extractDir, binaryName) {
 }
 async function verifyChecksum(filePath, expectedSha256) {
   const buffer = Buffer.from(await Bun.file(filePath).arrayBuffer());
-  return crypto2.createHash("sha256").update(buffer).digest("hex") === expectedSha256;
+  return crypto3.createHash("sha256").update(buffer).digest("hex") === expectedSha256;
 }
 async function downloadFile(url, destPath, options) {
   const token = getToken(options?.token);
@@ -548,7 +548,7 @@ var init_manager = __esm(() => {
 });
 
 // src/opencode/index.ts
-import { join as join10 } from "path";
+import { join as join11 } from "path";
 
 // src/core/security.ts
 import { basename } from "path";
@@ -656,18 +656,20 @@ function checkSensitiveFile(filePath, denyPatterns) {
 // src/opencode/handlers/before.ts
 import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
-import { basename as basename3, join as join9 } from "path";
+import { basename as basename3, join as join10 } from "path";
 
 // src/lib/scanner.ts
-import crypto3 from "crypto";
+import crypto4 from "crypto";
 import { stat as stat2 } from "fs/promises";
 import { join as join7 } from "path";
 
 // src/lib/scan-cache.ts
-import crypto from "crypto";
+import crypto2 from "crypto";
 import { join } from "path";
 
 // src/lib/base.ts
+import { appendFileSync } from "fs";
+import { dirname } from "path";
 function buildEnv(extraEnv) {
   const merged = { ...process.env, ...extraEnv };
   const env = {};
@@ -709,6 +711,10 @@ async function ensureDir(dirPath) {
 async function fileExists(filePath) {
   return await Bun.file(filePath).exists();
 }
+async function appendText(filePath, text) {
+  await ensureDir(dirname(filePath));
+  appendFileSync(filePath, text, { encoding: "utf-8" });
+}
 
 // src/lib/scan-cache.ts
 var CACHE_DIR = ".aegis/scan-cache";
@@ -718,12 +724,12 @@ var CACHE_TTLS = {
   trufflehog: 600000
 };
 function computeCacheKey(scanner, version, config, scopeHash) {
-  return crypto.createHash("sha256").update([scanner, version, config, scopeHash].join("|")).digest("hex").slice(0, 16);
+  return crypto2.createHash("sha256").update([scanner, version, config, scopeHash].join("|")).digest("hex").slice(0, 16);
 }
 function computeScopeHash(filePaths, mtimes) {
   const normalized = filePaths.map((filePath, index) => ({ filePath, mtime: mtimes[index] ?? 0 })).sort((left, right) => left.filePath.localeCompare(right.filePath));
   const payload = normalized.map(({ filePath, mtime }) => `${filePath}:${mtime}`).join("|");
-  return crypto.createHash("sha256").update(payload).digest("hex").slice(0, 16);
+  return crypto2.createHash("sha256").update(payload).digest("hex").slice(0, 16);
 }
 function isCacheEntry(value) {
   if (typeof value !== "object" || value === null) {
@@ -849,7 +855,7 @@ async function getScannerVersion(scanner) {
   return "unknown";
 }
 function hashConfig(config) {
-  return crypto3.createHash("sha256").update(config).digest("hex").slice(0, 16);
+  return crypto4.createHash("sha256").update(config).digest("hex").slice(0, 16);
 }
 async function getMtimeMs(filePath) {
   try {
@@ -918,12 +924,12 @@ function logAegis(client, level, message) {
 }
 
 // src/lib/output-proxy.ts
-import crypto4 from "crypto";
+import crypto5 from "crypto";
 import { join as join8 } from "path";
 import { mkdirSync } from "fs";
 var SCANS_DIR = ".aegis/scans";
 function computeHash(content) {
-  return crypto4.createHash("sha256").update(content).digest("hex").slice(0, 12);
+  return crypto5.createHash("sha256").update(content).digest("hex").slice(0, 12);
 }
 function ensureScansDirSync() {
   try {
@@ -971,6 +977,32 @@ function proxyResult(toolName, fullOutput, options) {
   };
 }
 
+// src/events/types.ts
+function createEvent(kind, severity, subject, message, overrides) {
+  return {
+    schema: "aegis/v1",
+    id: crypto.randomUUID(),
+    ts: new Date().toISOString(),
+    source: "plugin",
+    kind,
+    severity,
+    subject,
+    outcome: "warn",
+    message,
+    ...overrides
+  };
+}
+
+// src/events/emitter.ts
+import { join as join9 } from "path";
+async function emitEvent(event, logPath) {
+  const targetPath = logPath ?? join9(process.cwd(), ".aegis", "audit.jsonl");
+  const dir = targetPath.substring(0, targetPath.lastIndexOf("/"));
+  await ensureDir(dir);
+  await appendText(targetPath, JSON.stringify(event) + `
+`);
+}
+
 // src/opencode/handlers/before.ts
 function createBeforeHandler(policy, client) {
   return async (input, output) => {
@@ -978,20 +1010,35 @@ function createBeforeHandler(policy, client) {
       const filePath = output.args?.filePath ?? output.args?.path ?? "";
       if (filePath && checkSensitiveFile(filePath, policy.actions?.read_file?.deny_patterns ?? [])) {
         logAegis(client, "warn", `[AEGIS] \u26A0\uFE0F sensitive file access \u2014 ${basename3(filePath)}`);
+        await emitEvent(createEvent("policy.match", "medium", filePath, `Sensitive file access: ${basename3(filePath)}`, {
+          source: "plugin",
+          outcome: "warn",
+          policy: { rule: "deny_patterns", action: input.tool }
+        }));
       }
     }
     if (input.tool !== "bash")
       return;
     const command = output.args?.command ?? "";
     const matched = matchHighRiskPattern(command, policy.high_risk_patterns ?? []);
-    if (matched)
+    if (matched) {
       logAegis(client, "warn", `[AEGIS] \u26A0\uFE0F high-risk pattern detected \u2014 ${matched}`);
+      await emitEvent(createEvent("policy.match", "high", command, `High-risk pattern: ${matched}`, {
+        source: "plugin",
+        outcome: "warn",
+        policy: { rule: matched, action: "run_shell" }
+      }));
+    }
     const pkg = parseInstallCommand(command);
     if (pkg) {
+      await emitEvent(createEvent("install.warning", "info", command, `Install detected: ${pkg.packageName}`, {
+        source: "plugin",
+        evidence: { ecosystem: pkg.ecosystem, package: pkg.packageName }
+      }));
       const { filename, content } = makeLockfileContent(pkg);
-      const scanDir = mkdtempSync(join9(tmpdir(), "aegis-trivy-"));
+      const scanDir = mkdtempSync(join10(tmpdir(), "aegis-trivy-"));
       try {
-        await Bun.write(join9(scanDir, filename), content);
+        await Bun.write(join10(scanDir, filename), content);
         const result = await wrapTrivy([
           "fs",
           "--scanners",
@@ -1007,6 +1054,12 @@ function createBeforeHandler(policy, client) {
         ]);
         if (result.degraded) {
           logAegis(client, "warn", "[AEGIS] \u26A0\uFE0F Trivy DEGRADED: dep scan timed out");
+          await emitEvent(createEvent("scanner.summary", "medium", command, "Trivy scan timed out", {
+            source: "plugin",
+            outcome: "skip",
+            degraded: true,
+            evidence: { scanner: "trivy", package: pkg.packageName }
+          }));
         } else if (result.status === "ok" && result.exitCode === 1) {
           let parsed = {};
           try {
@@ -1014,8 +1067,18 @@ function createBeforeHandler(policy, client) {
           } catch {}
           const { summary } = proxyResult("trivy", parsed, { packageName: pkg.packageName });
           logAegis(client, "warn", `[AEGIS] \u26A0\uFE0F Trivy found vulnerabilities \u2014 ${summary}`);
+          await emitEvent(createEvent("scanner.finding", "high", command, `Trivy: ${pkg.packageName} \u2014 ${summary}`, {
+            source: "plugin",
+            outcome: "warn",
+            evidence: { scanner: "trivy", package: pkg.packageName, summary }
+          }));
         } else if (result.status === "error") {
           logAegis(client, "warn", "[AEGIS] \u26A0\uFE0F Trivy unavailable: dep scan skipped");
+          await emitEvent(createEvent("scanner.summary", "low", command, "Trivy unavailable \u2014 scan skipped", {
+            source: "plugin",
+            outcome: "skip",
+            evidence: { scanner: "trivy", status: "unavailable" }
+          }));
         }
       } finally {
         rmSync(scanDir, { recursive: true, force: true });
@@ -1040,11 +1103,22 @@ function createAfterHandler() {
       output.output += `
 
 ${summary}`;
+      await emitEvent(createEvent("scanner.finding", "medium", filePath, `Semgrep: ${basename4(filePath)} \u2014 ${findings.length} finding(s)`, {
+        source: "plugin",
+        outcome: "warn",
+        evidence: { scanner: "semgrep", file: filePath, count: findings.length, summary }
+      }));
     }
     if (result.degraded) {
       output.output += `
 
 [AEGIS] \u26A0\uFE0F Semgrep DEGRADED: scan timed out after 120s`;
+      await emitEvent(createEvent("scanner.summary", "medium", filePath, "Semgrep scan timed out", {
+        source: "plugin",
+        outcome: "skip",
+        degraded: true,
+        evidence: { scanner: "semgrep", file: filePath }
+      }));
     }
   };
 }
@@ -1060,10 +1134,19 @@ function createCompactionHandler(policy) {
 // src/opencode/handlers/env.ts
 function createEnvHandler(sensitiveVars) {
   return async (_input, output) => {
+    const redacted = [];
     for (const varName of sensitiveVars) {
       if (output.env && varName in output.env) {
         delete output.env[varName];
+        redacted.push(varName);
       }
+    }
+    if (redacted.length > 0) {
+      await emitEvent(createEvent("env.redaction", "info", "shell.env", `Redacted ${redacted.length} sensitive var(s): ${redacted.join(", ")}`, {
+        source: "plugin",
+        outcome: "allow",
+        evidence: { redacted_vars: redacted }
+      }));
     }
   };
 }
@@ -1077,8 +1160,71 @@ function createPermissionHandler(policy) {
     const matched = matchHighRiskPattern(command, policy.high_risk_patterns ?? []);
     if (matched) {
       output.status = "ask";
+      await emitEvent(createEvent("permission.warning", "high", command, `Permission escalation: ${matched}`, {
+        source: "plugin",
+        outcome: "warn",
+        policy: { rule: matched, action: "permission.ask" }
+      }));
     }
   };
+}
+
+// src/types/policy.ts
+var KNOWN_KEYS = new Set([
+  "$schema",
+  "version",
+  "actions",
+  "high_risk_patterns",
+  "routing",
+  "degraded_mode",
+  "tools"
+]);
+var DEPRECATED_KEYS = {};
+function validatePolicy(raw) {
+  const warnings = [];
+  if (raw === null || raw === undefined || typeof raw !== "object") {
+    warnings.push("Policy is not an object \u2014 using empty defaults");
+    return { policy: { high_risk_patterns: [] }, warnings };
+  }
+  const obj = raw;
+  for (const key of Object.keys(obj)) {
+    if (!KNOWN_KEYS.has(key)) {
+      warnings.push(`Unknown policy key: "${key}" \u2014 ignored`);
+    }
+    if (key in DEPRECATED_KEYS) {
+      warnings.push(DEPRECATED_KEYS[key]);
+    }
+  }
+  const patterns = obj.high_risk_patterns;
+  if (Array.isArray(patterns)) {
+    for (const pattern of patterns) {
+      if (typeof pattern !== "string")
+        continue;
+      try {
+        new RegExp(pattern);
+      } catch {
+        warnings.push(`Invalid regex in high_risk_patterns: "${pattern}"`);
+      }
+    }
+  }
+  const routing = obj.routing;
+  if (routing && typeof routing === "object") {
+    for (const field of ["host_passthrough", "sandbox_required"]) {
+      const arr = routing[field];
+      if (!Array.isArray(arr))
+        continue;
+      for (const pattern of arr) {
+        if (typeof pattern !== "string")
+          continue;
+        try {
+          new RegExp(pattern);
+        } catch {
+          warnings.push(`Invalid regex in routing.${field}: "${pattern}"`);
+        }
+      }
+    }
+  }
+  return { policy: obj, warnings };
 }
 
 // src/opencode/index.ts
@@ -1094,7 +1240,12 @@ function safe(handler) {
 var AegisSecurityPlugin = async ({ directory, client }) => {
   let policy = {};
   try {
-    policy = JSON.parse(await Bun.file(join10(directory, "aegis-policy.json")).text());
+    const raw = JSON.parse(await Bun.file(join11(directory, "aegis-policy.json")).text());
+    const result = validatePolicy(raw);
+    policy = result.policy;
+    for (const w of result.warnings) {
+      console.error(`[AEGIS] Policy warning: ${w}`);
+    }
   } catch {
     console.error("[AEGIS] aegis-policy.json not found or invalid \u2014 running with empty policy");
   }
