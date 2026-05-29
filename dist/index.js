@@ -39,7 +39,7 @@ var __export = (target, all) => {
 var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
 
 // src/lib/provisioner/downloader.ts
-import crypto3 from "crypto";
+import crypto4 from "crypto";
 import { chmod, mkdir, readdir, rename, rm, stat } from "fs/promises";
 import { basename as basename2, join as join2 } from "path";
 function getToken(explicitToken) {
@@ -78,7 +78,7 @@ async function findBinary(extractDir, binaryName) {
 }
 async function verifyChecksum(filePath, expectedSha256) {
   const buffer = Buffer.from(await Bun.file(filePath).arrayBuffer());
-  return crypto3.createHash("sha256").update(buffer).digest("hex") === expectedSha256;
+  return crypto4.createHash("sha256").update(buffer).digest("hex") === expectedSha256;
 }
 async function downloadFile(url, destPath, options) {
   const token = getToken(options?.token);
@@ -551,6 +551,7 @@ var init_manager = __esm(() => {
 import { join as join11 } from "path";
 
 // src/core/security.ts
+import crypto2 from "crypto";
 import { basename } from "path";
 function parseSemgrepFindings(stdout) {
   let parsed;
@@ -564,7 +565,37 @@ function parseSemgrepFindings(stdout) {
     rule: result.check_id ?? "unknown",
     severity: result.extra?.severity ?? "ERROR",
     message: result.extra?.message ?? "",
-    line: result.start?.line ?? 0
+    line: result.start?.line ?? 0,
+    endLine: result.end?.line
+  }));
+}
+function computeFingerprint(parts) {
+  return crypto2.createHash("sha256").update(parts.join(":")).digest("hex").slice(0, 12);
+}
+function mapSemgrepSeverity(severity) {
+  switch (severity.toUpperCase()) {
+    case "ERROR":
+      return "high";
+    case "WARNING":
+      return "medium";
+    case "INFO":
+      return "low";
+    default:
+      return "medium";
+  }
+}
+function semgrepToNormalized(findings, filePath) {
+  return findings.map((f) => ({
+    scanner: "semgrep",
+    ruleId: `semgrep/${f.rule}`,
+    message: f.message,
+    severity: mapSemgrepSeverity(f.severity),
+    location: {
+      file: filePath,
+      startLine: f.line,
+      endLine: f.endLine
+    },
+    fingerprint: computeFingerprint(["semgrep", `semgrep/${f.rule}`, filePath, String(f.line)])
   }));
 }
 var DEFAULT_SENSITIVE_VARS = [
@@ -659,12 +690,12 @@ import { tmpdir } from "os";
 import { basename as basename3, join as join10 } from "path";
 
 // src/lib/scanner.ts
-import crypto4 from "crypto";
+import crypto5 from "crypto";
 import { stat as stat2 } from "fs/promises";
 import { join as join7 } from "path";
 
 // src/lib/scan-cache.ts
-import crypto2 from "crypto";
+import crypto3 from "crypto";
 import { join } from "path";
 
 // src/lib/base.ts
@@ -724,12 +755,12 @@ var CACHE_TTLS = {
   trufflehog: 600000
 };
 function computeCacheKey(scanner, version, config, scopeHash) {
-  return crypto2.createHash("sha256").update([scanner, version, config, scopeHash].join("|")).digest("hex").slice(0, 16);
+  return crypto3.createHash("sha256").update([scanner, version, config, scopeHash].join("|")).digest("hex").slice(0, 16);
 }
 function computeScopeHash(filePaths, mtimes) {
   const normalized = filePaths.map((filePath, index) => ({ filePath, mtime: mtimes[index] ?? 0 })).sort((left, right) => left.filePath.localeCompare(right.filePath));
   const payload = normalized.map(({ filePath, mtime }) => `${filePath}:${mtime}`).join("|");
-  return crypto2.createHash("sha256").update(payload).digest("hex").slice(0, 16);
+  return crypto3.createHash("sha256").update(payload).digest("hex").slice(0, 16);
 }
 function isCacheEntry(value) {
   if (typeof value !== "object" || value === null) {
@@ -855,7 +886,7 @@ async function getScannerVersion(scanner) {
   return "unknown";
 }
 function hashConfig(config) {
-  return crypto4.createHash("sha256").update(config).digest("hex").slice(0, 16);
+  return crypto5.createHash("sha256").update(config).digest("hex").slice(0, 16);
 }
 async function getMtimeMs(filePath) {
   try {
@@ -924,12 +955,12 @@ function logAegis(client, level, message) {
 }
 
 // src/lib/output-proxy.ts
-import crypto5 from "crypto";
+import crypto6 from "crypto";
 import { join as join8 } from "path";
 import { mkdirSync } from "fs";
 var SCANS_DIR = ".aegis/scans";
 function computeHash(content) {
-  return crypto5.createHash("sha256").update(content).digest("hex").slice(0, 12);
+  return crypto6.createHash("sha256").update(content).digest("hex").slice(0, 12);
 }
 function ensureScansDirSync() {
   try {
@@ -1013,7 +1044,11 @@ function createBeforeHandler(policy, client) {
         await emitEvent(createEvent("policy.match", "medium", filePath, `Sensitive file access: ${basename3(filePath)}`, {
           source: "plugin",
           outcome: "warn",
-          policy: { rule: "deny_patterns", action: input.tool }
+          policy: { rule: "deny_patterns", action: input.tool },
+          correlation: {
+            sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString(),
+            toolCall: input.id ?? undefined
+          }
         }));
       }
     }
@@ -1026,14 +1061,22 @@ function createBeforeHandler(policy, client) {
       await emitEvent(createEvent("policy.match", "high", command, `High-risk pattern: ${matched}`, {
         source: "plugin",
         outcome: "warn",
-        policy: { rule: matched, action: "run_shell" }
+        policy: { rule: matched, action: "run_shell" },
+        correlation: {
+          sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString(),
+          toolCall: input.id ?? undefined
+        }
       }));
     }
     const pkg = parseInstallCommand(command);
     if (pkg) {
       await emitEvent(createEvent("install.warning", "info", command, `Install detected: ${pkg.packageName}`, {
         source: "plugin",
-        evidence: { ecosystem: pkg.ecosystem, package: pkg.packageName }
+        evidence: { ecosystem: pkg.ecosystem, package: pkg.packageName },
+        correlation: {
+          sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString(),
+          toolCall: input.id ?? undefined
+        }
       }));
       const { filename, content } = makeLockfileContent(pkg);
       const scanDir = mkdtempSync(join10(tmpdir(), "aegis-trivy-"));
@@ -1058,7 +1101,11 @@ function createBeforeHandler(policy, client) {
             source: "plugin",
             outcome: "skip",
             degraded: true,
-            evidence: { scanner: "trivy", package: pkg.packageName }
+            evidence: { scanner: "trivy", package: pkg.packageName },
+            correlation: {
+              sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString(),
+              toolCall: input.id ?? undefined
+            }
           }));
         } else if (result.status === "ok" && result.exitCode === 1) {
           let parsed = {};
@@ -1070,14 +1117,22 @@ function createBeforeHandler(policy, client) {
           await emitEvent(createEvent("scanner.finding", "high", command, `Trivy: ${pkg.packageName} \u2014 ${summary}`, {
             source: "plugin",
             outcome: "warn",
-            evidence: { scanner: "trivy", package: pkg.packageName, summary }
+            evidence: { scanner: "trivy", package: pkg.packageName, summary },
+            correlation: {
+              sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString(),
+              toolCall: input.id ?? undefined
+            }
           }));
         } else if (result.status === "error") {
           logAegis(client, "warn", "[AEGIS] \u26A0\uFE0F Trivy unavailable: dep scan skipped");
           await emitEvent(createEvent("scanner.summary", "low", command, "Trivy unavailable \u2014 scan skipped", {
             source: "plugin",
             outcome: "skip",
-            evidence: { scanner: "trivy", status: "unavailable" }
+            evidence: { scanner: "trivy", status: "unavailable" },
+            correlation: {
+              sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString(),
+              toolCall: input.id ?? undefined
+            }
           }));
         }
       } finally {
@@ -1099,14 +1154,26 @@ function createAfterHandler() {
     const result = await wrapSemgrep(filePath);
     const findings = result.status === "ok" ? parseSemgrepFindings(result.stdout) : [];
     if (findings.length > 0) {
-      const { summary } = proxyResult("semgrep", findings, { filename: basename4(filePath) });
+      const { summary, detailPath } = proxyResult("semgrep", findings, { filename: basename4(filePath) });
+      const normalized = semgrepToNormalized(findings, filePath);
       output.output += `
 
 ${summary}`;
       await emitEvent(createEvent("scanner.finding", "medium", filePath, `Semgrep: ${basename4(filePath)} \u2014 ${findings.length} finding(s)`, {
         source: "plugin",
         outcome: "warn",
-        evidence: { scanner: "semgrep", file: filePath, count: findings.length, summary }
+        evidence: {
+          scanner: "semgrep",
+          file: filePath,
+          count: findings.length,
+          findings: normalized,
+          detailPath,
+          summary
+        },
+        correlation: {
+          sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString(),
+          toolCall: input.id ?? undefined
+        }
       }));
     }
     if (result.degraded) {
@@ -1117,7 +1184,11 @@ ${summary}`;
         source: "plugin",
         outcome: "skip",
         degraded: true,
-        evidence: { scanner: "semgrep", file: filePath }
+        evidence: { scanner: "semgrep", file: filePath },
+        correlation: {
+          sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString(),
+          toolCall: input.id ?? undefined
+        }
       }));
     }
   };
@@ -1145,7 +1216,10 @@ function createEnvHandler(sensitiveVars) {
       await emitEvent(createEvent("env.redaction", "info", "shell.env", `Redacted ${redacted.length} sensitive var(s): ${redacted.join(", ")}`, {
         source: "plugin",
         outcome: "allow",
-        evidence: { redacted_vars: redacted }
+        evidence: { redacted_vars: redacted },
+        correlation: {
+          sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString()
+        }
       }));
     }
   };
@@ -1163,7 +1237,10 @@ function createPermissionHandler(policy) {
       await emitEvent(createEvent("permission.warning", "high", command, `Permission escalation: ${matched}`, {
         source: "plugin",
         outcome: "warn",
-        policy: { rule: matched, action: "permission.ask" }
+        policy: { rule: matched, action: "permission.ask" },
+        correlation: {
+          sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString()
+        }
       }));
     }
   };

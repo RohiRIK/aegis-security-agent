@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- `aegis-policy.json` — relaxed to permissive-by-default: `run_shell.default` → `"host"`, `edit_file.default` → `"allow"`, `host_passthrough` → `".*"`, trimmed `high_risk_patterns` to truly destructive commands only, disabled scanners
+- `.gitignore` — added `graphify-out/` (Graphify knowledge graph output) and Python artifact patterns
+
+## [0.3.0] - 2026-05-09
+
+### Added
+- `NormalizedFinding` type for per-finding data in scanner events
+- `semgrepToNormalized()` and `trivyToNormalized()` converter functions
+- SARIF 2.1.0 types and `eventsToSarif()` builder (zero external dependencies)
+- `aegis report --format sarif` CLI subcommand (stdout by default, `--output` for file)
+- `correlation` field populated on all emitted events (sessionId, toolCall)
+- SIEM integration guide (`docs/SIEM.md`) with Vector, Fluent Bit, Splunk, Datadog shipper configs
+- Golden snapshot tests for mixed Semgrep/Trivy SARIF output
+- `endLine` field on `SemgrepFinding` type (optional, backward-compatible)
+
+### Changed
+- `scanner.finding` event evidence enriched with `findings: NormalizedFinding[]`, `detailPath`, `fingerprint`
+- `detailPath` from `proxyResult()` now propagated to event evidence in all handlers
+- `SemgrepResult` raw type widened with `path` and `end.line` fields
+
 ## [0.2.1] - 2026-05-09
 
 ### Changed

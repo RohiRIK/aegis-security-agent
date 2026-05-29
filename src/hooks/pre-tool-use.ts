@@ -47,6 +47,9 @@ async function hookLogic(parsedInput: Record<string, unknown>): Promise<Record<s
           source: "hook",
           outcome: "warn",
           policy: { rule: matchedPattern, action: "run_shell" },
+          correlation: {
+            sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString(),
+          },
         }),
         AUDIT_LOG,
       );
@@ -59,6 +62,9 @@ async function hookLogic(parsedInput: Record<string, unknown>): Promise<Record<s
         createEvent("install.warning", "info", bashCommand, `Install detected: ${parsedInstall.packageName}`, {
           source: "hook",
           evidence: { ecosystem: parsedInstall.ecosystem, package: parsedInstall.packageName },
+          correlation: {
+            sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString(),
+          },
         }),
         AUDIT_LOG,
       );
@@ -69,6 +75,9 @@ async function hookLogic(parsedInput: Record<string, unknown>): Promise<Record<s
           createEvent("scanner.finding", "high", bashCommand, `Trivy: ${parsedInstall.packageName} — ${reason}`, {
             source: "hook",
             evidence: { scanner: "trivy", package: parsedInstall.packageName, reason },
+            correlation: {
+              sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString(),
+            },
           }),
           AUDIT_LOG,
         );
@@ -82,6 +91,9 @@ async function hookLogic(parsedInput: Record<string, unknown>): Promise<Record<s
           source: "hook",
           outcome: "allow",
           policy: { action: "run_shell" },
+          correlation: {
+            sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString(),
+          },
         }),
         AUDIT_LOG,
       );

@@ -16,6 +16,9 @@ export function createEnvHandler(sensitiveVars: string[]): (input: any, output: 
           source: "plugin",
           outcome: "allow",
           evidence: { redacted_vars: redacted },
+          correlation: {
+            sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString(),
+          },
         }),
       );
     }

@@ -6,9 +6,12 @@ import {
   matchHighRiskPattern,
   parseInstallCommand,
   semgrepScan,
+  semgrepToNormalized,
   stripSensitiveEnv,
   trivyScan,
+  trivyToNormalized,
   type ParsedInstall,
+  type SemgrepFinding,
 } from "./security";
 
 const highRiskPatterns = [
@@ -286,5 +289,98 @@ describe("makeLockfileContent", () => {
 describe("export coverage sanity", () => {
   test("uses policy high risk patterns in command matching", () => {
     expect(matchHighRiskPattern("terraform apply", highRiskPatterns)).toBe("terraform apply");
+  });
+});
+
+describe("semgrepToNormalized", () => {
+  const findings: SemgrepFinding[] = [
+    { rule: "jwt-hardcoded-secret", severity: "ERROR", message: "Hardcoded JWT secret", line: 42, endLine: 45 },
+    { rule: "sql-injection", severity: "ERROR", message: "SQL injection via string concat", line: 87 },
+  ];
+
+  test("converts SemgrepFinding[] to NormalizedFinding[]", () => {
+    const result = semgrepToNormalized(findings, "src/auth.ts");
+    expect(result).toHaveLength(2);
+    expect(result[0]?.scanner).toBe("semgrep");
+    expect(result[0]?.ruleId).toBe("semgrep/jwt-hardcoded-secret");
+    expect(result[0]?.message).toBe("Hardcoded JWT secret");
+    expect(result[0]?.severity).toBe("high");
+    expect(result[0]?.location?.file).toBe("src/auth.ts");
+    expect(result[0]?.location?.startLine).toBe(42);
+    expect(result[0]?.location?.endLine).toBe(45);
+  });
+
+  test("computes stable fingerprint", () => {
+    const a = semgrepToNormalized(findings, "src/auth.ts");
+    const b = semgrepToNormalized(findings, "src/auth.ts");
+    expect(a[0]?.fingerprint).toBe(b[0]?.fingerprint);
+    expect(a[0]?.fingerprint).toHaveLength(12);
+  });
+
+  test("different inputs produce different fingerprints", () => {
+    const a = semgrepToNormalized(findings, "src/auth.ts");
+    const b = semgrepToNormalized(findings, "src/other.ts");
+    expect(a[0]?.fingerprint).not.toBe(b[0]?.fingerprint);
+  });
+
+  test("handles empty findings array", () => {
+    expect(semgrepToNormalized([], "src/auth.ts")).toEqual([]);
+  });
+
+  test("maps severity correctly", () => {
+    const mixed: SemgrepFinding[] = [
+      { rule: "r1", severity: "ERROR", message: "", line: 1 },
+      { rule: "r2", severity: "WARNING", message: "", line: 2 },
+      { rule: "r3", severity: "INFO", message: "", line: 3 },
+    ];
+    const result = semgrepToNormalized(mixed, "f.ts");
+    expect(result[0]?.severity).toBe("high");
+    expect(result[1]?.severity).toBe("medium");
+    expect(result[2]?.severity).toBe("low");
+  });
+});
+
+describe("trivyToNormalized", () => {
+  const trivyJson = JSON.stringify({
+    Results: [{
+      Vulnerabilities: [
+        { VulnerabilityID: "CVE-2021-23337", Severity: "CRITICAL", Title: "Lodash command injection", PkgName: "lodash" },
+        { VulnerabilityID: "CVE-2020-28469", Severity: "HIGH", Title: "ReDoS in glob-parent", PkgName: "glob-parent" },
+      ],
+    }],
+  });
+
+  test("converts Trivy JSON to NormalizedFinding[]", () => {
+    const result = trivyToNormalized(trivyJson, "lodash");
+    expect(result).toHaveLength(2);
+    expect(result[0]?.scanner).toBe("trivy");
+    expect(result[0]?.ruleId).toBe("CVE-2021-23337");
+    expect(result[0]?.message).toBe("Lodash command injection");
+    expect(result[0]?.package).toBe("lodash");
+  });
+
+  test("maps severity correctly", () => {
+    const result = trivyToNormalized(trivyJson, "lodash");
+    expect(result[0]?.severity).toBe("critical");
+    expect(result[1]?.severity).toBe("high");
+  });
+
+  test("computes stable fingerprint", () => {
+    const a = trivyToNormalized(trivyJson, "lodash");
+    const b = trivyToNormalized(trivyJson, "lodash");
+    expect(a[0]?.fingerprint).toBe(b[0]?.fingerprint);
+    expect(a[0]?.fingerprint).toHaveLength(12);
+  });
+
+  test("handles malformed JSON", () => {
+    expect(trivyToNormalized("not json", "pkg")).toEqual([]);
+  });
+
+  test("handles empty JSON", () => {
+    expect(trivyToNormalized("{}", "pkg")).toEqual([]);
+  });
+
+  test("handles empty Results array", () => {
+    expect(trivyToNormalized(JSON.stringify({ Results: [] }), "pkg")).toEqual([]);
   });
 });

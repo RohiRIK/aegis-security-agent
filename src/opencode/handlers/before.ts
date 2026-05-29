@@ -29,6 +29,10 @@ export function createBeforeHandler(
             source: "plugin",
             outcome: "warn",
             policy: { rule: "deny_patterns", action: input.tool },
+            correlation: {
+              sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString(),
+              toolCall: input.id ?? undefined,
+            },
           }),
         );
       }
@@ -46,6 +50,10 @@ export function createBeforeHandler(
           source: "plugin",
           outcome: "warn",
           policy: { rule: matched, action: "run_shell" },
+          correlation: {
+            sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString(),
+            toolCall: input.id ?? undefined,
+          },
         }),
       );
     }
@@ -56,6 +64,10 @@ export function createBeforeHandler(
         createEvent("install.warning", "info", command, `Install detected: ${pkg.packageName}`, {
           source: "plugin",
           evidence: { ecosystem: pkg.ecosystem, package: pkg.packageName },
+          correlation: {
+            sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString(),
+            toolCall: input.id ?? undefined,
+          },
         }),
       );
 
@@ -79,6 +91,10 @@ export function createBeforeHandler(
               outcome: "skip",
               degraded: true,
               evidence: { scanner: "trivy", package: pkg.packageName },
+              correlation: {
+                sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString(),
+                toolCall: input.id ?? undefined,
+              },
             }),
           );
         } else if (result.status === "ok" && result.exitCode === 1) {
@@ -93,6 +109,10 @@ export function createBeforeHandler(
               source: "plugin",
               outcome: "warn",
               evidence: { scanner: "trivy", package: pkg.packageName, summary },
+              correlation: {
+                sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString(),
+                toolCall: input.id ?? undefined,
+              },
             }),
           );
         } else if (result.status === "error") {
@@ -102,6 +122,10 @@ export function createBeforeHandler(
               source: "plugin",
               outcome: "skip",
               evidence: { scanner: "trivy", status: "unavailable" },
+              correlation: {
+                sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString(),
+                toolCall: input.id ?? undefined,
+              },
             }),
           );
         }

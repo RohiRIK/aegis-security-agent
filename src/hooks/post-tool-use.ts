@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { basename } from "node:path";
 
 import {
   ensureDir,
@@ -7,7 +8,8 @@ import {
   writeStderr,
 } from "../lib/base.ts";
 import { wrapSemgrep } from "../lib/scanner.ts";
-import { parseSemgrepFindings } from "../core/security.ts";
+import { parseSemgrepFindings, semgrepToNormalized } from "../core/security.ts";
+import { proxyResult } from "../lib/output-proxy.ts";
 import { safeClaude } from "./safe-claude.ts";
 import { createEvent } from "../events/types.ts";
 import { emitEvent } from "../events/emitter.ts";
@@ -36,11 +38,24 @@ async function hookLogic(parsedInput: Record<string, unknown>): Promise<Record<s
         })}\n`);
       }
 
+      const { summary, detailPath } = proxyResult("semgrep", errorResults, { filename: basename(writtenFile) });
+      const normalized = semgrepToNormalized(errorResults, writtenFile);
+
       await emitEvent(
         createEvent("scanner.finding", "medium", writtenFile, `Semgrep: ${errorResults.length} finding(s)`, {
           source: "hook",
           outcome: "warn",
-          evidence: { scanner: "semgrep", file: writtenFile, count: errorResults.length },
+          evidence: {
+            scanner: "semgrep",
+            file: writtenFile,
+            count: errorResults.length,
+            findings: normalized,
+            detailPath,
+            summary,
+          },
+          correlation: {
+            sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString(),
+          },
         }),
         AUDIT_LOG,
       );

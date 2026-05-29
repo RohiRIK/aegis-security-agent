@@ -15,6 +15,9 @@ export function createPermissionHandler(policy: AegisPolicy): (input: any, outpu
           source: "plugin",
           outcome: "warn",
           policy: { rule: matched, action: "permission.ask" },
+          correlation: {
+            sessionId: process.env.AEGIS_SESSION_ID ?? process.pid.toString(),
+          },
         }),
       );
     }

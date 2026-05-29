@@ -1,7 +1,9 @@
+import crypto from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join as joinPath } from "node:path";
 import { basename } from "node:path";
+import type { AegisEventSeverity, NormalizedFinding } from "../events/types.ts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -20,15 +22,20 @@ export type SemgrepFinding = {
   severity: string;
   message: string;
   line: number;
+  endLine?: number;
 };
 
 type SemgrepResult = {
   check_id?: string;
+  path?: string;
   extra?: {
     severity?: string;
     message?: string;
   };
   start?: {
+    line?: number;
+  };
+  end?: {
     line?: number;
   };
 };
@@ -49,7 +56,98 @@ export function parseSemgrepFindings(stdout: string): SemgrepFinding[] {
       severity: result.extra?.severity ?? "ERROR",
       message: result.extra?.message ?? "",
       line: result.start?.line ?? 0,
+      endLine: result.end?.line,
     }));
+}
+
+// ---------------------------------------------------------------------------
+// Normalized finding converters
+// ---------------------------------------------------------------------------
+
+type TrivyVulnerability = {
+  VulnerabilityID?: string;
+  Severity?: string;
+  Title?: string;
+  PkgName?: string;
+};
+
+type TrivyOutput = {
+  Results?: Array<{
+    Vulnerabilities?: TrivyVulnerability[];
+  }>;
+};
+
+function computeFingerprint(parts: string[]): string {
+  return crypto.createHash("sha256").update(parts.join(":")).digest("hex").slice(0, 12);
+}
+
+function mapSemgrepSeverity(severity: string): AegisEventSeverity {
+  switch (severity.toUpperCase()) {
+    case "ERROR":
+      return "high";
+    case "WARNING":
+      return "medium";
+    case "INFO":
+      return "low";
+    default:
+      return "medium";
+  }
+}
+
+function mapTrivySeverity(severity: string): AegisEventSeverity {
+  switch (severity.toUpperCase()) {
+    case "CRITICAL":
+      return "critical";
+    case "HIGH":
+      return "high";
+    case "MEDIUM":
+      return "medium";
+    case "LOW":
+      return "low";
+    default:
+      return "medium";
+  }
+}
+
+export function semgrepToNormalized(findings: SemgrepFinding[], filePath: string): NormalizedFinding[] {
+  return findings.map((f) => ({
+    scanner: "semgrep" as const,
+    ruleId: `semgrep/${f.rule}`,
+    message: f.message,
+    severity: mapSemgrepSeverity(f.severity),
+    location: {
+      file: filePath,
+      startLine: f.line,
+      endLine: f.endLine,
+    },
+    fingerprint: computeFingerprint(["semgrep", `semgrep/${f.rule}`, filePath, String(f.line)]),
+  }));
+}
+
+export function trivyToNormalized(stdout: string, packageName: string): NormalizedFinding[] {
+  let parsed: TrivyOutput;
+  try {
+    parsed = JSON.parse(stdout) as TrivyOutput;
+  } catch {
+    return [];
+  }
+
+  const findings: NormalizedFinding[] = [];
+  for (const result of parsed.Results ?? []) {
+    for (const vuln of result.Vulnerabilities ?? []) {
+      const ruleId = vuln.VulnerabilityID ?? "unknown";
+      const pkg = vuln.PkgName ?? packageName;
+      findings.push({
+        scanner: "trivy" as const,
+        ruleId,
+        message: vuln.Title ?? "",
+        severity: mapTrivySeverity(vuln.Severity ?? "UNKNOWN"),
+        package: pkg,
+        fingerprint: computeFingerprint(["trivy", ruleId, pkg]),
+      });
+    }
+  }
+  return findings;
 }
 
 // ---------------------------------------------------------------------------

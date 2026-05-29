@@ -1,6 +1,6 @@
 # Aegis Security Agent — Architecture Reference
 
-> Version 0.2.1 · Last updated 2026-05-09
+> Version 0.3.0 · Last updated 2026-05-09
 
 ---
 
@@ -535,3 +535,9 @@ checkout → setup Bun → bun install --frozen-lockfile → bunx tsc --noEmit �
 | 0.1.9 | `aegis.ts` shim and `.opencode/package.json` always overwritten on install; version pinned to exact installed release |
 | 0.1.14 | Agent definition always overwrites; shim changed to no-op; skills expanded from single SKILL.md to full directories (reference docs + workflows); installer recursively copies skill directories; binary paths versioned and platform-specific (`~/.aegis/bin/<tool>/<version>/<platform>/`) |
 | 0.2.0 | Audit-only unification — all hooks advisory (never block), HITL gateway removed, sandbox routing deferred, typed `AegisEvent` schema (`aegis/v1`), unified `AegisPolicy` types, NDJSON audit log via `emitEvent()` |
+
+---
+
+## 14. SIEM Integration
+
+Aegis records all security events to `.aegis/audit.jsonl` in NDJSON format for ingestion by SIEM systems. See [docs/SIEM.md](SIEM.md) for the schema reference and copy-paste shipper configurations.

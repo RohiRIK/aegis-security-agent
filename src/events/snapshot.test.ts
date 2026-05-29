@@ -103,6 +103,26 @@ describe("AegisEvent format snapshots", () => {
     expect(event).toMatchSnapshot();
   });
 
+  test("scanner.finding — semgrep enriched", () => {
+    const event = stableEvent("scanner.finding", "medium", "src/api/auth.ts", "Semgrep: auth.ts — 2 finding(s)", {
+      source: "plugin",
+      outcome: "warn",
+      evidence: {
+        scanner: "semgrep",
+        file: "src/api/auth.ts",
+        count: 2,
+        findings: [
+          { scanner: "semgrep", ruleId: "semgrep/jwt-hardcoded-secret", message: "Hardcoded JWT secret", severity: "high", location: { file: "src/api/auth.ts", startLine: 42 }, fingerprint: "abc123def456" },
+          { scanner: "semgrep", ruleId: "semgrep/sql-injection", message: "SQL injection", severity: "high", location: { file: "src/api/auth.ts", startLine: 87 }, fingerprint: "def456abc123" },
+        ],
+        detailPath: ".aegis/scans/abc123.json",
+        summary: "2 findings",
+      },
+      correlation: { sessionId: "test-session-1", toolCall: "call-001" },
+    });
+    expect(event).toMatchSnapshot();
+  });
+
   test("session.start", () => {
     const event = stableEvent("session.start", "info", "/projects/myapp", "Aegis session started — .aegis/ bootstrapped", {
       source: "plugin",

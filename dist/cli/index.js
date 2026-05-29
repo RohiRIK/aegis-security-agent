@@ -1032,9 +1032,193 @@ var init_verdict_log = __esm(async () => {
   if (false) {}
 });
 
+// src/sarif/builder.ts
+function aegisSeverityToSarifLevel(severity) {
+  switch (severity) {
+    case "critical":
+    case "high":
+      return "error";
+    case "medium":
+      return "warning";
+    case "low":
+    case "info":
+      return "note";
+  }
+}
+function findingToResult(finding) {
+  const result = {
+    ruleId: finding.ruleId,
+    level: aegisSeverityToSarifLevel(finding.severity),
+    message: { text: finding.message }
+  };
+  if (finding.location) {
+    const loc = {
+      physicalLocation: {
+        artifactLocation: { uri: finding.location.file },
+        ...finding.location.startLine != null ? {
+          region: {
+            startLine: finding.location.startLine,
+            ...finding.location.endLine != null ? { endLine: finding.location.endLine } : {}
+          }
+        } : {}
+      }
+    };
+    result.locations = [loc];
+  }
+  if (finding.fingerprint) {
+    result.fingerprints = { "aegis/v1": finding.fingerprint };
+  }
+  if (finding.package) {
+    result.properties = { package: finding.package };
+  }
+  return result;
+}
+function extractFindings(event) {
+  if (event.kind !== "scanner.finding")
+    return [];
+  const evidence = event.evidence;
+  if (!evidence)
+    return [];
+  const findings = evidence.findings;
+  if (!Array.isArray(findings) || findings.length === 0)
+    return [];
+  return findings;
+}
+function buildRules(findings) {
+  const seen = new Map;
+  for (const f of findings) {
+    if (!seen.has(f.ruleId)) {
+      seen.set(f.ruleId, {
+        id: f.ruleId,
+        shortDescription: { text: f.message },
+        defaultConfiguration: { level: aegisSeverityToSarifLevel(f.severity) }
+      });
+    }
+  }
+  return [...seen.values()];
+}
+function buildInvocations(events) {
+  const start = events.find((e) => e.kind === "session.start");
+  const end = events.find((e) => e.kind === "session.end");
+  if (!start && !end)
+    return;
+  return [
+    {
+      executionSuccessful: true,
+      ...start ? { startTimeUtc: start.ts } : {},
+      ...end ? { endTimeUtc: end.ts } : {}
+    }
+  ];
+}
+function eventsToSarif(events, packageVersion) {
+  const allFindings = [];
+  for (const event of events) {
+    allFindings.push(...extractFindings(event));
+  }
+  const results = allFindings.map(findingToResult);
+  const rules = buildRules(allFindings);
+  const invocations = buildInvocations(events);
+  return {
+    $schema: SARIF_SCHEMA,
+    version: "2.1.0",
+    runs: [
+      {
+        tool: {
+          driver: {
+            name: "aegis-security-agent",
+            semanticVersion: packageVersion,
+            informationUri: "https://github.com/RohiRIK/aegis-security-agent",
+            rules
+          }
+        },
+        results,
+        ...invocations ? { invocations } : {}
+      }
+    ]
+  };
+}
+var SARIF_SCHEMA = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json";
+
+// src/cli/report.ts
+var exports_report = {};
+__export(exports_report, {
+  runReport: () => runReport,
+  parseReportFlags: () => parseReportFlags
+});
+import { resolve as resolve3 } from "path";
+function parseReportFlags(args) {
+  let format = "sarif";
+  let output;
+  let input;
+  for (let i = 0;i < args.length; i++) {
+    const arg = args[i];
+    if (arg === "--format" && args[i + 1]) {
+      if (args[i + 1] !== "sarif") {
+        process.stderr.write(`Unsupported format: ${args[i + 1]}. Only 'sarif' is supported.
+`);
+      }
+      format = "sarif";
+      i++;
+    } else if ((arg === "--output" || arg === "-o") && args[i + 1]) {
+      output = args[i + 1];
+      i++;
+    } else if ((arg === "--input" || arg === "-i") && args[i + 1]) {
+      input = args[i + 1];
+      i++;
+    }
+  }
+  return { format, output, input };
+}
+async function getPackageVersion() {
+  try {
+    const pkg = await Bun.file(new URL("../../package.json", import.meta.url)).json();
+    return pkg.version;
+  } catch {
+    return "unknown";
+  }
+}
+function parseNdjson(content) {
+  const events = [];
+  for (const line of content.split(`
+`)) {
+    const trimmed = line.trim();
+    if (trimmed.length === 0)
+      continue;
+    try {
+      events.push(JSON.parse(trimmed));
+    } catch {
+      process.stderr.write(`[AEGIS] Skipping unparseable NDJSON line
+`);
+    }
+  }
+  return events;
+}
+async function runReport(flags) {
+  const inputPath = flags.input ?? resolve3(process.cwd(), ".aegis", "audit.jsonl");
+  const file = Bun.file(inputPath);
+  let events = [];
+  if (await file.exists()) {
+    const content = await file.text();
+    events = parseNdjson(content);
+  }
+  const version = await getPackageVersion();
+  const sarif = eventsToSarif(events, version);
+  const json = JSON.stringify(sarif, null, 2);
+  if (flags.output) {
+    const outPath = resolve3(flags.output);
+    await Bun.write(outPath, json);
+    process.stderr.write(`SARIF report written to ${outPath}
+`);
+  } else {
+    process.stdout.write(json);
+  }
+  return 0;
+}
+var init_report = () => {};
+
 // src/cli/index.ts
 init_ui();
-import { resolve as resolve3 } from "path";
+import { resolve as resolve4 } from "path";
 var HELP_TEXT = [
   `  ${c.bold("Usage")}`,
   `    ${c.cyan("aegis")} ${c.dim("<command> [flags]")}`,
@@ -1044,6 +1228,7 @@ var HELP_TEXT = [
   `    ${c.cyan("status")}   ${c.dim("Show installation status")}`,
   `    ${c.cyan("tools")}    ${c.dim("Install, check, or remove scanner binaries")}`,
   `    ${c.cyan("verdict")}  ${c.dim("Read or append verdict audit log entries")}`,
+  `    ${c.cyan("report")}   ${c.dim("Generate security reports from audit data")}`,
   `    ${c.cyan("help")}     ${c.dim("Show this help")}`,
   "",
   `  ${c.bold("Install Flags")}`,
@@ -1089,7 +1274,7 @@ async function main() {
     case "verdict": {
       const { appendVerdictEvent: appendVerdictEvent2, readRecentVerdicts: readRecentVerdicts2 } = await init_verdict_log().then(() => exports_verdict_log);
       const [subcommand, ...verdictArgs] = args;
-      const logPath = resolve3(process.cwd(), ".aegis", "audit.jsonl");
+      const logPath = resolve4(process.cwd(), ".aegis", "audit.jsonl");
       if (subcommand === "read") {
         const count = Number(verdictArgs[0]) || 10;
         const verdicts = await readRecentVerdicts2(logPath, count);
@@ -1137,6 +1322,10 @@ async function main() {
       println(HELP_TEXT);
       println();
       return 0;
+    case "report": {
+      const { runReport: runReport2, parseReportFlags: parseReportFlags2 } = await Promise.resolve().then(() => (init_report(), exports_report));
+      return await runReport2(parseReportFlags2(args));
+    }
     default:
       process.stderr.write(`  ${icon.fail} Unknown command: ${c.bold(command)}
 `);

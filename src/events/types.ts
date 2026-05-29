@@ -10,6 +10,20 @@ export type AegisEventKind =
 
 export type AegisEventSeverity = "critical" | "high" | "medium" | "low" | "info";
 
+export type NormalizedFinding = {
+  scanner: "semgrep" | "trivy" | "trufflehog";
+  ruleId: string;
+  message: string;
+  severity: AegisEventSeverity;
+  location?: {
+    file: string;
+    startLine?: number;
+    endLine?: number;
+  };
+  package?: string;
+  fingerprint?: string;
+};
+
 export type AegisEvent = {
   schema: "aegis/v1";
   id: string;

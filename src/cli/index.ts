@@ -17,8 +17,9 @@ const HELP_TEXT = [
   `    ${c.cyan("install")}  ${c.dim("Install Aegis config into the current project")}`,
   `    ${c.cyan("status")}   ${c.dim("Show installation status")}`,
   `    ${c.cyan("tools")}    ${c.dim("Install, check, or remove scanner binaries")}`,
-  `    ${c.cyan("verdict")}  ${c.dim("Read or append verdict audit log entries")}`,
-  `    ${c.cyan("help")}     ${c.dim("Show this help")}`,
+    `    ${c.cyan("verdict")}  ${c.dim("Read or append verdict audit log entries")}`,
+    `    ${c.cyan("report")}   ${c.dim("Generate security reports from audit data")}`,
+    `    ${c.cyan("help")}     ${c.dim("Show this help")}`,
   "",
   `  ${c.bold("Install Flags")}`,
   `    ${c.cyan("--opencode")}     ${c.dim("Install for OpenCode (default)")}`,
@@ -112,6 +113,10 @@ async function main(): Promise<number> {
       println(HELP_TEXT);
       println();
       return 0;
+    case "report": {
+      const { runReport, parseReportFlags } = await import("./report.ts");
+      return await runReport(parseReportFlags(args));
+    }
     default:
       process.stderr.write(`  ${icon.fail} Unknown command: ${c.bold(command)}\n`);
       process.stderr.write(`  Run ${c.cyan("aegis help")} for usage.\n`);

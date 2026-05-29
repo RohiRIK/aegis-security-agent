@@ -1,3 +1,4 @@
+import type { NormalizedFinding } from "../events/types.ts";
 export type PackageEcosystem = "npm" | "pip" | "cargo" | "go";
 export type ParsedInstall = {
     ecosystem: PackageEcosystem;
@@ -9,8 +10,11 @@ export type SemgrepFinding = {
     severity: string;
     message: string;
     line: number;
+    endLine?: number;
 };
 export declare function parseSemgrepFindings(stdout: string): SemgrepFinding[];
+export declare function semgrepToNormalized(findings: SemgrepFinding[], filePath: string): NormalizedFinding[];
+export declare function trivyToNormalized(stdout: string, packageName: string): NormalizedFinding[];
 export declare const DEFAULT_SENSITIVE_VARS: string[];
 /**
  * Returns the first high-risk pattern that matches the command (case-insensitive),
