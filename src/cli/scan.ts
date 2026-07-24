@@ -1,5 +1,6 @@
 import { basename, join, resolve } from "node:path";
 import { chmod, mkdtemp, readdir, rm, stat } from "node:fs/promises";
+import { realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 
 import { runCommandCapture } from "../lib/base.ts";
@@ -190,8 +191,12 @@ type ResolvedTarget = {
   error?: string;
 };
 
-/** True for http(s)/ssh/git URLs, false for local filesystem paths. */
+/** True for http(s)/ssh/git URLs, false for local filesystem paths.
+ *  Rejects shell metacharacters to prevent injection even if caller bypasses
+ *  the argument-array spawn (defense-in-depth). */
 export function isGitUrl(target: string): boolean {
+  // Screen shell metacharacters before URL parsing.
+  if (/[;&|`$\\!]/.test(target)) return false;
   return /^(https?|git|ssh):\/\//.test(target) || /^git@[^:]+:.+/.test(target);
 }
 
@@ -220,7 +225,7 @@ export async function resolveScanTarget(flags: ScanFlags): Promise<ResolvedTarge
   if (!isGitUrl(target)) {
     // Local path. --subpath may scope within it (confined below).
     const base = resolve(target);
-    const dir = confineSubpath(base, flags.subpath);
+    const dir = await confineSubpath(base, flags.subpath);
     if (!dir) {
       return { dir: base, tempCloneDir: null, error: `--subpath escapes target root: ${flags.subpath}` };
     }
@@ -270,7 +275,7 @@ export async function resolveScanTarget(flags: ScanFlags): Promise<ResolvedTarge
     };
   }
 
-  const dir = confineSubpath(cloneRoot, flags.subpath);
+  const dir = await confineSubpath(cloneRoot, flags.subpath);
   if (!dir) {
     await rm(cloneRoot, { recursive: true, force: true }).catch(() => {});
     return { dir: cloneRoot, tempCloneDir: null, error: `--subpath escapes clone root: ${flags.subpath}` };
@@ -284,12 +289,21 @@ export async function resolveScanTarget(flags: ScanFlags): Promise<ResolvedTarge
   return { dir, repoName: catalogName, tempCloneDir: cloneRoot };
 }
 
-/** Resolves subpath under root and rejects escapes (path traversal). Returns null on escape. */
-function confineSubpath(root: string, subpath?: string): string | null {
+/** Resolves subpath under root and rejects escapes (path traversal). Returns null on escape.
+ *  Uses realpath to defeat symlink-based escapes — resolving links before the
+ *  confinement check ensures no symlink inside the root can point outside it. */
+async function confineSubpath(root: string, subpath?: string): Promise<string | null> {
   if (!subpath) return root;
-  const resolvedSub = resolve(root, subpath);
-  const rootWithSep = root.endsWith("/") ? root : root + "/";
-  return resolvedSub === root || resolvedSub.startsWith(rootWithSep) ? resolvedSub : null;
+  // Resolve symlinks on the root (always a real directory we hold).
+  const realRoot = await realpath(root).catch(() => root);
+  const candidate = resolve(realRoot, subpath);
+  // Resolve symlinks on the candidate. If it doesn't exist (ENOENT) or is a
+  // broken symlink → allow it; the scanner will fail cleanly later on a
+  // nonexistent target. If it DOES exist, verify it's still under realRoot.
+  let target: string;
+  try { target = await realpath(candidate); } catch { return candidate; }
+  const rootWithSep = realRoot.endsWith("/") ? realRoot : realRoot + "/";
+  return target === realRoot || target.startsWith(rootWithSep) ? target : null;
 }
 
 /** Directory size in whole MB (du -sm), 0 on error. */
