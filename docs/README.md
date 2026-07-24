@@ -8,6 +8,8 @@ This directory contains documentation for the Aegis Security Agent.
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Current system architecture
 - [SIEM.md](SIEM.md) - Security Information and Event Management integration
 - [AEGIS.md](AEGIS.md) - Overview of the Aegis Security Agent
+- [SECURITY-HARDENING.md](SECURITY-HARDENING.md) - Threat model + hardening controls for the scan path
+- [FINAL-VERIFICATION.md](FINAL-VERIFICATION.md) - P3 integration verification report (test suite, E2E matrix, fixes)
 
 ## Archival / Superseded Documentation
 

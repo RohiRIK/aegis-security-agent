@@ -29,6 +29,22 @@ const HELP_TEXT = [
   `    ${c.cyan("--skip-docker")}  ${c.dim("Skip Docker availability check")}`,
 ].join("\n");
 
+const SCAN_HELP_TEXT = [
+  `  ${c.bold("Usage")}`,
+  `    ${c.cyan("aegis scan")} ${c.dim("[options]")}`,
+  "",
+  `  ${c.bold("Options")}`,
+  `    ${c.cyan("--target, -t <path|git-url>")}  ${c.dim("Target to scan (default: current directory)")}`,
+  `    ${c.cyan("--branch <name>")}              ${c.dim("Git branch to check out (git URLs only)")}`,
+  `    ${c.cyan("--subpath <dir>")}              ${c.dim("Limit scan to a subdirectory within the target")}`,
+  `    ${c.cyan("--allow-untrusted")}            ${c.dim("Allow scanning untrusted git URLs (shallow clone to tmp)")}`,
+  `    ${c.cyan("--max-repo-size-mb <N>")}       ${c.dim("Max size for cloned repos in MB (default: 2048)")}`,
+  `    ${c.cyan("--out, -o <file>")}             ${c.dim("Write verdict to file (default: stdout)")}`,
+  `    ${c.cyan("--no-catalog")}                 ${c.dim("Skip saving report to the ~/.aegis catalog")}`,
+  `    ${c.cyan("--json")}                       ${c.dim("Output verdict as JSON")}`,
+  `    ${c.cyan("--help, -h")}                   ${c.dim("Show this help")}`,
+].join("\n");
+
 function parseInstallFlags(args: string[]): InstallFlags {
   return {
     claude: args.includes("--claude"),
@@ -119,6 +135,12 @@ async function main(): Promise<number> {
       return await runReport(parseReportFlags(args));
     }
     case "scan": {
+      if (args.includes("--help") || args.includes("-h")) {
+        printHeader();
+        println(SCAN_HELP_TEXT);
+        println();
+        return 0;
+      }
       const { runScan, parseScanFlags } = await import("./scan.ts");
       return await runScan(parseScanFlags(args));
     }

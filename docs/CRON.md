@@ -51,12 +51,10 @@ crontab -e
 ### Environment Variables
 
 - `AEGIS_HOME`: Override the default `~/.aegis` directory (default: `$HOME/.aegis`)
-- `AEGIS_BIN`: Path to the `aegis` binary (default: `$HOME/projects/aegis-security-agent/bin/aegis`)
+- `AEGIS_BIN`: Command used to invoke Aegis (default: `bun $HOME/projects/aegis-security-agent/dist/cli/index.js`). Override with a globally installed `aegis` or a different runner, e.g. `AEGIS_BIN=aegis`.
 - `AEGIS_NOTIFY_CMD`: Optional command to call after each scan run. Receives two arguments:
   - Exit code of the scan job (0=SAFE, 1=RISKY, 2=BLOCKED, 3=ERROR)
   - Number of targets scanned
-
-Number of targets scanned
 
 Example notification script (Telegram via Hermes cron-independent):
 ```bash
@@ -153,11 +151,19 @@ To customize which scanners run by default, edit the targets file:
 ```
 
 ### Output Format
-The wrapper currently calls `aegis scan --format html` to generate HTML reports.
-To change the format, modify the script:
-```bash
-# Change this line in aegis-scan.sh:
-#   "${AEGIS_BIN}" scan --target "${target_path}" --format html
-# to:
-#   "${AEGIS_BIN}" scan --target "${target_path}" --format sarif
-```
+Every run writes a self-contained catalog per target — no format flag needed.
+The wrapper invokes `aegis scan --target <path>`, which produces all three
+artifacts under `$AEGIS_HOME/<repo>/<date>/<verdict>/`:
+
+- `report.html` — self-contained HTML report (inline CSS, no external assets)
+- `report.sarif` — SARIF 2.1.0 for CI / code-scanning ingestion
+- `verdict.json` — machine-readable verdict + finding counts
+
+Files are written `0600` and every catalog directory `0700` (owner-only), since
+reports may contain vulnerability detail. Pass `--no-catalog` to suppress the
+catalog, or `--json` for a machine-readable summary on stdout.
+
+> **Note:** the optional `,scanners` field in a targets file (e.g.
+> `~/projects/app,semgrep,trivy`) is accepted by the wrapper but **not yet wired
+> into `aegis scan`** — every available scanner runs regardless. Treat it as
+> reserved for a future release.

@@ -1,5 +1,5 @@
 import { describe, expect, test, afterEach } from "bun:test";
-import { mkdtempSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, existsSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { catalogDir, sanitizeRepoName, writeReportCatalog } from "./catalog.ts";
@@ -42,5 +42,25 @@ describe("writeReportCatalog", () => {
 
     const sarif = await Bun.file(join(dir, "report.sarif")).json();
     expect(sarif.version).toBe("2.1.0");
+  });
+
+  test("locks every catalog level to 0o700 and files to 0o600", async () => {
+    const root = mkdtempSync(join(tmpdir(), "aegis-catalog-perm-"));
+    created.push(root);
+
+    const dir = await writeReportCatalog(
+      { repo: "demo", date: "2026-07-24", verdict: "RISKY" },
+      { html: "<html></html>", sarif: { version: "2.1.0" }, verdict: { verdict: "RISKY" } },
+      { root },
+    );
+
+    // Intermediate dir names leak repo identity + verdict — all must be owner-only.
+    const levels = [root, join(root, "demo"), join(root, "demo", "2026-07-24"), dir];
+    for (const level of levels) {
+      expect(statSync(level).mode & 0o777).toBe(0o700);
+    }
+    for (const name of ["report.html", "report.sarif", "verdict.json"]) {
+      expect(statSync(join(dir, name)).mode & 0o777).toBe(0o600);
+    }
   });
 });

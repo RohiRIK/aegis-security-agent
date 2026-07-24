@@ -542,10 +542,25 @@ function getToolPath(scanner, version, platform) {
 var init_platform = () => {};
 
 // src/lib/provisioner/registry.ts
-import { readFileSync } from "fs";
-import { join as join4 } from "path";
+import { existsSync, readFileSync } from "fs";
+import { dirname as dirname2, join as join4 } from "path";
+function resolveManifestPath() {
+  if (manifestPathCache)
+    return manifestPathCache;
+  let dir = import.meta.dir;
+  for (let i = 0;i < 8; i++) {
+    const candidate = join4(dir, "scanners-manifest.json");
+    if (existsSync(candidate))
+      return manifestPathCache = candidate;
+    const parent = dirname2(dir);
+    if (parent === dir)
+      break;
+    dir = parent;
+  }
+  throw new Error(`scanners-manifest.json not found (searched upward from ${import.meta.dir})`);
+}
 function loadManifest() {
-  return JSON.parse(readFileSync(MANIFEST_PATH, "utf8"));
+  return JSON.parse(readFileSync(resolveManifestPath(), "utf8"));
 }
 function resolveToolEntry(manifest, scanner, platform) {
   const entry = manifest.scanners[scanner];
@@ -568,10 +583,8 @@ function getExpectedVersion(manifest, scanner) {
   }
   return entry.version;
 }
-var MANIFEST_PATH;
-var init_registry = __esm(() => {
-  MANIFEST_PATH = join4(import.meta.dir, "../../../scanners-manifest.json");
-});
+var manifestPathCache = null;
+var init_registry = () => {};
 
 // src/lib/provisioner/semgrep.ts
 async function readStreamText(stream) {
@@ -666,7 +679,7 @@ __export(exports_manager, {
   _resetAutoUpdateCache: () => _resetAutoUpdateCache,
   _readAutoUpdatePolicy: () => _readAutoUpdatePolicy
 });
-import { existsSync, readFileSync as readFileSync2 } from "fs";
+import { existsSync as existsSync2, readFileSync as readFileSync2 } from "fs";
 import { rm as rm2 } from "fs/promises";
 import { join as join6, resolve as resolve2 } from "path";
 async function readStreamText2(stream) {
@@ -740,7 +753,7 @@ async function getToolStatus(scanner) {
     throw new Error(`Expected binary manifest entry for ${scanner}`);
   }
   const provisionedPath = join6(getToolPath(scanner, expectedVersion, platform), resolvedEntry.binaryName);
-  if (existsSync(provisionedPath)) {
+  if (existsSync2(provisionedPath)) {
     const version = await getCommandVersion(provisionedPath);
     return {
       name: scanner,
@@ -840,7 +853,7 @@ async function listTools() {
 }
 function resolveToolPath(scanner) {
   const provisionedPath = getProvisionedBinaryPath(scanner);
-  if (provisionedPath && existsSync(provisionedPath)) {
+  if (provisionedPath && existsSync2(provisionedPath)) {
     return provisionedPath;
   }
   return Bun.which(scanner) ?? null;
@@ -1801,7 +1814,7 @@ var init_html = __esm(() => {
 
 // src/report/catalog.ts
 import { homedir as homedir3 } from "os";
-import { join as join10 } from "path";
+import { dirname as dirname3, join as join10 } from "path";
 import { chmod as chmod3 } from "fs/promises";
 function aegisHome() {
   return process.env.AEGIS_HOME?.trim() || join10(homedir3(), ".aegis");
@@ -1817,7 +1830,11 @@ async function writeReportCatalog(input, artifacts, opts) {
   const root = opts?.root ?? aegisHome();
   const dir = catalogDir(root, input.repo, input.date, input.verdict);
   await ensureDir(dir);
-  await chmod3(dir, 448);
+  for (let cur = dir;cur.startsWith(root); cur = dirname3(cur)) {
+    await chmod3(cur, 448);
+    if (cur === root)
+      break;
+  }
   const files = [
     ["report.html", artifacts.html],
     ["report.sarif", JSON.stringify(artifacts.sarif, null, 2)],
@@ -2186,6 +2203,22 @@ var HELP_TEXT = [
   `    ${c.cyan("--skip-docker")}  ${c.dim("Skip Docker availability check")}`
 ].join(`
 `);
+var SCAN_HELP_TEXT = [
+  `  ${c.bold("Usage")}`,
+  `    ${c.cyan("aegis scan")} ${c.dim("[options]")}`,
+  "",
+  `  ${c.bold("Options")}`,
+  `    ${c.cyan("--target, -t <path|git-url>")}  ${c.dim("Target to scan (default: current directory)")}`,
+  `    ${c.cyan("--branch <name>")}              ${c.dim("Git branch to check out (git URLs only)")}`,
+  `    ${c.cyan("--subpath <dir>")}              ${c.dim("Limit scan to a subdirectory within the target")}`,
+  `    ${c.cyan("--allow-untrusted")}            ${c.dim("Allow scanning untrusted git URLs (shallow clone to tmp)")}`,
+  `    ${c.cyan("--max-repo-size-mb <N>")}       ${c.dim("Max size for cloned repos in MB (default: 2048)")}`,
+  `    ${c.cyan("--out, -o <file>")}             ${c.dim("Write verdict to file (default: stdout)")}`,
+  `    ${c.cyan("--no-catalog")}                 ${c.dim("Skip saving report to the ~/.aegis catalog")}`,
+  `    ${c.cyan("--json")}                       ${c.dim("Output verdict as JSON")}`,
+  `    ${c.cyan("--help, -h")}                   ${c.dim("Show this help")}`
+].join(`
+`);
 function parseInstallFlags(args) {
   return {
     claude: args.includes("--claude"),
@@ -2275,6 +2308,12 @@ async function main() {
       return await runReport2(parseReportFlags2(args));
     }
     case "scan": {
+      if (args.includes("--help") || args.includes("-h")) {
+        printHeader();
+        println(SCAN_HELP_TEXT);
+        println();
+        return 0;
+      }
       const { runScan: runScan2, parseScanFlags: parseScanFlags2 } = await Promise.resolve().then(() => (init_scan(), exports_scan));
       return await runScan2(parseScanFlags2(args));
     }

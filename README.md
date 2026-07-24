@@ -152,16 +152,15 @@ Run `aegis scan --help` for scan-specific options:
     aegis scan [options]
 
   Options
-    --target <path|git-url>   Target to scan (required, repeatable)
-    --branch <name>           Git branch to check out (default: default branch)
-    --subpath <dir>           Limit scan to a subdirectory within the target
-    --allow-untrusted         Allow scanning untrusted git URLs (shallow clone to tmp)
-    --max-repo-size-mb <N>    Max size for cloned repos in MB (default: 2048)
-    --format <format>         Output format: human (default) or json
-    --out <file>              Write verdict to file (default: stdout)
-    --no-catalog              Skip saving report to catalog
-    --json                    Output verdict as JSON (alias for --format json)
-    --help                    Show help
+    --target, -t <path|git-url>  Target to scan (default: current directory)
+    --branch <name>              Git branch to check out (git URLs only)
+    --subpath <dir>              Limit scan to a subdirectory within the target
+    --allow-untrusted            Allow scanning untrusted git URLs (shallow clone to tmp)
+    --max-repo-size-mb <N>       Max size for cloned repos in MB (default: 2048)
+    --out, -o <file>             Write verdict to file (default: stdout)
+    --no-catalog                 Skip saving report to catalog
+    --json                       Output verdict as JSON
+    --help, -h                   Show help
 ```
 
 ---

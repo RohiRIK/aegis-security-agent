@@ -208,10 +208,25 @@ function getToolPath(scanner, version, platform) {
 var init_platform = () => {};
 
 // src/lib/provisioner/registry.ts
-import { readFileSync } from "fs";
-import { join as join4 } from "path";
+import { existsSync, readFileSync } from "fs";
+import { dirname as dirname2, join as join4 } from "path";
+function resolveManifestPath() {
+  if (manifestPathCache)
+    return manifestPathCache;
+  let dir = import.meta.dir;
+  for (let i = 0;i < 8; i++) {
+    const candidate = join4(dir, "scanners-manifest.json");
+    if (existsSync(candidate))
+      return manifestPathCache = candidate;
+    const parent = dirname2(dir);
+    if (parent === dir)
+      break;
+    dir = parent;
+  }
+  throw new Error(`scanners-manifest.json not found (searched upward from ${import.meta.dir})`);
+}
 function loadManifest() {
-  return JSON.parse(readFileSync(MANIFEST_PATH, "utf8"));
+  return JSON.parse(readFileSync(resolveManifestPath(), "utf8"));
 }
 function resolveToolEntry(manifest, scanner, platform) {
   const entry = manifest.scanners[scanner];
@@ -234,10 +249,8 @@ function getExpectedVersion(manifest, scanner) {
   }
   return entry.version;
 }
-var MANIFEST_PATH;
-var init_registry = __esm(() => {
-  MANIFEST_PATH = join4(import.meta.dir, "../../../scanners-manifest.json");
-});
+var manifestPathCache = null;
+var init_registry = () => {};
 
 // src/lib/provisioner/semgrep.ts
 async function readStreamText(stream) {
@@ -332,7 +345,7 @@ __export(exports_manager, {
   _resetAutoUpdateCache: () => _resetAutoUpdateCache,
   _readAutoUpdatePolicy: () => _readAutoUpdatePolicy
 });
-import { existsSync, readFileSync as readFileSync2 } from "fs";
+import { existsSync as existsSync2, readFileSync as readFileSync2 } from "fs";
 import { rm as rm2 } from "fs/promises";
 import { join as join6, resolve } from "path";
 async function readStreamText2(stream) {
@@ -406,7 +419,7 @@ async function getToolStatus(scanner) {
     throw new Error(`Expected binary manifest entry for ${scanner}`);
   }
   const provisionedPath = join6(getToolPath(scanner, expectedVersion, platform), resolvedEntry.binaryName);
-  if (existsSync(provisionedPath)) {
+  if (existsSync2(provisionedPath)) {
     const version = await getCommandVersion(provisionedPath);
     return {
       name: scanner,
@@ -506,7 +519,7 @@ async function listTools() {
 }
 function resolveToolPath(scanner) {
   const provisionedPath = getProvisionedBinaryPath(scanner);
-  if (provisionedPath && existsSync(provisionedPath)) {
+  if (provisionedPath && existsSync2(provisionedPath)) {
     return provisionedPath;
   }
   return Bun.which(scanner) ?? null;

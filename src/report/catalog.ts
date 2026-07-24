@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { chmod } from "node:fs/promises";
 
 import { ensureDir } from "../lib/base.ts";
@@ -40,7 +40,14 @@ export async function writeReportCatalog(
   const dir = catalogDir(root, input.repo, input.date, input.verdict);
   await ensureDir(dir);
   // Scan output may contain secret/vuln findings — restrict to owner only.
-  await chmod(dir, 0o700);
+  // Lock every level from the leaf up to (and including) root: the repo name,
+  // date, and verdict live in the *directory names*, so leaving intermediate
+  // dirs at umask-default (0o755) would leak the identity and risk verdict of
+  // scanned repos to other local users via a simple `ls`.
+  for (let cur = dir; cur.startsWith(root); cur = dirname(cur)) {
+    await chmod(cur, 0o700);
+    if (cur === root) break;
+  }
 
   const files: [string, string][] = [
     ["report.html", artifacts.html],
