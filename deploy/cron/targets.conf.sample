@@ -1,0 +1,21 @@
+# Sample targets file for Aegis cron scanner
+# Each line is a target: <path|url>[,scanners]
+#   - <path|url>: local directory path or git repository URL
+#   - [,scanners]: optional comma-separated list of scanners to run
+#                  (default: semgrep,trivy,trufflehog)
+#
+# Examples:
+#
+# Scan local directory with default scanners
+# ~/projects/my-app
+#
+# Scan git repository with specific scanners
+# https://github.com/example/repo.git,semgrep,trivy
+#
+# Multiple targets
+# ~/projects/app1
+# https://github.com/org/app2.git
+# /opt/shared/libs,semgrep
+#
+# Comment lines start with # and are ignored
+# Blank lines are ignored
