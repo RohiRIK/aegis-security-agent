@@ -12,6 +12,7 @@ import {
   resolveScanner,
   wrapSemgrep,
   wrapTrivy,
+  wrapTrufflehog,
   type ScannerResult,
 } from "./scanner.ts";
 
@@ -152,6 +153,36 @@ describe("scanner wrappers", () => {
       expect(runnerSpy).toHaveBeenCalledWith(
         [await resolveScanner("trivy"), "fs", "--format", "json", targetPath],
         SCANNER_BUDGETS.trivy,
+      );
+    } finally {
+      runnerSpy.mockRestore();
+      versionSpy.mockRestore();
+    }
+  });
+
+  test("wrapTrufflehog never caches raw stdout (secrets scanner)", async () => {
+    // Raw trufflehog output embeds plaintext secrets — it must never be
+    // persisted to the on-disk scan cache, so every call re-runs the scanner
+    // (no cache read/write path).
+    const secretStdout = JSON.stringify({ DetectorName: "AWS", Verified: true, Raw: "AKIA-should-never-persist" });
+    const runnerSpy = spyOn(scannerRunner, "runScannerWithTimeout").mockResolvedValue({
+      ...okResult,
+      stdout: secretStdout,
+    });
+    const versionSpy = spyOn(scannerRunner, "getScannerVersion").mockResolvedValue("3.0.0");
+    const targetPath = `/tmp/scan-dir-${crypto.randomUUID()}`;
+
+    try {
+      const first = await wrapTrufflehog(targetPath);
+      const second = await wrapTrufflehog(targetPath);
+
+      // Runner invoked on both calls — proves no cache hit served the second.
+      expect(runnerSpy).toHaveBeenCalledTimes(2);
+      expect(first.stdout).toBe(secretStdout);
+      expect(second.stdout).toBe(secretStdout);
+      expect(runnerSpy).toHaveBeenCalledWith(
+        [await resolveScanner("trufflehog"), "filesystem", "--json", targetPath],
+        SCANNER_BUDGETS.trufflehog,
       );
     } finally {
       runnerSpy.mockRestore();

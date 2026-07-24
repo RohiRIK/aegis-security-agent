@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { join } from "node:path";
+import { chmod } from "node:fs/promises";
 
 import { ensureDir, fileExists } from "./base.ts";
 import type { ScannerResult } from "./scanner.ts";
@@ -72,7 +73,11 @@ export async function readCacheEntry(cacheDir: string, key: string): Promise<Cac
 
 export async function writeCacheEntry(cacheDir: string, entry: CacheEntry): Promise<void> {
   await ensureDir(cacheDir);
-  await Bun.write(join(cacheDir, `${entry.key}.json`), JSON.stringify(entry));
+  // Cached stdout may hold code snippets / vuln detail — restrict to owner.
+  await chmod(cacheDir, 0o700).catch(() => {});
+  const filePath = join(cacheDir, `${entry.key}.json`);
+  await Bun.write(filePath, JSON.stringify(entry));
+  await chmod(filePath, 0o600).catch(() => {});
 }
 
 export function shouldSkipCache(result: ScannerResult): boolean {

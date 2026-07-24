@@ -40,7 +40,7 @@ var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
 
 // src/lib/provisioner/downloader.ts
 import crypto4 from "crypto";
-import { chmod, mkdir, readdir, rename, rm, stat } from "fs/promises";
+import { chmod as chmod2, mkdir, readdir, rename, rm, stat } from "fs/promises";
 import { basename as basename2, join as join2 } from "path";
 function getToken(explicitToken) {
   return explicitToken?.trim() || process.env.GITHUB_TOKEN?.trim() || process.env.GH_TOKEN?.trim();
@@ -133,7 +133,7 @@ async function atomicDownload(url, destDir, binaryName, expectedSha256) {
     } else {
       await rename(tempPath, finalPath);
     }
-    await chmod(finalPath, 493);
+    await chmod2(finalPath, 493);
     return { success: true, toolPath: finalPath };
   } catch (error) {
     if (error instanceof ActiveProvisioningError) {
@@ -709,6 +709,7 @@ import { join as join7 } from "path";
 // src/lib/scan-cache.ts
 import crypto3 from "crypto";
 import { join } from "path";
+import { chmod } from "fs/promises";
 
 // src/lib/base.ts
 import { appendFileSync } from "fs";
@@ -801,7 +802,10 @@ async function readCacheEntry(cacheDir, key) {
 }
 async function writeCacheEntry(cacheDir, entry) {
   await ensureDir(cacheDir);
-  await Bun.write(join(cacheDir, `${entry.key}.json`), JSON.stringify(entry));
+  await chmod(cacheDir, 448).catch(() => {});
+  const filePath = join(cacheDir, `${entry.key}.json`);
+  await Bun.write(filePath, JSON.stringify(entry));
+  await chmod(filePath, 384).catch(() => {});
 }
 function shouldSkipCache(result) {
   if (result.status !== "ok") {

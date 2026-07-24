@@ -13,6 +13,17 @@
   itself. Fixed in `runScannerWithTimeout` — a missing scanner now returns
   `{status:"error", degraded:true}` instead of aborting the whole scan.
 
+- **Secret-leak audits must trace the *caching* layer, not just the visible
+  output files.** A "does the scan write secrets?" review that stops at
+  `report.html`/`report.sarif` (normalized, secret-stripped) misses that
+  `wrapTrufflehog` was caching the **raw** scanner stdout — which embeds the
+  plaintext secret (`Raw`/`RawV2`) — to `.aegis/scan-cache/{key}.json`.
+  `shouldSkipCache` only screened Trivy's `"CRITICAL"` string, not TruffleHog.
+  Rule: **never cache a secrets scanner's raw output.** When auditing for the
+  no-secret-persistence directive, follow every `Bun.write`/cache write reachable
+  from the scan path, including fire-and-forget and TTL caches, not just the
+  advertised report artifacts.
+
 - **Typing a spawn result via `let proc: ReturnType<typeof Bun.spawn>` widens
   stdout/stderr to `number | ReadableStream | undefined`** and breaks
   `new Response(proc.stdout)`. Keep the spawn as an inline `const` (inference

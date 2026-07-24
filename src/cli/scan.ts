@@ -223,8 +223,11 @@ export async function resolveScanTarget(flags: ScanFlags): Promise<ResolvedTarge
   const { target } = flags;
 
   if (!isGitUrl(target)) {
-    // Local path. --subpath may scope within it (confined below).
-    const base = resolve(target);
+    // Local path. Canonicalize the target root via realpath so a symlinked
+    // target directory is resolved to its real location before scanners run
+    // (they follow the top-level path). --subpath may scope within it (confined
+    // below, which independently realpaths symlinks under the root).
+    const base = await realpath(resolve(target)).catch(() => resolve(target));
     const dir = await confineSubpath(base, flags.subpath);
     if (!dir) {
       return { dir: base, tempCloneDir: null, error: `--subpath escapes target root: ${flags.subpath}` };

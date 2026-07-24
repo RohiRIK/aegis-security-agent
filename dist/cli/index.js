@@ -1439,6 +1439,7 @@ var init_security = () => {};
 // src/lib/scan-cache.ts
 import crypto4 from "crypto";
 import { join as join8 } from "path";
+import { chmod as chmod2 } from "fs/promises";
 function computeCacheKey(scanner, version, config, scopeHash) {
   return crypto4.createHash("sha256").update([scanner, version, config, scopeHash].join("|")).digest("hex").slice(0, 16);
 }
@@ -1474,7 +1475,10 @@ async function readCacheEntry(cacheDir, key) {
 }
 async function writeCacheEntry(cacheDir, entry) {
   await ensureDir(cacheDir);
-  await Bun.write(join8(cacheDir, `${entry.key}.json`), JSON.stringify(entry));
+  await chmod2(cacheDir, 448).catch(() => {});
+  const filePath = join8(cacheDir, `${entry.key}.json`);
+  await Bun.write(filePath, JSON.stringify(entry));
+  await chmod2(filePath, 384).catch(() => {});
 }
 function shouldSkipCache(result) {
   if (result.status !== "ok") {
@@ -1636,14 +1640,7 @@ async function wrapTrivy(args) {
   return result;
 }
 async function wrapTrufflehog(targetPath) {
-  const config = "--json|filesystem";
-  const { key, cached } = await readScannerCache("trufflehog", config, [targetPath]);
-  if (cached) {
-    return cached;
-  }
-  const result = await scannerRunner.runScannerWithTimeout([await resolveScanner("trufflehog"), "filesystem", "--json", targetPath], SCANNER_BUDGETS.trufflehog);
-  await writeScannerCache("trufflehog", key, result);
-  return result;
+  return scannerRunner.runScannerWithTimeout([await resolveScanner("trufflehog"), "filesystem", "--json", targetPath], SCANNER_BUDGETS.trufflehog);
 }
 var SCANNER_BUDGETS, scannerRunner, versionCache2;
 var init_scanner = __esm(() => {
@@ -1805,7 +1802,7 @@ var init_html = __esm(() => {
 // src/report/catalog.ts
 import { homedir as homedir3 } from "os";
 import { join as join10 } from "path";
-import { chmod as chmod2 } from "fs/promises";
+import { chmod as chmod3 } from "fs/promises";
 function aegisHome() {
   return process.env.AEGIS_HOME?.trim() || join10(homedir3(), ".aegis");
 }
@@ -1820,7 +1817,7 @@ async function writeReportCatalog(input, artifacts, opts) {
   const root = opts?.root ?? aegisHome();
   const dir = catalogDir(root, input.repo, input.date, input.verdict);
   await ensureDir(dir);
-  await chmod2(dir, 448);
+  await chmod3(dir, 448);
   const files = [
     ["report.html", artifacts.html],
     ["report.sarif", JSON.stringify(artifacts.sarif, null, 2)],
@@ -1829,7 +1826,7 @@ async function writeReportCatalog(input, artifacts, opts) {
   for (const [name, contents] of files) {
     const p = join10(dir, name);
     await Bun.write(p, contents);
-    await chmod2(p, 384);
+    await chmod3(p, 384);
   }
   return dir;
 }
@@ -1850,7 +1847,8 @@ __export(exports_scan, {
   DEFAULT_MAX_REPO_SIZE_MB: () => DEFAULT_MAX_REPO_SIZE_MB
 });
 import { basename as basename2, join as join11, resolve as resolve4 } from "path";
-import { chmod as chmod3, mkdtemp, readdir as readdir2, rm as rm3, stat as stat3 } from "fs/promises";
+import { chmod as chmod4, mkdtemp, readdir as readdir2, rm as rm3, stat as stat3 } from "fs/promises";
+import { realpath } from "fs/promises";
 import { tmpdir } from "os";
 function parseScanFlags(args) {
   let target = ".";
@@ -1984,6 +1982,8 @@ function printSummary(report, catalogPath) {
   }
 }
 function isGitUrl(target) {
+  if (/[;&|`$\\!]/.test(target))
+    return false;
   return /^(https?|git|ssh):\/\//.test(target) || /^git@[^:]+:.+/.test(target);
 }
 function repoNameFromUrl(url) {
@@ -1998,8 +1998,8 @@ function repoNameFromUrl(url) {
 async function resolveScanTarget(flags) {
   const { target } = flags;
   if (!isGitUrl(target)) {
-    const base = resolve4(target);
-    const dir2 = confineSubpath(base, flags.subpath);
+    const base = await realpath(resolve4(target)).catch(() => resolve4(target));
+    const dir2 = await confineSubpath(base, flags.subpath);
     if (!dir2) {
       return { dir: base, tempCloneDir: null, error: `--subpath escapes target root: ${flags.subpath}` };
     }
@@ -2014,7 +2014,7 @@ async function resolveScanTarget(flags) {
     };
   }
   const cloneRoot = await mkdtemp(join11(tmpdir(), "aegis-clone-"));
-  await chmod3(cloneRoot, 448);
+  await chmod4(cloneRoot, 448);
   const repoName = repoNameFromUrl(target);
   const cloneArgs = ["git", "clone", "--depth", "1", "--quiet"];
   if (flags.branch) {
@@ -2039,7 +2039,7 @@ async function resolveScanTarget(flags) {
       error: `Repo exceeds size guard: ${sizeMb}MB > ${flags.maxRepoSizeMb}MB (--max-repo-size-mb to raise)`
     };
   }
-  const dir = confineSubpath(cloneRoot, flags.subpath);
+  const dir = await confineSubpath(cloneRoot, flags.subpath);
   if (!dir) {
     await rm3(cloneRoot, { recursive: true, force: true }).catch(() => {});
     return { dir: cloneRoot, tempCloneDir: null, error: `--subpath escapes clone root: ${flags.subpath}` };
@@ -2047,12 +2047,19 @@ async function resolveScanTarget(flags) {
   const catalogName = flags.subpath ? `${repoName}-${flags.subpath.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "")}` : repoName;
   return { dir, repoName: catalogName, tempCloneDir: cloneRoot };
 }
-function confineSubpath(root, subpath) {
+async function confineSubpath(root, subpath) {
   if (!subpath)
     return root;
-  const resolvedSub = resolve4(root, subpath);
-  const rootWithSep = root.endsWith("/") ? root : root + "/";
-  return resolvedSub === root || resolvedSub.startsWith(rootWithSep) ? resolvedSub : null;
+  const realRoot = await realpath(root).catch(() => root);
+  const candidate = resolve4(realRoot, subpath);
+  let target;
+  try {
+    target = await realpath(candidate);
+  } catch {
+    return candidate;
+  }
+  const rootWithSep = realRoot.endsWith("/") ? realRoot : realRoot + "/";
+  return target === realRoot || target.startsWith(rootWithSep) ? target : null;
 }
 async function dirSizeMb(dir) {
   const res = await runCommandCapture(["du", "-sm", dir]);

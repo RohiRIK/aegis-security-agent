@@ -212,18 +212,13 @@ export async function wrapTrivy(args: string[]): Promise<ScannerResult> {
 }
 
 export async function wrapTrufflehog(targetPath: string): Promise<ScannerResult> {
-  const config = "--json|filesystem";
-  const { key, cached } = await readScannerCache("trufflehog", config, [targetPath]);
-
-  if (cached) {
-    return cached;
-  }
-
-  const result = await scannerRunner.runScannerWithTimeout(
+  // SECRETS SCANNER — never cache. TruffleHog's `--json` output embeds the
+  // plaintext secret value (Raw/RawV2 fields). Persisting raw stdout to
+  // .aegis/scan-cache would write real secrets to disk, violating the
+  // no-secret-persistence directive. Only normalized findings (secret stripped)
+  // may be stored; the raw stdout stays in memory for the life of the scan.
+  return scannerRunner.runScannerWithTimeout(
     [await resolveScanner("trufflehog"), "filesystem", "--json", targetPath],
     SCANNER_BUDGETS.trufflehog,
   );
-
-  await writeScannerCache("trufflehog", key, result);
-  return result;
 }
