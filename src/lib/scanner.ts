@@ -42,33 +42,33 @@ export const SCANNER_BUDGETS = {
 
 export async function runScannerWithTimeout(argv: string[], budgetMs: number): Promise<ScannerResult> {
   const startedAt = performance.now();
-  const proc = Bun.spawn(argv, {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-
-  const timeout = new Promise<{ status: "timeout" }>((resolve) => {
-    setTimeout(() => resolve({ status: "timeout" }), budgetMs);
-  });
-
-  const completion = proc.exited.then((exitCode) => ({ status: "completed" as const, exitCode }));
-  const outcome = await Promise.race([completion, timeout]);
-
-  if (outcome.status === "timeout") {
-    proc.kill();
-    return {
-      status: "timeout",
-      exitCode: -1,
-      stdout: "",
-      stderr: "",
-      degraded: true,
-      durationMs: budgetMs,
-    };
-  }
-
-  const durationMs = performance.now() - startedAt;
 
   try {
+    const proc = Bun.spawn(argv, {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    const timeout = new Promise<{ status: "timeout" }>((resolve) => {
+      setTimeout(() => resolve({ status: "timeout" }), budgetMs);
+    });
+
+    const completion = proc.exited.then((exitCode) => ({ status: "completed" as const, exitCode }));
+    const outcome = await Promise.race([completion, timeout]);
+
+    if (outcome.status === "timeout") {
+      proc.kill();
+      return {
+        status: "timeout",
+        exitCode: -1,
+        stdout: "",
+        stderr: "",
+        degraded: true,
+        durationMs: budgetMs,
+      };
+    }
+
+    const durationMs = performance.now() - startedAt;
     const [stdout, stderr] = await Promise.all([
       new Response(proc.stdout).text(),
       new Response(proc.stderr).text(),
@@ -83,13 +83,15 @@ export async function runScannerWithTimeout(argv: string[], budgetMs: number): P
       durationMs,
     };
   } catch (error) {
+    // Binary not found, not executable, or stream read failure — degrade
+    // instead of throwing so a missing scanner never aborts the whole scan.
     return {
       status: "error",
-      exitCode: outcome.exitCode,
+      exitCode: -1,
       stdout: "",
       stderr: error instanceof Error ? error.message : String(error),
-      degraded: false,
-      durationMs,
+      degraded: true,
+      durationMs: performance.now() - startedAt,
     };
   }
 }
@@ -98,6 +100,11 @@ export const scannerRunner = {
   runScannerWithTimeout,
   getScannerVersion,
 };
+
+/** Best-effort scanner version for reporting; returns "unknown" when unavailable. */
+export async function getScannerVersionSafe(scanner: string): Promise<string> {
+  return getScannerVersion(scanner);
+}
 
 const versionCache = new Map<string, string>();
 

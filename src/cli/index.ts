@@ -17,6 +17,7 @@ const HELP_TEXT = [
   `    ${c.cyan("install")}  ${c.dim("Install Aegis config into the current project")}`,
   `    ${c.cyan("status")}   ${c.dim("Show installation status")}`,
   `    ${c.cyan("tools")}    ${c.dim("Install, check, or remove scanner binaries")}`,
+    `    ${c.cyan("scan")}     ${c.dim("Headless deep scan of a directory → HTML/SARIF/verdict")}`,
     `    ${c.cyan("verdict")}  ${c.dim("Read or append verdict audit log entries")}`,
     `    ${c.cyan("report")}   ${c.dim("Generate security reports from audit data")}`,
     `    ${c.cyan("help")}     ${c.dim("Show this help")}`,
@@ -116,6 +117,10 @@ async function main(): Promise<number> {
     case "report": {
       const { runReport, parseReportFlags } = await import("./report.ts");
       return await runReport(parseReportFlags(args));
+    }
+    case "scan": {
+      const { runScan, parseScanFlags } = await import("./scan.ts");
+      return await runScan(parseScanFlags(args));
     }
     default:
       process.stderr.write(`  ${icon.fail} Unknown command: ${c.bold(command)}\n`);

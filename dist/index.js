@@ -328,7 +328,9 @@ __export(exports_manager, {
   installTool: () => installTool,
   getToolStatus: () => getToolStatus,
   ensureLatest: () => ensureLatest,
-  _resetAutoUpdateCache: () => _resetAutoUpdateCache
+  _setAutoUpdateOverride: () => _setAutoUpdateOverride,
+  _resetAutoUpdateCache: () => _resetAutoUpdateCache,
+  _readAutoUpdatePolicy: () => _readAutoUpdatePolicy
 });
 import { existsSync, readFileSync as readFileSync2 } from "fs";
 import { rm as rm2 } from "fs/promises";
@@ -512,7 +514,7 @@ function resolveToolPath(scanner) {
 function _resetAutoUpdateCache() {
   checkedThisSession.clear();
 }
-function isAutoUpdateEnabled() {
+function _readAutoUpdatePolicy() {
   try {
     const policyPath = join6(resolve(import.meta.dirname, "../../.."), "aegis-policy.json");
     const policy = JSON.parse(readFileSync2(policyPath, "utf-8"));
@@ -520,6 +522,12 @@ function isAutoUpdateEnabled() {
   } catch {
     return true;
   }
+}
+function _setAutoUpdateOverride(value) {
+  autoUpdateOverride = value;
+}
+function isAutoUpdateEnabled() {
+  return autoUpdateOverride ?? _readAutoUpdatePolicy();
 }
 async function ensureLatest(scanner) {
   if (checkedThisSession.has(scanner)) {
@@ -537,7 +545,7 @@ async function ensureLatest(scanner) {
     await installTool(scanner);
   } catch {}
 }
-var versionCache, checkedThisSession;
+var versionCache, checkedThisSession, autoUpdateOverride;
 var init_manager = __esm(() => {
   init_downloader();
   init_platform();
@@ -566,7 +574,8 @@ function parseSemgrepFindings(stdout) {
     severity: result.extra?.severity ?? "ERROR",
     message: result.extra?.message ?? "",
     line: result.start?.line ?? 0,
-    endLine: result.end?.line
+    endLine: result.end?.line,
+    ...result.path ? { file: result.path } : {}
   }));
 }
 function computeFingerprint(parts) {
@@ -585,18 +594,21 @@ function mapSemgrepSeverity(severity) {
   }
 }
 function semgrepToNormalized(findings, filePath) {
-  return findings.map((f) => ({
-    scanner: "semgrep",
-    ruleId: `semgrep/${f.rule}`,
-    message: f.message,
-    severity: mapSemgrepSeverity(f.severity),
-    location: {
-      file: filePath,
-      startLine: f.line,
-      endLine: f.endLine
-    },
-    fingerprint: computeFingerprint(["semgrep", `semgrep/${f.rule}`, filePath, String(f.line)])
-  }));
+  return findings.map((f) => {
+    const file = f.file ?? filePath;
+    return {
+      scanner: "semgrep",
+      ruleId: `semgrep/${f.rule}`,
+      message: f.message,
+      severity: mapSemgrepSeverity(f.severity),
+      location: {
+        file,
+        startLine: f.line,
+        endLine: f.endLine
+      },
+      fingerprint: computeFingerprint(["semgrep", `semgrep/${f.rule}`, file, String(f.line)])
+    };
+  });
 }
 var DEFAULT_SENSITIVE_VARS = [
   "AWS_SECRET_ACCESS_KEY",
@@ -818,28 +830,28 @@ var SCANNER_BUDGETS = {
 };
 async function runScannerWithTimeout(argv, budgetMs) {
   const startedAt = performance.now();
-  const proc = Bun.spawn(argv, {
-    stdout: "pipe",
-    stderr: "pipe"
-  });
-  const timeout = new Promise((resolve2) => {
-    setTimeout(() => resolve2({ status: "timeout" }), budgetMs);
-  });
-  const completion = proc.exited.then((exitCode) => ({ status: "completed", exitCode }));
-  const outcome = await Promise.race([completion, timeout]);
-  if (outcome.status === "timeout") {
-    proc.kill();
-    return {
-      status: "timeout",
-      exitCode: -1,
-      stdout: "",
-      stderr: "",
-      degraded: true,
-      durationMs: budgetMs
-    };
-  }
-  const durationMs = performance.now() - startedAt;
   try {
+    const proc = Bun.spawn(argv, {
+      stdout: "pipe",
+      stderr: "pipe"
+    });
+    const timeout = new Promise((resolve2) => {
+      setTimeout(() => resolve2({ status: "timeout" }), budgetMs);
+    });
+    const completion = proc.exited.then((exitCode) => ({ status: "completed", exitCode }));
+    const outcome = await Promise.race([completion, timeout]);
+    if (outcome.status === "timeout") {
+      proc.kill();
+      return {
+        status: "timeout",
+        exitCode: -1,
+        stdout: "",
+        stderr: "",
+        degraded: true,
+        durationMs: budgetMs
+      };
+    }
+    const durationMs = performance.now() - startedAt;
     const [stdout, stderr] = await Promise.all([
       new Response(proc.stdout).text(),
       new Response(proc.stderr).text()
@@ -855,11 +867,11 @@ async function runScannerWithTimeout(argv, budgetMs) {
   } catch (error) {
     return {
       status: "error",
-      exitCode: outcome.exitCode,
+      exitCode: -1,
       stdout: "",
       stderr: error instanceof Error ? error.message : String(error),
-      degraded: false,
-      durationMs
+      degraded: true,
+      durationMs: performance.now() - startedAt
     };
   }
 }

@@ -17,6 +17,8 @@ export declare const scannerRunner: {
     runScannerWithTimeout: typeof runScannerWithTimeout;
     getScannerVersion: typeof getScannerVersion;
 };
+/** Best-effort scanner version for reporting; returns "unknown" when unavailable. */
+export declare function getScannerVersionSafe(scanner: string): Promise<string>;
 declare function getScannerVersion(scanner: string): Promise<string>;
 export declare function wrapSemgrep(filePath: string): Promise<ScannerResult>;
 export declare function wrapTrivy(args: string[]): Promise<ScannerResult>;

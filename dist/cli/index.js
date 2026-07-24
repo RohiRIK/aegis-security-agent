@@ -1,6 +1,29 @@
 #!/usr/bin/env bun
 // @bun
 var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+function __accessProp(key) {
+  return this[key];
+}
+var __toCommonJS = (from) => {
+  var entry = (__moduleCache ??= new WeakMap).get(from), desc;
+  if (entry)
+    return entry;
+  entry = __defProp({}, "__esModule", { value: true });
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (var key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(entry, key))
+        __defProp(entry, key, {
+          get: __accessProp.bind(from, key),
+          enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
+        });
+  }
+  __moduleCache.set(from, entry);
+  return entry;
+};
+var __moduleCache;
 var __returnValue = (v) => v;
 function __exportSetter(name, newValue) {
   this[name] = __returnValue.bind(null, newValue);
@@ -631,6 +654,18 @@ var init_types = __esm(() => {
 });
 
 // src/lib/provisioner/manager.ts
+var exports_manager = {};
+__export(exports_manager, {
+  resolveToolPath: () => resolveToolPath,
+  removeTool: () => removeTool,
+  listTools: () => listTools,
+  installTool: () => installTool,
+  getToolStatus: () => getToolStatus,
+  ensureLatest: () => ensureLatest,
+  _setAutoUpdateOverride: () => _setAutoUpdateOverride,
+  _resetAutoUpdateCache: () => _resetAutoUpdateCache,
+  _readAutoUpdatePolicy: () => _readAutoUpdatePolicy
+});
 import { existsSync, readFileSync as readFileSync2 } from "fs";
 import { rm as rm2 } from "fs/promises";
 import { join as join6, resolve as resolve2 } from "path";
@@ -669,6 +704,19 @@ async function getCommandVersion(commandPath) {
   } catch {}
   versionCache.set(commandPath, "unknown");
   return "unknown";
+}
+function getProvisionedBinaryPath(scanner) {
+  const manifest = loadManifest();
+  const entry = manifest.scanners[scanner];
+  if (!entry || entry.kind !== "binary") {
+    return null;
+  }
+  const platform = detectPlatform();
+  const resolvedEntry = resolveToolEntry(manifest, scanner, platform);
+  if ("kind" in resolvedEntry) {
+    return null;
+  }
+  return join6(getToolPath(scanner, entry.version, platform), resolvedEntry.binaryName);
 }
 async function getToolStatus(scanner) {
   const manifest = loadManifest();
@@ -790,7 +838,48 @@ async function listTools() {
   const scanners = Object.keys(manifest.scanners);
   return Promise.all(scanners.map((scanner) => getToolStatus(scanner)));
 }
-var versionCache, checkedThisSession;
+function resolveToolPath(scanner) {
+  const provisionedPath = getProvisionedBinaryPath(scanner);
+  if (provisionedPath && existsSync(provisionedPath)) {
+    return provisionedPath;
+  }
+  return Bun.which(scanner) ?? null;
+}
+function _resetAutoUpdateCache() {
+  checkedThisSession.clear();
+}
+function _readAutoUpdatePolicy() {
+  try {
+    const policyPath = join6(resolve2(import.meta.dirname, "../../.."), "aegis-policy.json");
+    const policy = JSON.parse(readFileSync2(policyPath, "utf-8"));
+    return policy.tools?.auto_update !== false;
+  } catch {
+    return true;
+  }
+}
+function _setAutoUpdateOverride(value) {
+  autoUpdateOverride = value;
+}
+function isAutoUpdateEnabled() {
+  return autoUpdateOverride ?? _readAutoUpdatePolicy();
+}
+async function ensureLatest(scanner) {
+  if (checkedThisSession.has(scanner)) {
+    return;
+  }
+  checkedThisSession.add(scanner);
+  if (!isAutoUpdateEnabled()) {
+    return;
+  }
+  const status = await getToolStatus(scanner);
+  if (status.state === "installed") {
+    return;
+  }
+  try {
+    await installTool(scanner);
+  } catch {}
+}
+var versionCache, checkedThisSession, autoUpdateOverride;
 var init_manager = __esm(() => {
   init_downloader();
   init_platform();
@@ -1110,14 +1199,9 @@ function buildInvocations(events) {
     }
   ];
 }
-function eventsToSarif(events, packageVersion) {
-  const allFindings = [];
-  for (const event of events) {
-    allFindings.push(...extractFindings(event));
-  }
-  const results = allFindings.map(findingToResult);
-  const rules = buildRules(allFindings);
-  const invocations = buildInvocations(events);
+function findingsToSarif(findings, packageVersion, invocations) {
+  const results = findings.map(findingToResult);
+  const rules = buildRules(findings);
   return {
     $schema: SARIF_SCHEMA,
     version: "2.1.0",
@@ -1136,6 +1220,13 @@ function eventsToSarif(events, packageVersion) {
       }
     ]
   };
+}
+function eventsToSarif(events, packageVersion) {
+  const allFindings = [];
+  for (const event of events) {
+    allFindings.push(...extractFindings(event));
+  }
+  return findingsToSarif(allFindings, packageVersion, buildInvocations(events));
 }
 var SARIF_SCHEMA = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json";
 
@@ -1216,9 +1307,858 @@ async function runReport(flags) {
 }
 var init_report = () => {};
 
+// src/core/security.ts
+import crypto3 from "crypto";
+function parseSemgrepFindings(stdout) {
+  let parsed;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    return [];
+  }
+  const results = Array.isArray(parsed.results) ? parsed.results : [];
+  return results.filter((result) => result.extra?.severity === "ERROR").map((result) => ({
+    rule: result.check_id ?? "unknown",
+    severity: result.extra?.severity ?? "ERROR",
+    message: result.extra?.message ?? "",
+    line: result.start?.line ?? 0,
+    endLine: result.end?.line,
+    ...result.path ? { file: result.path } : {}
+  }));
+}
+function computeFingerprint(parts) {
+  return crypto3.createHash("sha256").update(parts.join(":")).digest("hex").slice(0, 12);
+}
+function mapSemgrepSeverity(severity) {
+  switch (severity.toUpperCase()) {
+    case "ERROR":
+      return "high";
+    case "WARNING":
+      return "medium";
+    case "INFO":
+      return "low";
+    default:
+      return "medium";
+  }
+}
+function mapTrivySeverity(severity) {
+  switch (severity.toUpperCase()) {
+    case "CRITICAL":
+      return "critical";
+    case "HIGH":
+      return "high";
+    case "MEDIUM":
+      return "medium";
+    case "LOW":
+      return "low";
+    default:
+      return "medium";
+  }
+}
+function semgrepToNormalized(findings, filePath) {
+  return findings.map((f) => {
+    const file = f.file ?? filePath;
+    return {
+      scanner: "semgrep",
+      ruleId: `semgrep/${f.rule}`,
+      message: f.message,
+      severity: mapSemgrepSeverity(f.severity),
+      location: {
+        file,
+        startLine: f.line,
+        endLine: f.endLine
+      },
+      fingerprint: computeFingerprint(["semgrep", `semgrep/${f.rule}`, file, String(f.line)])
+    };
+  });
+}
+function trivyToNormalized(stdout, packageName) {
+  let parsed;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    return [];
+  }
+  const findings = [];
+  for (const result of parsed.Results ?? []) {
+    for (const vuln of result.Vulnerabilities ?? []) {
+      const ruleId = vuln.VulnerabilityID ?? "unknown";
+      const pkg = vuln.PkgName ?? packageName;
+      findings.push({
+        scanner: "trivy",
+        ruleId,
+        message: vuln.Title ?? "",
+        severity: mapTrivySeverity(vuln.Severity ?? "UNKNOWN"),
+        package: pkg,
+        fingerprint: computeFingerprint(["trivy", ruleId, pkg])
+      });
+    }
+  }
+  return findings;
+}
+function extractTrufflehogLocation(result) {
+  const data = result.SourceMetadata?.Data;
+  const source = data?.Filesystem ?? data?.Git;
+  if (!source?.file)
+    return null;
+  return { file: source.file, line: typeof source.line === "number" ? source.line : undefined };
+}
+function trufflehogToNormalized(stdout) {
+  const findings = [];
+  for (const line of stdout.split(`
+`)) {
+    const trimmed = line.trim();
+    if (trimmed.length === 0)
+      continue;
+    let result;
+    try {
+      result = JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
+    if (!result.DetectorName)
+      continue;
+    const verified = result.Verified === true;
+    const detector = result.DetectorName;
+    const location = extractTrufflehogLocation(result);
+    const ruleId = `trufflehog/${detector}`;
+    const fingerprintParts = ["trufflehog", ruleId, location?.file ?? "", String(location?.line ?? 0), String(verified)];
+    findings.push({
+      scanner: "trufflehog",
+      ruleId,
+      message: `${verified ? "Verified" : "Unverified"} secret detected: ${detector}`,
+      severity: verified ? "critical" : "high",
+      ...location ? { location: { file: location.file, ...location.line != null ? { startLine: location.line } : {} } } : {},
+      fingerprint: computeFingerprint(fingerprintParts)
+    });
+  }
+  return findings;
+}
+var init_security = () => {};
+
+// src/lib/scan-cache.ts
+import crypto4 from "crypto";
+import { join as join8 } from "path";
+function computeCacheKey(scanner, version, config, scopeHash) {
+  return crypto4.createHash("sha256").update([scanner, version, config, scopeHash].join("|")).digest("hex").slice(0, 16);
+}
+function computeScopeHash(filePaths, mtimes) {
+  const normalized = filePaths.map((filePath, index) => ({ filePath, mtime: mtimes[index] ?? 0 })).sort((left, right) => left.filePath.localeCompare(right.filePath));
+  const payload = normalized.map(({ filePath, mtime }) => `${filePath}:${mtime}`).join("|");
+  return crypto4.createHash("sha256").update(payload).digest("hex").slice(0, 16);
+}
+function isCacheEntry(value) {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const entry = value;
+  return typeof entry.key === "string" && typeof entry.timestamp === "number" && typeof entry.ttl === "number" && typeof entry.result === "object" && entry.result !== null;
+}
+async function readCacheEntry(cacheDir, key) {
+  const filePath = join8(cacheDir, `${key}.json`);
+  if (!await fileExists(filePath)) {
+    return null;
+  }
+  try {
+    const parsed = await Bun.file(filePath).json();
+    if (!isCacheEntry(parsed)) {
+      return null;
+    }
+    if (Date.now() - parsed.timestamp >= parsed.ttl) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+async function writeCacheEntry(cacheDir, entry) {
+  await ensureDir(cacheDir);
+  await Bun.write(join8(cacheDir, `${entry.key}.json`), JSON.stringify(entry));
+}
+function shouldSkipCache(result) {
+  if (result.status !== "ok") {
+    return true;
+  }
+  return result.stdout.includes("CRITICAL");
+}
+function getCacheTtl(scanner) {
+  return CACHE_TTLS[scanner] ?? 600000;
+}
+var CACHE_DIR = ".aegis/scan-cache", CACHE_TTLS;
+var init_scan_cache = __esm(() => {
+  init_base();
+  CACHE_TTLS = {
+    semgrep: 600000,
+    trivy: 3600000,
+    trufflehog: 600000
+  };
+});
+
+// src/lib/scanner.ts
+import crypto5 from "crypto";
+import { stat as stat2 } from "fs/promises";
+import { join as join9 } from "path";
+async function resolveScanner(scanner) {
+  try {
+    const { ensureLatest: ensureLatest2, resolveToolPath: resolveToolPath2 } = (init_manager(), __toCommonJS(exports_manager));
+    await ensureLatest2(scanner);
+    return resolveToolPath2(scanner) ?? scanner;
+  } catch {
+    return scanner;
+  }
+}
+async function runScannerWithTimeout(argv, budgetMs) {
+  const startedAt = performance.now();
+  try {
+    const proc = Bun.spawn(argv, {
+      stdout: "pipe",
+      stderr: "pipe"
+    });
+    const timeout = new Promise((resolve4) => {
+      setTimeout(() => resolve4({ status: "timeout" }), budgetMs);
+    });
+    const completion = proc.exited.then((exitCode) => ({ status: "completed", exitCode }));
+    const outcome = await Promise.race([completion, timeout]);
+    if (outcome.status === "timeout") {
+      proc.kill();
+      return {
+        status: "timeout",
+        exitCode: -1,
+        stdout: "",
+        stderr: "",
+        degraded: true,
+        durationMs: budgetMs
+      };
+    }
+    const durationMs = performance.now() - startedAt;
+    const [stdout, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text()
+    ]);
+    return {
+      status: "ok",
+      exitCode: outcome.exitCode,
+      stdout,
+      stderr,
+      degraded: false,
+      durationMs
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      exitCode: -1,
+      stdout: "",
+      stderr: error instanceof Error ? error.message : String(error),
+      degraded: true,
+      durationMs: performance.now() - startedAt
+    };
+  }
+}
+async function getScannerVersionSafe(scanner) {
+  return getScannerVersion(scanner);
+}
+async function getScannerVersion(scanner) {
+  const cached = versionCache2.get(scanner);
+  if (cached) {
+    return cached;
+  }
+  try {
+    const proc = Bun.spawn([await resolveScanner(scanner), "--version"], { stdout: "pipe", stderr: "pipe" });
+    const exitCode = await proc.exited;
+    if (exitCode === 0) {
+      const version = (await new Response(proc.stdout).text()).trim();
+      versionCache2.set(scanner, version);
+      return version;
+    }
+  } catch {}
+  versionCache2.set(scanner, "unknown");
+  return "unknown";
+}
+function hashConfig(config) {
+  return crypto5.createHash("sha256").update(config).digest("hex").slice(0, 16);
+}
+async function getMtimeMs(filePath) {
+  try {
+    const fileStat = await stat2(filePath);
+    return fileStat.mtimeMs;
+  } catch {
+    return 0;
+  }
+}
+async function readScannerCache(scanner, config, scopePaths) {
+  const mtimes = await Promise.all(scopePaths.map((filePath) => getMtimeMs(filePath)));
+  const scopeHash = computeScopeHash(scopePaths, mtimes);
+  const version = await scannerRunner.getScannerVersion(scanner);
+  const configHash = hashConfig(config);
+  const key = computeCacheKey(scanner, version, configHash, scopeHash);
+  const entry = await readCacheEntry(join9(process.cwd(), CACHE_DIR), key);
+  if (!entry) {
+    return { key, cached: null };
+  }
+  return {
+    key,
+    cached: {
+      ...entry.result,
+      status: "cached"
+    }
+  };
+}
+async function writeScannerCache(scanner, key, result) {
+  if (shouldSkipCache(result)) {
+    return;
+  }
+  await writeCacheEntry(join9(process.cwd(), CACHE_DIR), {
+    key,
+    timestamp: Date.now(),
+    ttl: getCacheTtl(scanner),
+    result
+  });
+}
+async function wrapSemgrep(filePath) {
+  const config = "--config=p/security-audit|--config=p/secrets|--json";
+  const { key, cached } = await readScannerCache("semgrep", config, [filePath]);
+  if (cached) {
+    return cached;
+  }
+  const result = await scannerRunner.runScannerWithTimeout([await resolveScanner("semgrep"), "scan", "--config=p/security-audit", "--config=p/secrets", "--json", filePath], SCANNER_BUDGETS.semgrep);
+  await writeScannerCache("semgrep", key, result);
+  return result;
+}
+async function wrapTrivy(args) {
+  const config = args.join("|");
+  const { key, cached } = await readScannerCache("trivy", config, args);
+  if (cached) {
+    return cached;
+  }
+  const result = await scannerRunner.runScannerWithTimeout([await resolveScanner("trivy"), ...args], SCANNER_BUDGETS.trivy);
+  await writeScannerCache("trivy", key, result);
+  return result;
+}
+async function wrapTrufflehog(targetPath) {
+  const config = "--json|filesystem";
+  const { key, cached } = await readScannerCache("trufflehog", config, [targetPath]);
+  if (cached) {
+    return cached;
+  }
+  const result = await scannerRunner.runScannerWithTimeout([await resolveScanner("trufflehog"), "filesystem", "--json", targetPath], SCANNER_BUDGETS.trufflehog);
+  await writeScannerCache("trufflehog", key, result);
+  return result;
+}
+var SCANNER_BUDGETS, scannerRunner, versionCache2;
+var init_scanner = __esm(() => {
+  init_scan_cache();
+  SCANNER_BUDGETS = {
+    semgrep: 120000,
+    trivy: 60000,
+    trufflehog: 90000
+  };
+  scannerRunner = {
+    runScannerWithTimeout,
+    getScannerVersion
+  };
+  versionCache2 = new Map;
+});
+
+// src/core/verdict.ts
+function emptyCounts() {
+  return { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+}
+function tallySeverities(findings) {
+  const counts = emptyCounts();
+  for (const finding of findings) {
+    counts[finding.severity] += 1;
+  }
+  return counts;
+}
+function computeVerdict(counts) {
+  if (counts.critical > 0)
+    return "BLOCKED";
+  if (counts.high > 0 || counts.medium > 0)
+    return "RISKY";
+  return "SAFE";
+}
+var VERDICT_EXIT_CODE, SCAN_ERROR_EXIT_CODE = 3;
+var init_verdict = __esm(() => {
+  VERDICT_EXIT_CODE = {
+    SAFE: 0,
+    RISKY: 1,
+    BLOCKED: 2
+  };
+});
+
+// src/report/html.ts
+function escapeHtml(value) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+function locationText(finding) {
+  if (finding.location) {
+    const line = finding.location.startLine != null ? `:${finding.location.startLine}` : "";
+    return `${finding.location.file}${line}`;
+  }
+  if (finding.package)
+    return finding.package;
+  return "\u2014";
+}
+function renderFindingRows(findings) {
+  if (findings.length === 0) {
+    return `<tr><td colspan="4" class="empty">No findings.</td></tr>`;
+  }
+  const sorted = [...findings].sort((a, b) => SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity));
+  return sorted.map((f) => `      <tr>
+        <td><span class="sev sev-${escapeHtml(f.severity)}">${escapeHtml(f.severity)}</span></td>
+        <td>${escapeHtml(f.scanner)}</td>
+        <td class="rule">${escapeHtml(f.ruleId)}</td>
+        <td>${escapeHtml(locationText(f))}<div class="msg">${escapeHtml(f.message)}</div></td>
+      </tr>`).join(`
+`);
+}
+function renderScannerRows(report) {
+  return report.scanners.map((s) => `      <tr>
+        <td>${escapeHtml(s.name)}</td>
+        <td>${escapeHtml(s.version)}</td>
+        <td>${escapeHtml(s.status)}</td>
+        <td>${Math.round(s.durationMs)} ms</td>
+      </tr>`).join(`
+`);
+}
+function renderReportHtml(report) {
+  const color = VERDICT_COLOR[report.verdict];
+  const c2 = report.counts;
+  const degraded = report.degraded.length > 0 ? `<div class="degraded">\u26A0\uFE0F DEGRADED: ${escapeHtml(report.degraded.join(", "))}</div>` : "";
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aegis Scan \u2014 ${escapeHtml(report.repo)}</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 2rem; background: #f6f8fa; color: #1f2328; }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+  .verdict { font-weight: 700; font-size: 1.5rem; padding: .25rem .9rem; border-radius: 8px; color: #fff; background: ${color}; }
+  h1 { font-size: 1.25rem; margin: 0; }
+  .meta { color: #656d76; font-size: .85rem; }
+  .counts { display: flex; gap: .5rem; flex-wrap: wrap; margin: 1rem 0 1.5rem; }
+  .pill { padding: .35rem .7rem; border-radius: 999px; font-size: .8rem; font-weight: 600; background: #eaeef2; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); margin-bottom: 1.5rem; }
+  th, td { text-align: left; padding: .6rem .8rem; border-bottom: 1px solid #eaeef2; vertical-align: top; }
+  th { background: #f6f8fa; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; color: #656d76; }
+  .rule { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8rem; }
+  .msg { color: #656d76; font-size: .8rem; margin-top: .2rem; }
+  .empty { color: #656d76; text-align: center; }
+  .sev { font-weight: 700; text-transform: uppercase; font-size: .72rem; padding: .1rem .45rem; border-radius: 4px; color: #fff; }
+  .sev-critical { background: #cf222e; } .sev-high { background: #e16f24; }
+  .sev-medium { background: #bf8700; } .sev-low { background: #0969da; } .sev-info { background: #656d76; }
+  .degraded { background: #fff8c5; border: 1px solid #eac54f; padding: .5rem .8rem; border-radius: 6px; margin-bottom: 1rem; font-size: .85rem; }
+  h2 { font-size: .95rem; margin: 1.5rem 0 .5rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="verdict">${escapeHtml(report.verdict)}</span>
+    <div>
+      <h1>${escapeHtml(report.repo)}</h1>
+      <div class="meta">${escapeHtml(report.target)} \xB7 ${escapeHtml(report.date)} \xB7 ${escapeHtml(report.commit)}</div>
+    </div>
+  </header>
+  ${degraded}
+  <div class="counts">
+    <span class="pill">critical ${c2.critical}</span>
+    <span class="pill">high ${c2.high}</span>
+    <span class="pill">medium ${c2.medium}</span>
+    <span class="pill">low ${c2.low}</span>
+    <span class="pill">info ${c2.info}</span>
+  </div>
+  <h2>Findings (${report.findings.length})</h2>
+  <table>
+    <thead><tr><th>Severity</th><th>Scanner</th><th>Rule</th><th>Location</th></tr></thead>
+    <tbody>
+${renderFindingRows(report.findings)}
+    </tbody>
+  </table>
+  <h2>Scanners</h2>
+  <table>
+    <thead><tr><th>Scanner</th><th>Version</th><th>Status</th><th>Duration</th></tr></thead>
+    <tbody>
+${renderScannerRows(report)}
+    </tbody>
+  </table>
+  <div class="meta">Generated by aegis-security-agent</div>
+</div>
+</body>
+</html>
+`;
+}
+var VERDICT_COLOR, SEVERITY_ORDER;
+var init_html = __esm(() => {
+  VERDICT_COLOR = {
+    SAFE: "#1a7f37",
+    RISKY: "#bf8700",
+    BLOCKED: "#cf222e"
+  };
+  SEVERITY_ORDER = ["critical", "high", "medium", "low", "info"];
+});
+
+// src/report/catalog.ts
+import { homedir as homedir3 } from "os";
+import { join as join10 } from "path";
+import { chmod as chmod2 } from "fs/promises";
+function aegisHome() {
+  return process.env.AEGIS_HOME?.trim() || join10(homedir3(), ".aegis");
+}
+function sanitizeRepoName(name) {
+  const cleaned = name.replace(/[^A-Za-z0-9._-]/g, "-").replace(/^-+|-+$/g, "");
+  return cleaned.length > 0 ? cleaned : "repo";
+}
+function catalogDir(root, repo, date, verdict) {
+  return join10(root, sanitizeRepoName(repo), date, verdict);
+}
+async function writeReportCatalog(input, artifacts, opts) {
+  const root = opts?.root ?? aegisHome();
+  const dir = catalogDir(root, input.repo, input.date, input.verdict);
+  await ensureDir(dir);
+  await chmod2(dir, 448);
+  const files = [
+    ["report.html", artifacts.html],
+    ["report.sarif", JSON.stringify(artifacts.sarif, null, 2)],
+    ["verdict.json", JSON.stringify(artifacts.verdict, null, 2)]
+  ];
+  for (const [name, contents] of files) {
+    const p = join10(dir, name);
+    await Bun.write(p, contents);
+    await chmod2(p, 384);
+  }
+  return dir;
+}
+var init_catalog = __esm(() => {
+  init_base();
+});
+
+// src/cli/scan.ts
+var exports_scan = {};
+__export(exports_scan, {
+  scanDirectory: () => scanDirectory,
+  runScan: () => runScan,
+  resolveScanTarget: () => resolveScanTarget,
+  repoNameFromUrl: () => repoNameFromUrl,
+  parseScanFlags: () => parseScanFlags,
+  isGitUrl: () => isGitUrl,
+  cleanupStaleClones: () => cleanupStaleClones,
+  DEFAULT_MAX_REPO_SIZE_MB: () => DEFAULT_MAX_REPO_SIZE_MB
+});
+import { basename as basename2, join as join11, resolve as resolve4 } from "path";
+import { chmod as chmod3, mkdtemp, readdir as readdir2, rm as rm3, stat as stat3 } from "fs/promises";
+import { tmpdir } from "os";
+function parseScanFlags(args) {
+  let target = ".";
+  let out;
+  let noCatalog = false;
+  let json = false;
+  let branch;
+  let subpath;
+  let allowUntrusted = false;
+  let maxRepoSizeMb = DEFAULT_MAX_REPO_SIZE_MB;
+  const takeValue = (i) => args[i + 1];
+  for (let i = 0;i < args.length; i++) {
+    const arg = args[i];
+    if (arg === "--target" || arg === "-t") {
+      const next = takeValue(i);
+      if (next !== undefined) {
+        target = next;
+        i++;
+      }
+    } else if (arg === "--out" || arg === "-o") {
+      const next = takeValue(i);
+      if (next !== undefined) {
+        out = next;
+        i++;
+      }
+    } else if (arg === "--branch") {
+      const next = takeValue(i);
+      if (next !== undefined) {
+        branch = next;
+        i++;
+      }
+    } else if (arg === "--subpath") {
+      const next = takeValue(i);
+      if (next !== undefined) {
+        subpath = next;
+        i++;
+      }
+    } else if (arg === "--allow-untrusted") {
+      allowUntrusted = true;
+    } else if (arg === "--max-repo-size-mb") {
+      const next = takeValue(i);
+      const parsed = next !== undefined ? Number.parseInt(next, 10) : NaN;
+      if (Number.isFinite(parsed) && parsed > 0) {
+        maxRepoSizeMb = parsed;
+        i++;
+      }
+    } else if (arg === "--no-catalog") {
+      noCatalog = true;
+    } else if (arg === "--json") {
+      json = true;
+    } else if (arg && !arg.startsWith("-")) {
+      target = arg;
+    }
+  }
+  return { target, out, noCatalog, json, branch, subpath, allowUntrusted, maxRepoSizeMb };
+}
+async function getPackageVersion2() {
+  try {
+    const pkg = await Bun.file(new URL("../../package.json", import.meta.url)).json();
+    return pkg.version;
+  } catch {
+    return "unknown";
+  }
+}
+async function getCommit(dir) {
+  try {
+    const result = await runCommandCapture(["git", "-C", dir, "rev-parse", "--short", "HEAD"]);
+    return result.exitCode === 0 && result.stdout.trim() ? result.stdout.trim() : "no-git";
+  } catch {
+    return "no-git";
+  }
+}
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+function isDegraded(result) {
+  return result.degraded || result.status === "timeout" || result.status === "error";
+}
+async function runSemgrep(dir) {
+  const result = await wrapSemgrep(dir);
+  const findings = result.status === "error" || result.status === "timeout" ? [] : semgrepToNormalized(parseSemgrepFindings(result.stdout), dir);
+  return {
+    run: { name: "semgrep", version: await getScannerVersionSafe("semgrep"), status: result.status, durationMs: result.durationMs },
+    findings,
+    degraded: isDegraded(result)
+  };
+}
+async function runTrivy(dir) {
+  const result = await wrapTrivy(["fs", "--scanners", "vuln", "--severity", "HIGH,CRITICAL", "--format", "json", dir]);
+  const findings = result.status === "error" || result.status === "timeout" ? [] : trivyToNormalized(result.stdout, "");
+  return {
+    run: { name: "trivy", version: await getScannerVersionSafe("trivy"), status: result.status, durationMs: result.durationMs },
+    findings,
+    degraded: isDegraded(result)
+  };
+}
+async function runTrufflehog(dir) {
+  const result = await wrapTrufflehog(dir);
+  const findings = result.status === "error" || result.status === "timeout" ? [] : trufflehogToNormalized(result.stdout);
+  return {
+    run: { name: "trufflehog", version: await getScannerVersionSafe("trufflehog"), status: result.status, durationMs: result.durationMs },
+    findings,
+    degraded: isDegraded(result)
+  };
+}
+async function scanDirectory(dir) {
+  const outcomes = await Promise.all([runSemgrep(dir), runTrivy(dir), runTrufflehog(dir)]);
+  const findings = outcomes.flatMap((o) => o.findings);
+  const counts = tallySeverities(findings);
+  const verdict = computeVerdict(counts);
+  const degraded = outcomes.filter((o) => o.degraded).map((o) => o.run.name);
+  return {
+    repo: basename2(dir),
+    target: dir,
+    date: today(),
+    commit: await getCommit(dir),
+    verdict,
+    counts,
+    findings,
+    degraded,
+    scanners: outcomes.map((o) => o.run)
+  };
+}
+function printSummary(report, catalogPath) {
+  const { counts } = report;
+  process.stderr.write(`[AEGIS] ${report.verdict} \u2014 ${report.repo} (${report.commit}) ` + `C:${counts.critical} H:${counts.high} M:${counts.medium} L:${counts.low} I:${counts.info}` + `${report.degraded.length > 0 ? ` | DEGRADED: ${report.degraded.join(",")}` : ""}
+`);
+  if (catalogPath) {
+    process.stderr.write(`[AEGIS] Report cataloged at ${catalogPath}
+`);
+  }
+}
+function isGitUrl(target) {
+  return /^(https?|git|ssh):\/\//.test(target) || /^git@[^:]+:.+/.test(target);
+}
+function repoNameFromUrl(url) {
+  let s = url.trim();
+  s = s.replace(/^[a-z]+:\/\//i, "");
+  s = s.replace(/^[^@/]+@/, "");
+  s = s.replace(/:/, "/");
+  const parts = s.split("/").filter(Boolean);
+  const last = parts[parts.length - 1] ?? "repo";
+  return last.replace(/\.git$/i, "") || "repo";
+}
+async function resolveScanTarget(flags) {
+  const { target } = flags;
+  if (!isGitUrl(target)) {
+    const base = resolve4(target);
+    const dir2 = confineSubpath(base, flags.subpath);
+    if (!dir2) {
+      return { dir: base, tempCloneDir: null, error: `--subpath escapes target root: ${flags.subpath}` };
+    }
+    return { dir: dir2, tempCloneDir: null };
+  }
+  if (!flags.allowUntrusted) {
+    return {
+      dir: target,
+      tempCloneDir: null,
+      error: `Refusing to scan untrusted remote repo without --allow-untrusted: ${target}
+` + `  Cloning runs scanner tools over attacker-controlled files on this host. ` + `Re-run with --allow-untrusted to accept the risk.`
+    };
+  }
+  const cloneRoot = await mkdtemp(join11(tmpdir(), "aegis-clone-"));
+  await chmod3(cloneRoot, 448);
+  const repoName = repoNameFromUrl(target);
+  const cloneArgs = ["git", "clone", "--depth", "1", "--quiet"];
+  if (flags.branch) {
+    cloneArgs.push("--branch", flags.branch, "--single-branch");
+  }
+  cloneArgs.push(target, cloneRoot);
+  const clone = await runCommandCapture(cloneArgs);
+  if (clone.exitCode !== 0) {
+    await rm3(cloneRoot, { recursive: true, force: true }).catch(() => {});
+    return {
+      dir: target,
+      tempCloneDir: null,
+      error: `git clone failed (exit ${clone.exitCode}): ${clone.stderr.trim() || "unknown error"}`
+    };
+  }
+  const sizeMb = await dirSizeMb(cloneRoot);
+  if (sizeMb > flags.maxRepoSizeMb) {
+    await rm3(cloneRoot, { recursive: true, force: true }).catch(() => {});
+    return {
+      dir: target,
+      tempCloneDir: null,
+      error: `Repo exceeds size guard: ${sizeMb}MB > ${flags.maxRepoSizeMb}MB (--max-repo-size-mb to raise)`
+    };
+  }
+  const dir = confineSubpath(cloneRoot, flags.subpath);
+  if (!dir) {
+    await rm3(cloneRoot, { recursive: true, force: true }).catch(() => {});
+    return { dir: cloneRoot, tempCloneDir: null, error: `--subpath escapes clone root: ${flags.subpath}` };
+  }
+  const catalogName = flags.subpath ? `${repoName}-${flags.subpath.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "")}` : repoName;
+  return { dir, repoName: catalogName, tempCloneDir: cloneRoot };
+}
+function confineSubpath(root, subpath) {
+  if (!subpath)
+    return root;
+  const resolvedSub = resolve4(root, subpath);
+  const rootWithSep = root.endsWith("/") ? root : root + "/";
+  return resolvedSub === root || resolvedSub.startsWith(rootWithSep) ? resolvedSub : null;
+}
+async function dirSizeMb(dir) {
+  const res = await runCommandCapture(["du", "-sm", dir]);
+  if (res.exitCode !== 0)
+    return 0;
+  const mb = Number.parseInt(res.stdout.trim().split(/\s+/)[0] ?? "0", 10);
+  return Number.isFinite(mb) ? mb : 0;
+}
+async function cleanupStaleClones(maxAgeMs = 24 * 60 * 60 * 1000) {
+  let removed = 0;
+  try {
+    const entries = await readdir2(tmpdir(), { withFileTypes: true });
+    const now = Date.now();
+    for (const e of entries) {
+      if (!e.isDirectory() || !e.name.startsWith("aegis-clone-"))
+        continue;
+      const full = join11(tmpdir(), e.name);
+      try {
+        const s = await stat3(full);
+        if (now - s.mtimeMs > maxAgeMs) {
+          await rm3(full, { recursive: true, force: true });
+          removed++;
+        }
+      } catch {}
+    }
+  } catch {}
+  return removed;
+}
+async function runScan(flags) {
+  let tempCloneDir = null;
+  try {
+    const resolved = await resolveScanTarget(flags);
+    if (resolved.error) {
+      process.stderr.write(`[AEGIS] ${resolved.error}
+`);
+      return SCAN_ERROR_EXIT_CODE;
+    }
+    tempCloneDir = resolved.tempCloneDir;
+    const dir = resolved.dir;
+    if (!await isDirectory(dir)) {
+      process.stderr.write(`[AEGIS] Scan target is not a directory: ${dir}
+`);
+      return SCAN_ERROR_EXIT_CODE;
+    }
+    const report = await scanDirectory(dir);
+    if (resolved.repoName) {
+      report.repo = resolved.repoName;
+    }
+    const version = await getPackageVersion2();
+    const sarif = findingsToSarif(report.findings, version);
+    const html = renderReportHtml(report);
+    const verdictJson = {
+      repo: report.repo,
+      target: report.target,
+      date: report.date,
+      commit: report.commit,
+      verdict: report.verdict,
+      findings: report.counts,
+      degraded: report.degraded
+    };
+    let catalogPath = null;
+    if (!flags.noCatalog) {
+      catalogPath = await writeReportCatalog({ repo: report.repo, date: report.date, verdict: report.verdict }, { html, sarif, verdict: verdictJson });
+    }
+    if (flags.out) {
+      await Bun.write(resolve4(flags.out), html);
+    }
+    if (flags.json) {
+      process.stdout.write(JSON.stringify({ ...verdictJson, findings: report.findings, counts: report.counts }, null, 2) + `
+`);
+    } else {
+      printSummary(report, catalogPath);
+    }
+    return VERDICT_EXIT_CODE[report.verdict];
+  } catch (error) {
+    process.stderr.write(`[AEGIS] Scan error: ${error instanceof Error ? error.message : String(error)}
+`);
+    return SCAN_ERROR_EXIT_CODE;
+  } finally {
+    if (tempCloneDir) {
+      await rm3(tempCloneDir, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+}
+async function isDirectory(path) {
+  try {
+    const { stat: stat4 } = await import("fs/promises");
+    return (await stat4(path)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+var DEFAULT_MAX_REPO_SIZE_MB = 2048;
+var init_scan = __esm(() => {
+  init_base();
+  init_security();
+  init_scanner();
+  init_scanner();
+  init_verdict();
+  init_html();
+  init_catalog();
+});
+
 // src/cli/index.ts
 init_ui();
-import { resolve as resolve4 } from "path";
+import { resolve as resolve5 } from "path";
 var HELP_TEXT = [
   `  ${c.bold("Usage")}`,
   `    ${c.cyan("aegis")} ${c.dim("<command> [flags]")}`,
@@ -1227,6 +2167,7 @@ var HELP_TEXT = [
   `    ${c.cyan("install")}  ${c.dim("Install Aegis config into the current project")}`,
   `    ${c.cyan("status")}   ${c.dim("Show installation status")}`,
   `    ${c.cyan("tools")}    ${c.dim("Install, check, or remove scanner binaries")}`,
+  `    ${c.cyan("scan")}     ${c.dim("Headless deep scan of a directory \u2192 HTML/SARIF/verdict")}`,
   `    ${c.cyan("verdict")}  ${c.dim("Read or append verdict audit log entries")}`,
   `    ${c.cyan("report")}   ${c.dim("Generate security reports from audit data")}`,
   `    ${c.cyan("help")}     ${c.dim("Show this help")}`,
@@ -1274,7 +2215,7 @@ async function main() {
     case "verdict": {
       const { appendVerdictEvent: appendVerdictEvent2, readRecentVerdicts: readRecentVerdicts2 } = await init_verdict_log().then(() => exports_verdict_log);
       const [subcommand, ...verdictArgs] = args;
-      const logPath = resolve4(process.cwd(), ".aegis", "audit.jsonl");
+      const logPath = resolve5(process.cwd(), ".aegis", "audit.jsonl");
       if (subcommand === "read") {
         const count = Number(verdictArgs[0]) || 10;
         const verdicts = await readRecentVerdicts2(logPath, count);
@@ -1325,6 +2266,10 @@ async function main() {
     case "report": {
       const { runReport: runReport2, parseReportFlags: parseReportFlags2 } = await Promise.resolve().then(() => (init_report(), exports_report));
       return await runReport2(parseReportFlags2(args));
+    }
+    case "scan": {
+      const { runScan: runScan2, parseScanFlags: parseScanFlags2 } = await Promise.resolve().then(() => (init_scan(), exports_scan));
+      return await runScan2(parseScanFlags2(args));
     }
     default:
       process.stderr.write(`  ${icon.fail} Unknown command: ${c.bold(command)}

@@ -48,6 +48,14 @@ describe("runScannerWithTimeout", () => {
     expect(result.durationMs).toBeGreaterThanOrEqual(0);
   });
 
+  test("degrades instead of throwing when the binary is missing", async () => {
+    const result = await runScannerWithTimeout(["aegis-nonexistent-binary-xyz", "--version"], 1_000);
+
+    expect(result.status).toBe("error");
+    expect(result.degraded).toBe(true);
+    expect(result.exitCode).toBe(-1);
+  });
+
   test("returns timeout result when process exceeds budget", async () => {
     const result = await runScannerWithTimeout(["bash", "-c", "sleep 10"], 200);
 
