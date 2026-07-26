@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0](https://github.com/RohiRIK/aegis-security-agent/compare/v0.1.18...v0.2.0) (2026-07-26)
+
+
+### Features
+
+* multi-language built-in scanners — dual-purpose pivot v0.3 ([60d78eb](https://github.com/RohiRIK/aegis-security-agent/commit/60d78eb992899f9a1f0075c7de27aa9777d63076))
+* v0.2.0 — audit-only unification with typed policy and events ([703ec99](https://github.com/RohiRIK/aegis-security-agent/commit/703ec998a6774a7ea10ff523234f56fc786c0259))
+
 ## [Unreleased]
 
 ### Added
