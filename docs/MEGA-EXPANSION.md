@@ -1,26 +1,48 @@
 # Mega Expansion — Multi-Language Built-in Scanners
 
-**Branch:** `feat/dual-purpose-pivot` (8 commits)  
-**Date:** 2026-07-25  
+**Branch:** `feat/dual-purpose-pivot` (8 commits) — merged to `main` as `60d78eb`, released as v0.3.0  
+**Date:** 2026-07-25 (merged 2026-07-26)  
 **Runner:** Claude Opus 5 (48 turns total, $2.93) + Bob (fixes + finalization)  
-**Baseline → Final:** 347 tests → **532 tests** (+185), tsc clean, build OK
+**Baseline → Final:** 347 tests → **676 tests** (+329), tsc clean, build OK
+
+> Counts below are verified against `main` at `60d78eb`. Where the original write-up
+> quoted Phase 1 numbers, they have been updated to the shipped figures.
 
 ## What Was Built
 
-### 1. Multi-Language Pattern Scanner (`src/core/patterns.ts` — 901 lines)
-Language-tagged rules with extension + shebang detection:
-- **Python (28 rules):** eval/exec/pickle, os.system(shell=True), verify=False, f-string SQL injection, yaml.load, assert-as-validation, input() in prod, hardcoded DB URIs, flask SECRET_KEY
-- **PowerShell (15 rules):** IEX, -SkipCertificateCheck, plaintext passwords, WebClient download-exec, Assembly::Load, Run-key persistence, ConvertFrom-SecureString
-- **Shell/Bash (12 rules):** pipe-to-shell, eval "$(curl)", insecure /tmp, rm -rf /, chmod 777/666, URL-embedded credentials, unquoted expansion
-- **JS/TS (14 rules):** child_process.exec, fs.writeFile(userInput), eval/new Function, crypto.createCipher weak algos, jwt.verify without algo whitelist, try-catch on JSON.parse
-- **Generic (30+ rules):** AWS/GitHub/OpenAI/SSH key patterns, JWT tokens, base64 blobs, entropy detection, security TODO/FIXME/HACK detection, disabled-security comments, hardcoded IPs
+### 1. Multi-Language Pattern Scanner (`src/core/patterns.ts` — 1126 lines)
+**87 rules total:** 84 `PATTERN_RULES` + 3 `PATH_RULES`, 96 compiled regexes.
 
-### 2. Built-in Scanner Engine (`src/core/builtin-scan.ts` — 409 lines)
+By scanner family (`rule.scanner`):
+
+| Family | Rules |
+|--------|-------|
+| `gitleaks-replacement` | 28 |
+| `custom-patterns` | 28 |
+| `weak-crypto` | 15 |
+| `path-traversal` | 11 |
+| `hardcoded-ip` | 2 |
+
+By language tag (`rule.languages`) — untagged rules run against every file, so a Python
+file is matched by 8 + 62 = 70 rules:
+
+| Tag | Rules | Covers |
+|-----|-------|--------|
+| `python` | 8 | eval/exec/pickle, os.system(shell=True), verify=False, f-string SQL injection, yaml.load, hardcoded DB URIs, flask SECRET_KEY |
+| `powershell` | 7 | IEX, -SkipCertificateCheck, plaintext passwords, WebClient download-exec, Assembly::Load, Run-key persistence, ConvertFrom-SecureString |
+| `javascript` | 5 | child_process.exec, fs.writeFile(userInput), eval/new Function, crypto.createCipher weak algos, jwt.verify without algo whitelist |
+| `shell` | 5 | pipe-to-shell, eval "$(curl)", insecure /tmp, rm -rf /, chmod 777/666, URL-embedded credentials |
+| *(untagged / `any`)* | 62 | AWS/GitHub/OpenAI/SSH key patterns, JWT tokens, base64 blobs, entropy detection, security TODO/FIXME/HACK, disabled-security comments, hardcoded IPs, and the Go/Ruby/Java/PHP/Rust/C# traversal + weak-crypto sinks |
+
+Language is resolved from file extension, falling back to shebang.
+
+### 2. Built-in Scanner Engine (`src/core/builtin-scan.ts` — 468 lines)
 In-process scanner engine that runs alongside external binaries:
 - File extension + shebang language detection
 - Configurable caps: maxFileBytes (2MB), maxLineLength (2000), maxMatchesPerRulePerFile (5), maxFindings (2000)
-- Skip dirs: node_modules, .git, dist, vendor, .aegis
-- Shannon entropy gating (≥4.5 bits for secret patterns)
+- `SKIP_DIRS` — VCS metadata, virtualenvs, vendored code and build output (`.git`, `.hg`, `.svn`, `.aegis`, `.venv`, `venv`, `env`, `node_modules`, `bower_components`, `vendor`, `site-packages`, `__pycache__`, `.mypy_cache`, `.pytest_cache`, `.ruff_cache`, `.tox`, `dist`, `build`, `out`, `target`, `coverage`, `.next`, …)
+- `SKIP_EXTENSIONS` (binary/media/archive) and `SKIP_FILENAMES` (lockfiles: `package-lock.json`, `bun.lock`, `Cargo.lock`, `go.sum`, …)
+- Per-rule Shannon entropy gating — gates in use are 2.0, 2.2, 3.0, 3.5, 4.0 (×2) and 4.5; `entropyOverrides` in `aegis-rules.json` replaces the per-rule gate for a whole family
 - False-positive guards: test/fixture path exclusions, placeholder-value exclusion, secret-handling invariant (matched values never leave the module)
 
 ### 3. Rules Configuration (`aegis-rules.json` + `src/core/rules-config.ts`)
@@ -33,11 +55,18 @@ In-process scanner engine that runs alongside external binaries:
     "hardcoded-ip": { "enabled": false, "severity": "medium" },
     "weak-crypto": { "enabled": true, "severity": "high" }
   },
-  "exclude_paths": ["node_modules/**", ".git/**", "dist/**", "*.min.js", "vendor/**", ".aegis/**"]
+  "exclude_paths": [
+    "node_modules/**", ".git/**", ".opencode/**", "dist/**", "*.min.js", "vendor/**",
+    ".aegis/**", ".hermes/**", "src/**/*.test.ts", "docs/**", "tests/**", "scripts/**", "…"
+  ]
 }
 ```
 
-CLI flags: `--scanner-disable X,Y`, `--scanner-enable X,Y`, `--scanner-enable-all`
+The checked-in `aegis-rules.json` at the repo root carries a longer `exclude_paths` list —
+it is Aegis's own self-scan configuration, so it also excludes `src/core/patterns.ts`
+(the rule table matches itself) and the snapshot/fixture directories.
+
+CLI flags: `--scanners X,Y` (run only these), `--scanner-disable X,Y`, `--scanner-enable-all`
 
 ### 4. HTML Report Enhancement (`src/report/html.ts`)
 - Severity heatmap bar (CSS proportional colored segments)
@@ -63,7 +92,7 @@ All scanners flow through one unified `scanDirectory()` → `runScan()` → `com
 | Built-in scan | builtin-scan.test.ts (redaction assertions) |
 | External scanners | external-scanners.test.ts |
 | Existing tests | All 347 original tests maintained |
-| **Total** | **532 tests, 0 fail, 1313 expect() calls** |
+| **Total** | **676 tests, 0 fail, 1556 expect() calls, 15 snapshots, 35 files** |
 
 ## Security Invariant (Critical)
 Secret-handling invariant maintained end-to-end: matched values from regex captures NEVER appear in findings, reports, or logs. The built-in scanner tests explicitly assert this with a `never-copies-secret-value` integration test.
@@ -128,7 +157,7 @@ Accepted as calibrated; `minEntropy: 2.2` documented in place. Real passwords ar
 - `js-eval-on-runtime-value` and `js-document-write` skip empty argument lists: `eval()` / `document.write()` with no arguments is prose, and matching it turned rule titles and docs into findings.
 
 ### Verification
-- `bun test` → **667 pass, 0 fail** (was 578 before this phase).
+- `bun test` → **667 pass, 0 fail** at the close of this phase (was 578 before it). On `main` at `60d78eb` the suite is **676 pass, 0 fail** across 35 files.
 - `bun x tsc --noEmit` → clean. `bun run build` → clean.
 - Self-scan runs end to end, exit 2 / BLOCKED: `C:7 H:96 M:22 L:8 I:4` (baseline `C:7 H:92 M:22 L:6 I:3`). New SVG scanning and the disabled cache path do not crash the run. Part of the working-tree delta is semgrep no longer being served from a stale cache entry, and part is this phase's own test/doc text tripping the new detectors.
 - **A/B differential** (old and new binaries against one pristine HEAD worktree, identical input): `94 → 95` findings, the single delta being one `js-eval-on-runtime-value` hit. Every pre-existing finding still reports, CRITICAL count unchanged at 7 — the new detectors are strictly additive, and no rule lost coverage.

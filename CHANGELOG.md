@@ -7,9 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-26
+
+Multi-language built-in scanner engine + dual-purpose pivot. Aegis now carries its own
+detection engine: five in-process scanners match Python, PowerShell, Shell, JS/TS and
+language-agnostic sinks with no external binary on the box, so a scan degrades gracefully
+instead of going quiet when Semgrep or Trivy is missing. Scanner selection, severity and
+entropy gates move into a checked-in `aegis-rules.json`, letting a repo tune its own signal
+without forking rules. The HTML report gains a severity heatmap, per-scanner detail cards, a
+fix-guide column and dark mode. Suite is 676 tests, 0 fail, across 35 files.
+
 ### Added
 - **5 built-in in-process scanners** — `custom-patterns`, `gitleaks-replacement`, `path-traversal`, `hardcoded-ip`, `weak-crypto` — run regex-based matching directly with no external binary required, configurable per-scanner via `aegis-rules.json` or CLI flags
-- **200+ polyglot security patterns** across Python (28 rules: eval, pickle, os.system, verify=False, f-string SQLi), PowerShell (15 rules: IEX, SkipCertificateCheck, Assembly::Load), Shell/Bash (12 rules: pipe-to-shell, curl-pipe-sh, rm -rf /, chmod 777), JS/TS (14 rules: child_process.exec, eval, crypto.createCipher weak algos, jwt.verify no-algo), and generic (30+ rules: AWS/GitHub/OpenAI/SSH key patterns, JWT, base64, entropy-gated secrets)
+- **87 polyglot detection rules** (84 pattern rules + 3 path rules, 96 regexes) split across the five families — `gitleaks-replacement` (28), `custom-patterns` (28), `weak-crypto` (15), `path-traversal` (11), `hardcoded-ip` (2). Language-tagged for Python (eval, pickle, os.system, verify=False, f-string SQLi), PowerShell (IEX, SkipCertificateCheck, Assembly::Load), Shell/Bash (pipe-to-shell, curl-pipe-sh, rm -rf /, chmod 777) and JS/TS (child_process.exec, eval, crypto.createCipher weak algos, jwt.verify no-algo); the remaining 62 rules are language-agnostic and reach Go/Ruby/Java/PHP/Rust/C# sinks plus AWS/GitHub/OpenAI/SSH key shapes, JWT, base64 blobs and entropy-gated generic secrets
 - **Rules configuration** (`aegis-rules.json`) — per-scanner `enabled`, `severity`, `entropy_threshold`, plus global `exclude_paths`; CLI overrides `--scanner-disable X,Y` / `--scanners X,Y` / `--scanner-enable-all`
 - **Enhanced HTML report** (`src/report/html.ts`) — severity heatmap bar (CSS proportional segments), scanner detail cards (name, version, status, duration, finding count), fix guidance column (from `src/report/fix-guide.ts`), dark mode (`@media prefers-color-scheme: dark`)
 - **Headless `aegis scan` subcommand** — runs Semgrep + Trivy + TruffleHog against a target directory or git URL, returns unified SAFE | RISKY | BLOCKED verdict with exit codes 0/1/2/3
@@ -22,8 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Cron setup guide** (`docs/CRON.md`) — installation, configuration, notification hooks, log rotation, troubleshooting
 - **`getScannerVersionSafe`** in scanner.ts — safe version lookup for report metadata
 - **Hardened `runScannerWithTimeout`** — catches `Bun.spawn` failures on missing binaries → degraded (never SAFE-by-omission)
-- **`endLine` field on `SemgrepFinding`** — optional, backward-compatible
-- **676 tests, 0 fail** (1556 `expect()` calls), TypeScript 5.0+ strict-mode clean (`tsc --noEmit` passes)
+- **676 tests, 0 fail** across 35 files (1556 `expect()` calls, 15 snapshots), TypeScript 7 strict-mode clean (`tsc --noEmit` passes)
 
 ### Changed
 - `aegis-policy.json` — relaxed to permissive-by-default: `run_shell.default` → `"host"`, `edit_file.default` → `"allow"`, `host_passthrough` → `".*"`, trimmed `high_risk_patterns` to truly destructive commands only, disabled scanners
@@ -33,7 +42,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Plugin/hooks mode descoped — primary mode is headless scanner + cron
 - README restructured around two modes (AI-integrated scan + standalone cron) with tested quick-starts
 
-## [0.3.0] - 2026-05-09
+## [0.2.2] - 2026-05-09
+
+> Renumbered from `0.3.0`: this entry was never tagged or published (npm stops at `0.2.1`),
+> and `0.3.0` is now the 2026-07-26 scanner release above.
 
 ### Added
 - `NormalizedFinding` type for per-finding data in scanner events
