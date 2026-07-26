@@ -23,6 +23,7 @@ export type SemgrepFinding = {
   message: string;
   line: number;
   endLine?: number;
+  file?: string;
 };
 
 type SemgrepResult = {
@@ -57,6 +58,7 @@ export function parseSemgrepFindings(stdout: string): SemgrepFinding[] {
       message: result.extra?.message ?? "",
       line: result.start?.line ?? 0,
       endLine: result.end?.line,
+      ...(result.path ? { file: result.path } : {}),
     }));
 }
 
@@ -110,18 +112,21 @@ function mapTrivySeverity(severity: string): AegisEventSeverity {
 }
 
 export function semgrepToNormalized(findings: SemgrepFinding[], filePath: string): NormalizedFinding[] {
-  return findings.map((f) => ({
-    scanner: "semgrep" as const,
-    ruleId: `semgrep/${f.rule}`,
-    message: f.message,
-    severity: mapSemgrepSeverity(f.severity),
-    location: {
-      file: filePath,
-      startLine: f.line,
-      endLine: f.endLine,
-    },
-    fingerprint: computeFingerprint(["semgrep", `semgrep/${f.rule}`, filePath, String(f.line)]),
-  }));
+  return findings.map((f) => {
+    const file = f.file ?? filePath;
+    return {
+      scanner: "semgrep" as const,
+      ruleId: `semgrep/${f.rule}`,
+      message: f.message,
+      severity: mapSemgrepSeverity(f.severity),
+      location: {
+        file,
+        startLine: f.line,
+        endLine: f.endLine,
+      },
+      fingerprint: computeFingerprint(["semgrep", `semgrep/${f.rule}`, file, String(f.line)]),
+    };
+  });
 }
 
 export function trivyToNormalized(stdout: string, packageName: string): NormalizedFinding[] {
@@ -146,6 +151,67 @@ export function trivyToNormalized(stdout: string, packageName: string): Normaliz
         fingerprint: computeFingerprint(["trivy", ruleId, pkg]),
       });
     }
+  }
+  return findings;
+}
+
+// ---------------------------------------------------------------------------
+// TruffleHog normalizer
+// ---------------------------------------------------------------------------
+
+type TrufflehogResult = {
+  DetectorName?: string;
+  Verified?: boolean;
+  SourceMetadata?: {
+    Data?: {
+      Filesystem?: { file?: string; line?: number };
+      Git?: { file?: string; line?: number };
+    };
+  };
+};
+
+function extractTrufflehogLocation(result: TrufflehogResult): { file: string; line?: number } | null {
+  const data = result.SourceMetadata?.Data;
+  const source = data?.Filesystem ?? data?.Git;
+  if (!source?.file) return null;
+  return { file: source.file, line: typeof source.line === "number" ? source.line : undefined };
+}
+
+/**
+ * Parses TruffleHog `filesystem --json` NDJSON output into normalized findings.
+ * Verified secrets are CRITICAL; unverified pattern hits are HIGH.
+ * NEVER copies the raw secret value into the finding.
+ */
+export function trufflehogToNormalized(stdout: string): NormalizedFinding[] {
+  const findings: NormalizedFinding[] = [];
+  for (const line of stdout.split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed.length === 0) continue;
+
+    let result: TrufflehogResult;
+    try {
+      result = JSON.parse(trimmed) as TrufflehogResult;
+    } catch {
+      continue;
+    }
+    if (!result.DetectorName) continue;
+
+    const verified = result.Verified === true;
+    const detector = result.DetectorName;
+    const location = extractTrufflehogLocation(result);
+    const ruleId = `trufflehog/${detector}`;
+    const fingerprintParts = ["trufflehog", ruleId, location?.file ?? "", String(location?.line ?? 0), String(verified)];
+
+    findings.push({
+      scanner: "trufflehog" as const,
+      ruleId,
+      message: `${verified ? "Verified" : "Unverified"} secret detected: ${detector}`,
+      severity: verified ? "critical" : "high",
+      ...(location
+        ? { location: { file: location.file, ...(location.line != null ? { startLine: location.line } : {}) } }
+        : {}),
+      fingerprint: computeFingerprint(fingerprintParts),
+    });
   }
   return findings;
 }

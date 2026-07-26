@@ -1,0 +1,2 @@
+# Aegis nightly full scan  —  02:30
+30 2 * * *  /path/to/deploy/cron/aegis-scan.sh --config ~/.aegis/targets.conf

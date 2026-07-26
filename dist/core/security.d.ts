@@ -11,10 +11,17 @@ export type SemgrepFinding = {
     message: string;
     line: number;
     endLine?: number;
+    file?: string;
 };
 export declare function parseSemgrepFindings(stdout: string): SemgrepFinding[];
 export declare function semgrepToNormalized(findings: SemgrepFinding[], filePath: string): NormalizedFinding[];
 export declare function trivyToNormalized(stdout: string, packageName: string): NormalizedFinding[];
+/**
+ * Parses TruffleHog `filesystem --json` NDJSON output into normalized findings.
+ * Verified secrets are CRITICAL; unverified pattern hits are HIGH.
+ * NEVER copies the raw secret value into the finding.
+ */
+export declare function trufflehogToNormalized(stdout: string): NormalizedFinding[];
 export declare const DEFAULT_SENSITIVE_VARS: string[];
 /**
  * Returns the first high-risk pattern that matches the command (case-insensitive),

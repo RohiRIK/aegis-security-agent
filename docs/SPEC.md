@@ -1,12 +1,20 @@
 # SPEC: Magnificent AI-Agent Aegis Security
 
-**Version:** 1.0.0  
-**Date:** 2026-04-29  
-**Status:** APPROVED FOR IMPLEMENTATION  
-**Author:** MATISSE (synthesized from Librarian, Oracle ×8, Momus)  
-**Platform:** Claude Code (primary); OpenCode/Pi.dev in §16 only  
+**Version:** 1.0.0  \
+**Date:** 2026-04-29  \
+**Status:** SUPERSEDED IN PART (see §18)  \
+**Author:** MATISSE (synthesized from Librarian, Oracle ×8, Momus)  \
+**Platform:** Claude Code (primary); OpenCode/Pi.dev in §16 only
 
 ---
+
+> **Note — Dual-Purpose Pivot (July 2026):** This spec describes the original Aegis vision
+> (Claude Code hooks, Varlock, lean-ctx, Docker sandbox). The actual implementation has
+> evolved into a **dual-purpose security scanner** that also ships an `aegis scan` CLI with
+> built-in multi-language regex scanners, configurable via `aegis-rules.json`. The
+> original agent-security controls (§1–§17) remain relevant for the plugin path; the
+> scanner pipeline additions are documented in §18. See also `docs/MEGA-EXPANSION.md`
+> for a full technical summary of the pivoted implementation.
 
 ## 1. Executive Summary & Vision
 
@@ -1159,12 +1167,89 @@ For local model use, OpenCode and Pi are the appropriate platforms (per oracle-0
 | **SAST** | Static Application Security Testing. Code analysis without execution. |
 | **SCA** | Software Composition Analysis. Dependency vulnerability scanning. |
 | **NDJSON** | Newline-Delimited JSON. Log format used by `.aegis/audit.log`. |
-| **[PHASE-2]** | Feature deferred to Phase 2. Not required for MVP. |
-| **[OPEN]** | Open question or unresolved risk. Must be resolved before production use. |
-| **[ASSUMPTION]** | An assumption made in this spec that must be verified during implementation. |
+|| **[PHASE-2]** | Feature deferred to Phase 2. Not required for MVP. |
+|| **[OPEN]** | Open question or unresolved risk. Must be resolved before production use. |
+|| **[ASSUMPTION]** | An assumption made in this spec that must be verified during implementation. |
 
 ---
 
-*End of SPEC.md — Version 1.0.0*  
-*Sources: oracle-01 through oracle-08, momus-critique, 00-librarian-index*  
+## 18. Appendix: Built-in Scanner Pipeline (Dual-Purpose Pivot)
+
+*Added 2026-07-25 — supersedes §7 architecture diagram with the pivoted scanner pipeline.*
+
+### 18.1 Architecture
+
+The pivoted `aegis scan` runs three categories of scanners against a target directory, all funneling into one unified verdict:
+
+```mermaid
+flowchart TD
+    A[Target Dir] --> B{scanDirectory}
+    B --> C1[Semgrep]
+    B --> C2[Trivy]
+    B --> C3[TruffleHog]
+    B --> D1[Built-in: custom-patterns]
+    B --> D2[Built-in: gitleaks-replacement]
+    B --> D3[Built-in: path-traversal]
+    B --> D4[Built-in: hardcoded-ip]
+    B --> D5[Built-in: weak-crypto]
+    B --> E1[Gitleaks]
+    B --> E2[njsscan]
+    C1 & C2 & C3 & D1 & D2 & D3 & D4 & D5 & E1 & E2 --> F[tallySeverities → computeVerdict]
+    F --> G[SAFE / RISKY / BLOCKED]
+    F --> H[report.html: heatmap + scanner cards + fix guide + dark mode]
+    F --> I[report.sarif]
+    F --> J[verdict.json]
+```
+
+### 18.2 Scanner Categories
+
+| Category | Scanners | Always Runs? | Dependency |
+|---|---|---|---|
+| **External (always)** | Semgrep, Trivy, TruffleHog | Yes | Binary on `PATH` (degraded if missing) |
+| **Built-in (in-process)** | custom-patterns, gitleaks-replacement, path-traversal, hardcoded-ip, weak-crypto | Yes (configurable via `aegis-rules.json` or CLI flags) | None (in-process regex) |
+| **External (optional)** | Gitleaks, njsscan | Only if binary found on `PATH` | Binary on `PATH` (skipped if missing, never degrades) |
+
+### 18.3 Built-in Scanner Details
+
+| Scanner | Language Focus | Rule Count | Key Patterns |
+|---|---|---|---|
+| `custom-patterns` | Python, JS/TS, Shell, PowerShell, generic | 30+ | eval/exec/pickle, os.system/shell=True, verify=False, f-string SQLi, yaml.load, IEX, pipe-to-shell, curl-pipe-to-shell, child_process.exec, jwt.verify no-algo, crypto.createCipher weak algos |
+| `gitleaks-replacement` | Generic (entropy-gated) | Entropy ≥4.5 bits | AWS keys, GitHub tokens, OpenAI keys, SSH keys, JWT, base64 blobs, hardcoded IPs |
+| `path-traversal` | Generic | ~5 | Open/read/write with user-controlled paths, zip slip |
+| `hardcoded-ip` | Generic | 1 | Bare IPv4 addresses outside comments/strings |
+| `weak-crypto` | Generic | ~10 | MD5/SHA1, ECB mode, fixed IVs, `crypto.createHash` without algorithm spec |
+
+**Security invariant (critical):** Matched values from regex captures NEVER appear in findings, reports, or logs. The built-in scanner tests assert this with a dedicated integration test.
+
+### 18.4 Configuration
+
+Scanner behaviour is controlled by three layers (precedence order):
+
+1. **CLI flags:** `--scanner-disable X,Y` | `--scanners X,Y` | `--scanner-enable-all`
+2. **`aegis-rules.json`:** per-scanner `enabled`, `severity`, `entropy_threshold`, and global `exclude_paths`
+3. **Built-in defaults:** all enabled, default severities per rule
+
+CLI beat file so an operator can always override a checked-in config without editing the repo.
+
+### 18.5 Key Files
+
+| File | Lines | Purpose |
+|---|---|---|
+| `src/core/patterns.ts` | 901 | Rule definitions by language family + scanner family |
+| `src/core/builtin-scan.ts` | 409 | File walk, language detection, match engine, entropy gating |
+| `src/core/rules-config.ts` | 137 | `aegis-rules.json` parser + `ScannerSelection` resolution |
+| `src/core/external-scanners.ts` | — | Gitleaks + njsscan adapter |
+| `src/report/html.ts` | — | Enhanced HTML: heatmap, scanner cards, fix guide, dark mode |
+| `src/report/fix-guide.ts` | 145 | Remediation recommendations per finding type |
+
+### 18.6 Test Growth
+
+- **Baseline:** 347 tests
+- **Final:** 532 tests (+185), 1313 `expect()` calls
+- **New test files:** `patterns.test.ts`, `builtin-scan.test.ts`, `external-scanners.test.ts`
+
+---
+
+*End of SPEC.md — Version 1.0.0*  \
+*Sources: oracle-01 through oracle-08, momus-critique, 00-librarian-index*  \
 *All Momus directives applied. Zero overrides.*

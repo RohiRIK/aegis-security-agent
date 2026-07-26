@@ -76,6 +76,7 @@ function buildRules(findings: NormalizedFinding[]): SarifReportingDescriptor[] {
         id: f.ruleId,
         shortDescription: { text: f.message },
         defaultConfiguration: { level: aegisSeverityToSarifLevel(f.severity) },
+        ...(f.fix ? { help: { text: f.fix } } : {}),
       });
     }
   }
@@ -95,15 +96,17 @@ function buildInvocations(events: AegisEvent[]): SarifInvocation[] | undefined {
   ];
 }
 
-export function eventsToSarif(events: AegisEvent[], packageVersion: string): SarifLog {
-  const allFindings: NormalizedFinding[] = [];
-  for (const event of events) {
-    allFindings.push(...extractFindings(event));
-  }
-
-  const results = allFindings.map(findingToResult);
-  const rules = buildRules(allFindings);
-  const invocations = buildInvocations(events);
+/**
+ * Builds a SARIF log directly from normalized findings (headless scan path).
+ * `eventsToSarif` delegates here after flattening events → findings.
+ */
+export function findingsToSarif(
+  findings: NormalizedFinding[],
+  packageVersion: string,
+  invocations?: SarifInvocation[],
+): SarifLog {
+  const results = findings.map(findingToResult);
+  const rules = buildRules(findings);
 
   return {
     $schema: SARIF_SCHEMA,
@@ -123,4 +126,13 @@ export function eventsToSarif(events: AegisEvent[], packageVersion: string): Sar
       },
     ],
   };
+}
+
+export function eventsToSarif(events: AegisEvent[], packageVersion: string): SarifLog {
+  const allFindings: NormalizedFinding[] = [];
+  for (const event of events) {
+    allFindings.push(...extractFindings(event));
+  }
+
+  return findingsToSarif(allFindings, packageVersion, buildInvocations(events));
 }

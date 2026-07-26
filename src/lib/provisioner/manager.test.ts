@@ -52,10 +52,14 @@ async function createExecutable(filePath: string, contents = "#!/bin/sh\nexit 0\
 
 beforeEach(async () => {
   _resetAutoUpdateCache();
+  // Hermetic: force auto-update ON so tests never depend on the real
+  // aegis-policy.json (which may set tools.auto_update:false).
+  manager._setAutoUpdateOverride(true);
   process.env.AEGIS_TOOLS_DIR = await mkdtemp(join(tmpdir(), "aegis-provisioner-"));
 });
 
 afterEach(async () => {
+  manager._setAutoUpdateOverride(undefined);
   mock.restore();
 
   if (process.env.AEGIS_TOOLS_DIR) {

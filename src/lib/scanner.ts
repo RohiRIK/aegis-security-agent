@@ -7,6 +7,8 @@ import {
   computeCacheKey,
   computeScopeHash,
   getCacheTtl,
+  isCacheableScanner,
+  purgeUncacheableEntries,
   readCacheEntry,
   shouldSkipCache,
   writeCacheEntry,
@@ -42,33 +44,33 @@ export const SCANNER_BUDGETS = {
 
 export async function runScannerWithTimeout(argv: string[], budgetMs: number): Promise<ScannerResult> {
   const startedAt = performance.now();
-  const proc = Bun.spawn(argv, {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-
-  const timeout = new Promise<{ status: "timeout" }>((resolve) => {
-    setTimeout(() => resolve({ status: "timeout" }), budgetMs);
-  });
-
-  const completion = proc.exited.then((exitCode) => ({ status: "completed" as const, exitCode }));
-  const outcome = await Promise.race([completion, timeout]);
-
-  if (outcome.status === "timeout") {
-    proc.kill();
-    return {
-      status: "timeout",
-      exitCode: -1,
-      stdout: "",
-      stderr: "",
-      degraded: true,
-      durationMs: budgetMs,
-    };
-  }
-
-  const durationMs = performance.now() - startedAt;
 
   try {
+    const proc = Bun.spawn(argv, {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    const timeout = new Promise<{ status: "timeout" }>((resolve) => {
+      setTimeout(() => resolve({ status: "timeout" }), budgetMs);
+    });
+
+    const completion = proc.exited.then((exitCode) => ({ status: "completed" as const, exitCode }));
+    const outcome = await Promise.race([completion, timeout]);
+
+    if (outcome.status === "timeout") {
+      proc.kill();
+      return {
+        status: "timeout",
+        exitCode: -1,
+        stdout: "",
+        stderr: "",
+        degraded: true,
+        durationMs: budgetMs,
+      };
+    }
+
+    const durationMs = performance.now() - startedAt;
     const [stdout, stderr] = await Promise.all([
       new Response(proc.stdout).text(),
       new Response(proc.stderr).text(),
@@ -83,13 +85,15 @@ export async function runScannerWithTimeout(argv: string[], budgetMs: number): P
       durationMs,
     };
   } catch (error) {
+    // Binary not found, not executable, or stream read failure — degrade
+    // instead of throwing so a missing scanner never aborts the whole scan.
     return {
       status: "error",
-      exitCode: outcome.exitCode,
+      exitCode: -1,
       stdout: "",
       stderr: error instanceof Error ? error.message : String(error),
-      degraded: false,
-      durationMs,
+      degraded: true,
+      durationMs: performance.now() - startedAt,
     };
   }
 }
@@ -99,7 +103,30 @@ export const scannerRunner = {
   getScannerVersion,
 };
 
+/** Best-effort scanner version for reporting; returns "unknown" when unavailable. */
+export async function getScannerVersionSafe(scanner: string): Promise<string> {
+  return getScannerVersion(scanner);
+}
+
 const versionCache = new Map<string, string>();
+
+/**
+ * Reduces a `--version` banner to a single version token.
+ * Trivy prints a multi-line block (`Version: 0.70.0\nVulnerability DB:\n ...`)
+ * and TruffleHog prefixes its own name; taking raw stdout put the whole banner
+ * into the report's Version column.
+ */
+export function normalizeVersionOutput(raw: string): string {
+  const firstLine = raw
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) => line.length > 0);
+  if (!firstLine) return "unknown";
+  // Prefer the first dotted-numeric token — that survives every banner shape
+  // ("Version: 0.70.0", "trufflehog 3.96.0", "gitleaks version 8.18.0").
+  const version = firstLine.match(/\bv?(\d+\.\d+(?:\.\d+)?(?:[-+][\w.]+)?)/);
+  return version?.[1] ?? firstLine;
+}
 
 async function getScannerVersion(scanner: string): Promise<string> {
   const cached = versionCache.get(scanner);
@@ -111,7 +138,7 @@ async function getScannerVersion(scanner: string): Promise<string> {
     const proc = Bun.spawn([await resolveScanner(scanner), "--version"], { stdout: "pipe", stderr: "pipe" });
     const exitCode = await proc.exited;
     if (exitCode === 0) {
-      const version = (await new Response(proc.stdout).text()).trim();
+      const version = normalizeVersionOutput(await new Response(proc.stdout).text());
       versionCache.set(scanner, version);
       return version;
     }
@@ -136,11 +163,28 @@ async function getMtimeMs(filePath: string): Promise<number> {
   }
 }
 
+/** Cache entries from before the allowlist are cleared once per process. */
+let legacyCachePurged = false;
+
+async function purgeLegacyCacheOnce(): Promise<void> {
+  if (legacyCachePurged) return;
+  legacyCachePurged = true;
+  await purgeUncacheableEntries(join(process.cwd(), CACHE_DIR));
+}
+
 async function readScannerCache(
   scanner: string,
   config: string,
   scopePaths: string[],
 ): Promise<{ key: string; cached: ScannerResult | null }> {
+  await purgeLegacyCacheOnce();
+
+  // A scanner that may not be written must also never be *read*: entries left
+  // by an earlier build would otherwise keep serving raw stdout from disk.
+  if (!isCacheableScanner(scanner)) {
+    return { key: "", cached: null };
+  }
+
   const mtimes = await Promise.all(scopePaths.map((filePath) => getMtimeMs(filePath)));
   const scopeHash = computeScopeHash(scopePaths, mtimes);
   const version = await scannerRunner.getScannerVersion(scanner);
@@ -162,7 +206,7 @@ async function readScannerCache(
 }
 
 async function writeScannerCache(scanner: string, key: string, result: ScannerResult): Promise<void> {
-  if (shouldSkipCache(result)) {
+  if (shouldSkipCache(result, scanner)) {
     return;
   }
 
@@ -205,18 +249,13 @@ export async function wrapTrivy(args: string[]): Promise<ScannerResult> {
 }
 
 export async function wrapTrufflehog(targetPath: string): Promise<ScannerResult> {
-  const config = "--json|filesystem";
-  const { key, cached } = await readScannerCache("trufflehog", config, [targetPath]);
-
-  if (cached) {
-    return cached;
-  }
-
-  const result = await scannerRunner.runScannerWithTimeout(
+  // SECRETS SCANNER — never cache. TruffleHog's `--json` output embeds the
+  // plaintext secret value (Raw/RawV2 fields). Persisting raw stdout to
+  // .aegis/scan-cache would write real secrets to disk, violating the
+  // no-secret-persistence directive. Only normalized findings (secret stripped)
+  // may be stored; the raw stdout stays in memory for the life of the scan.
+  return scannerRunner.runScannerWithTimeout(
     [await resolveScanner("trufflehog"), "filesystem", "--json", targetPath],
     SCANNER_BUDGETS.trufflehog,
   );
-
-  await writeScannerCache("trufflehog", key, result);
-  return result;
 }

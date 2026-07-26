@@ -7,9 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Headless `aegis scan` subcommand** — runs Semgrep + Trivy + TruffleHog against a target directory or git URL, returns unified SAFE | RISKY | BLOCKED verdict with exit codes 0/1/2/3
+- **HTML report renderer** (`src/report/html.ts`) — self-contained, XSS-escaped, zero-dependency HTML reports with severity summary table and findings detail
+- **Catalog writer** (`src/report/catalog.ts`) — writes `report.html`, `report.sarif`, and `verdict.json` under `~/.aegis/<Repo>/<YYYY-MM-DD>/<verdict>/`; `AEGIS_HOME` env override
+- **TruffleHog normalizer** (`trufflehogToNormalized` in `src/core/security.ts`) — secrets findings now reach SARIF/catalog alongside SAST and CVE results
+- **Verdict computation** (`src/core/verdict.ts`) — `computeVerdict()`, `tallySeverities()`, exit-code mapping
+- **SARIF builder extraction** (`findingsToSarif` in `src/sarif/builder.ts`) — `eventsToSarif` now delegates to it (behavior-preserving)
+- **Git URL scanning** with safety gates — shallow clone (`--depth 1`) into 0700 temp dir, `--allow-untrusted` required, `--branch`/`--subpath`/`--max-repo-size-mb` (default 2048 MB), `finally` cleanup + >24h orphan cleanup
+- **Cron automation scripts** (`deploy/cron/aegis-scan.sh`, `crontab.sample`, `targets.conf.sample`) — OS cron wrapper with POSIX `flock` overlap protection, repeatable `--target` or `--config` file, logs to `~/.aegis/cron.log`
+- **Cron setup guide** (`docs/CRON.md`) — installation, configuration, notification hooks, log rotation, troubleshooting
+- **`getScannerVersionSafe`** in scanner.ts — safe version lookup for report metadata
+- **Hardened `runScannerWithTimeout`** — catches `Bun.spawn` failures on missing binaries → degraded (never SAFE-by-omission)
+- **`endLine` field on `SemgrepFinding`** — optional, backward-compatible
+
 ### Changed
 - `aegis-policy.json` — relaxed to permissive-by-default: `run_shell.default` → `"host"`, `edit_file.default` → `"allow"`, `host_passthrough` → `".*"`, trimmed `high_risk_patterns` to truly destructive commands only, disabled scanners
 - `.gitignore` — added `graphify-out/` (Graphify knowledge graph output) and Python artifact patterns
+- `ensureLatest` test now hermetic (`_readAutoUpdatePolicy`/`_setAutoUpdateOverride` in manager.ts) — full suite 0 fail
+- Policy is permissive-by-default since commit 6f26a17 — `routing.sandbox_required` and `degraded_mode` are legacy/inert
+- Plugin/hooks mode descoped — primary mode is headless scanner + cron
+- README restructured around two modes (AI-integrated scan + standalone cron) with tested quick-starts
 
 ## [0.3.0] - 2026-05-09
 

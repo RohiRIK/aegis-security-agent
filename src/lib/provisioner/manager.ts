@@ -241,7 +241,13 @@ export function _resetAutoUpdateCache(): void {
   checkedThisSession.clear();
 }
 
-function isAutoUpdateEnabled(): boolean {
+/**
+ * Reads the auto-update flag from the policy file. Extracted as an exported,
+ * overridable seam so tests can stub the policy read instead of depending on
+ * the real `aegis-policy.json` (which may set `tools.auto_update:false`).
+ * Default-on when the file is missing/unparseable.
+ */
+export function _readAutoUpdatePolicy(): boolean {
   try {
     const policyPath = join(resolve(import.meta.dirname, "../../.."), "aegis-policy.json");
     const policy = JSON.parse(readFileSync(policyPath, "utf-8")) as {
@@ -251,6 +257,17 @@ function isAutoUpdateEnabled(): boolean {
   } catch {
     return true;
   }
+}
+
+let autoUpdateOverride: boolean | undefined;
+
+/** Test-only: force the auto-update flag (pass undefined to restore real read). */
+export function _setAutoUpdateOverride(value: boolean | undefined): void {
+  autoUpdateOverride = value;
+}
+
+function isAutoUpdateEnabled(): boolean {
+  return autoUpdateOverride ?? _readAutoUpdatePolicy();
 }
 
 export async function ensureLatest(scanner: ScannerName): Promise<void> {

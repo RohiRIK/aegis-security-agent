@@ -22,6 +22,7 @@ aegis-security-agent/
 │   └── aegis.ts                 ← CLI shim (Bun shebang, published)
 ├── scanners-manifest.json       ← scanner version + download URLs (published)
 ├── aegis-policy.json            ← default policy template (published)
+├── aegis-rules.json             ← built-in scanner config (published, see §10)
 ├── docs/agents/aegis.md         ← @aegis agent definition (published)
 ├── docs/skills/                 ← security guidance skills (published, full directories)
 │   ├── AgentTrustBoundaries/
@@ -87,6 +88,11 @@ These are security scanners that Aegis provisions into `~/.aegis/bin/` or the sy
 ---
 
 ## 4. Scanner Tools — Install, Location, Version Pinning
+
+> **Built-in scanners:** In addition to the external tools listed below, Aegis ships 5
+> **in-process regex scanners** (custom-patterns, gitleaks-replacement, path-traversal,
+> hardcoded-ip, weak-crypto) that require no binary installation. They run as part of
+> `aegis scan` and are configurable via `aegis-rules.json`. See [README.md](../README.md#multi-language-built-in-scanners).
 
 ### 4.1 `scanners-manifest.json`
 
@@ -345,6 +351,11 @@ Each tool call
 ## 10. `aegis-policy.json` Schema
 
 Every field, what it controls, and which enforcement layer reads it.
+
+> **Note:** `aegis-policy.json` governs the AI-agent plugin/hook security policy (permissions, sandbox routing, high-risk patterns).
+> A separate config file — **`aegis-rules.json`** — governs built-in scanner behaviour
+> (enable/disable scanners, severity overrides, entropy thresholds, exclude paths).
+> See [`README.md`](../README.md#rules-configuration-aegis-rulesjson) for its schema.
 
 ```jsonc
 {

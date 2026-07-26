@@ -40,7 +40,7 @@ var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
 
 // src/lib/provisioner/downloader.ts
 import crypto4 from "crypto";
-import { chmod, mkdir, readdir, rename, rm, stat } from "fs/promises";
+import { chmod as chmod2, mkdir, readdir as readdir2, rename, rm, stat } from "fs/promises";
 import { basename as basename2, join as join2 } from "path";
 function getToken(explicitToken) {
   return explicitToken?.trim() || process.env.GITHUB_TOKEN?.trim() || process.env.GH_TOKEN?.trim();
@@ -66,7 +66,7 @@ async function ensureNoActiveTempFile(tempPath) {
   }
 }
 async function findBinary(extractDir, binaryName) {
-  const entries = await readdir(extractDir, { recursive: true, withFileTypes: true });
+  const entries = await readdir2(extractDir, { recursive: true, withFileTypes: true });
   for (const entry of entries) {
     if (!entry.isFile() || basename2(entry.name) !== binaryName) {
       continue;
@@ -103,7 +103,7 @@ async function extractTarGz(archivePath, extractDir) {
   if (exitCode !== 0) {
     throw new Error((await new Response(proc.stderr).text()).trim() || `tar exited with code ${exitCode}`);
   }
-  const entries = await readdir(extractDir, { recursive: true, withFileTypes: true });
+  const entries = await readdir2(extractDir, { recursive: true, withFileTypes: true });
   return entries.filter((entry) => entry.isFile()).map((entry) => entry.name);
 }
 async function atomicDownload(url, destDir, binaryName, expectedSha256) {
@@ -133,7 +133,7 @@ async function atomicDownload(url, destDir, binaryName, expectedSha256) {
     } else {
       await rename(tempPath, finalPath);
     }
-    await chmod(finalPath, 493);
+    await chmod2(finalPath, 493);
     return { success: true, toolPath: finalPath };
   } catch (error) {
     if (error instanceof ActiveProvisioningError) {
@@ -208,10 +208,25 @@ function getToolPath(scanner, version, platform) {
 var init_platform = () => {};
 
 // src/lib/provisioner/registry.ts
-import { readFileSync } from "fs";
-import { join as join4 } from "path";
+import { existsSync, readFileSync } from "fs";
+import { dirname as dirname2, join as join4 } from "path";
+function resolveManifestPath() {
+  if (manifestPathCache)
+    return manifestPathCache;
+  let dir = import.meta.dir;
+  for (let i = 0;i < 8; i++) {
+    const candidate = join4(dir, "scanners-manifest.json");
+    if (existsSync(candidate))
+      return manifestPathCache = candidate;
+    const parent = dirname2(dir);
+    if (parent === dir)
+      break;
+    dir = parent;
+  }
+  throw new Error(`scanners-manifest.json not found (searched upward from ${import.meta.dir})`);
+}
 function loadManifest() {
-  return JSON.parse(readFileSync(MANIFEST_PATH, "utf8"));
+  return JSON.parse(readFileSync(resolveManifestPath(), "utf8"));
 }
 function resolveToolEntry(manifest, scanner, platform) {
   const entry = manifest.scanners[scanner];
@@ -234,10 +249,8 @@ function getExpectedVersion(manifest, scanner) {
   }
   return entry.version;
 }
-var MANIFEST_PATH;
-var init_registry = __esm(() => {
-  MANIFEST_PATH = join4(import.meta.dir, "../../../scanners-manifest.json");
-});
+var manifestPathCache = null;
+var init_registry = () => {};
 
 // src/lib/provisioner/semgrep.ts
 async function readStreamText(stream) {
@@ -328,9 +341,11 @@ __export(exports_manager, {
   installTool: () => installTool,
   getToolStatus: () => getToolStatus,
   ensureLatest: () => ensureLatest,
-  _resetAutoUpdateCache: () => _resetAutoUpdateCache
+  _setAutoUpdateOverride: () => _setAutoUpdateOverride,
+  _resetAutoUpdateCache: () => _resetAutoUpdateCache,
+  _readAutoUpdatePolicy: () => _readAutoUpdatePolicy
 });
-import { existsSync, readFileSync as readFileSync2 } from "fs";
+import { existsSync as existsSync2, readFileSync as readFileSync2 } from "fs";
 import { rm as rm2 } from "fs/promises";
 import { join as join6, resolve } from "path";
 async function readStreamText2(stream) {
@@ -404,7 +419,7 @@ async function getToolStatus(scanner) {
     throw new Error(`Expected binary manifest entry for ${scanner}`);
   }
   const provisionedPath = join6(getToolPath(scanner, expectedVersion, platform), resolvedEntry.binaryName);
-  if (existsSync(provisionedPath)) {
+  if (existsSync2(provisionedPath)) {
     const version = await getCommandVersion(provisionedPath);
     return {
       name: scanner,
@@ -504,7 +519,7 @@ async function listTools() {
 }
 function resolveToolPath(scanner) {
   const provisionedPath = getProvisionedBinaryPath(scanner);
-  if (provisionedPath && existsSync(provisionedPath)) {
+  if (provisionedPath && existsSync2(provisionedPath)) {
     return provisionedPath;
   }
   return Bun.which(scanner) ?? null;
@@ -512,7 +527,7 @@ function resolveToolPath(scanner) {
 function _resetAutoUpdateCache() {
   checkedThisSession.clear();
 }
-function isAutoUpdateEnabled() {
+function _readAutoUpdatePolicy() {
   try {
     const policyPath = join6(resolve(import.meta.dirname, "../../.."), "aegis-policy.json");
     const policy = JSON.parse(readFileSync2(policyPath, "utf-8"));
@@ -520,6 +535,12 @@ function isAutoUpdateEnabled() {
   } catch {
     return true;
   }
+}
+function _setAutoUpdateOverride(value) {
+  autoUpdateOverride = value;
+}
+function isAutoUpdateEnabled() {
+  return autoUpdateOverride ?? _readAutoUpdatePolicy();
 }
 async function ensureLatest(scanner) {
   if (checkedThisSession.has(scanner)) {
@@ -537,7 +558,7 @@ async function ensureLatest(scanner) {
     await installTool(scanner);
   } catch {}
 }
-var versionCache, checkedThisSession;
+var versionCache, checkedThisSession, autoUpdateOverride;
 var init_manager = __esm(() => {
   init_downloader();
   init_platform();
@@ -566,7 +587,8 @@ function parseSemgrepFindings(stdout) {
     severity: result.extra?.severity ?? "ERROR",
     message: result.extra?.message ?? "",
     line: result.start?.line ?? 0,
-    endLine: result.end?.line
+    endLine: result.end?.line,
+    ...result.path ? { file: result.path } : {}
   }));
 }
 function computeFingerprint(parts) {
@@ -585,18 +607,21 @@ function mapSemgrepSeverity(severity) {
   }
 }
 function semgrepToNormalized(findings, filePath) {
-  return findings.map((f) => ({
-    scanner: "semgrep",
-    ruleId: `semgrep/${f.rule}`,
-    message: f.message,
-    severity: mapSemgrepSeverity(f.severity),
-    location: {
-      file: filePath,
-      startLine: f.line,
-      endLine: f.endLine
-    },
-    fingerprint: computeFingerprint(["semgrep", `semgrep/${f.rule}`, filePath, String(f.line)])
-  }));
+  return findings.map((f) => {
+    const file = f.file ?? filePath;
+    return {
+      scanner: "semgrep",
+      ruleId: `semgrep/${f.rule}`,
+      message: f.message,
+      severity: mapSemgrepSeverity(f.severity),
+      location: {
+        file,
+        startLine: f.line,
+        endLine: f.endLine
+      },
+      fingerprint: computeFingerprint(["semgrep", `semgrep/${f.rule}`, file, String(f.line)])
+    };
+  });
 }
 var DEFAULT_SENSITIVE_VARS = [
   "AWS_SECRET_ACCESS_KEY",
@@ -697,6 +722,7 @@ import { join as join7 } from "path";
 // src/lib/scan-cache.ts
 import crypto3 from "crypto";
 import { join } from "path";
+import { chmod, readdir, unlink } from "fs/promises";
 
 // src/lib/base.ts
 import { appendFileSync } from "fs";
@@ -789,13 +815,44 @@ async function readCacheEntry(cacheDir, key) {
 }
 async function writeCacheEntry(cacheDir, entry) {
   await ensureDir(cacheDir);
-  await Bun.write(join(cacheDir, `${entry.key}.json`), JSON.stringify(entry));
+  await chmod(cacheDir, 448).catch(() => {});
+  const filePath = join(cacheDir, `${entry.key}.json`);
+  await Bun.write(filePath, JSON.stringify(entry));
+  await chmod(filePath, 384).catch(() => {});
 }
-function shouldSkipCache(result) {
+var CACHEABLE_SCANNERS = new Set;
+function isCacheableScanner(scanner) {
+  return CACHEABLE_SCANNERS.has(scanner);
+}
+function shouldSkipCache(result, scanner) {
+  if (scanner === undefined || !isCacheableScanner(scanner)) {
+    return true;
+  }
   if (result.status !== "ok") {
     return true;
   }
   return result.stdout.includes("CRITICAL");
+}
+async function purgeUncacheableEntries(cacheDir) {
+  if (CACHEABLE_SCANNERS.size > 0) {
+    return 0;
+  }
+  let names;
+  try {
+    names = await readdir(cacheDir);
+  } catch {
+    return 0;
+  }
+  let removed = 0;
+  for (const name of names) {
+    if (!name.endsWith(".json"))
+      continue;
+    try {
+      await unlink(join(cacheDir, name));
+      removed += 1;
+    } catch {}
+  }
+  return removed;
 }
 function getCacheTtl(scanner) {
   return CACHE_TTLS[scanner] ?? 600000;
@@ -818,28 +875,28 @@ var SCANNER_BUDGETS = {
 };
 async function runScannerWithTimeout(argv, budgetMs) {
   const startedAt = performance.now();
-  const proc = Bun.spawn(argv, {
-    stdout: "pipe",
-    stderr: "pipe"
-  });
-  const timeout = new Promise((resolve2) => {
-    setTimeout(() => resolve2({ status: "timeout" }), budgetMs);
-  });
-  const completion = proc.exited.then((exitCode) => ({ status: "completed", exitCode }));
-  const outcome = await Promise.race([completion, timeout]);
-  if (outcome.status === "timeout") {
-    proc.kill();
-    return {
-      status: "timeout",
-      exitCode: -1,
-      stdout: "",
-      stderr: "",
-      degraded: true,
-      durationMs: budgetMs
-    };
-  }
-  const durationMs = performance.now() - startedAt;
   try {
+    const proc = Bun.spawn(argv, {
+      stdout: "pipe",
+      stderr: "pipe"
+    });
+    const timeout = new Promise((resolve2) => {
+      setTimeout(() => resolve2({ status: "timeout" }), budgetMs);
+    });
+    const completion = proc.exited.then((exitCode) => ({ status: "completed", exitCode }));
+    const outcome = await Promise.race([completion, timeout]);
+    if (outcome.status === "timeout") {
+      proc.kill();
+      return {
+        status: "timeout",
+        exitCode: -1,
+        stdout: "",
+        stderr: "",
+        degraded: true,
+        durationMs: budgetMs
+      };
+    }
+    const durationMs = performance.now() - startedAt;
     const [stdout, stderr] = await Promise.all([
       new Response(proc.stdout).text(),
       new Response(proc.stderr).text()
@@ -855,11 +912,11 @@ async function runScannerWithTimeout(argv, budgetMs) {
   } catch (error) {
     return {
       status: "error",
-      exitCode: outcome.exitCode,
+      exitCode: -1,
       stdout: "",
       stderr: error instanceof Error ? error.message : String(error),
-      degraded: false,
-      durationMs
+      degraded: true,
+      durationMs: performance.now() - startedAt
     };
   }
 }
@@ -868,6 +925,14 @@ var scannerRunner = {
   getScannerVersion
 };
 var versionCache2 = new Map;
+function normalizeVersionOutput(raw) {
+  const firstLine = raw.split(`
+`).map((line) => line.trim()).find((line) => line.length > 0);
+  if (!firstLine)
+    return "unknown";
+  const version = firstLine.match(/\bv?(\d+\.\d+(?:\.\d+)?(?:[-+][\w.]+)?)/);
+  return version?.[1] ?? firstLine;
+}
 async function getScannerVersion(scanner) {
   const cached = versionCache2.get(scanner);
   if (cached) {
@@ -877,7 +942,7 @@ async function getScannerVersion(scanner) {
     const proc = Bun.spawn([await resolveScanner(scanner), "--version"], { stdout: "pipe", stderr: "pipe" });
     const exitCode = await proc.exited;
     if (exitCode === 0) {
-      const version = (await new Response(proc.stdout).text()).trim();
+      const version = normalizeVersionOutput(await new Response(proc.stdout).text());
       versionCache2.set(scanner, version);
       return version;
     }
@@ -896,7 +961,18 @@ async function getMtimeMs(filePath) {
     return 0;
   }
 }
+var legacyCachePurged = false;
+async function purgeLegacyCacheOnce() {
+  if (legacyCachePurged)
+    return;
+  legacyCachePurged = true;
+  await purgeUncacheableEntries(join7(process.cwd(), CACHE_DIR));
+}
 async function readScannerCache(scanner, config, scopePaths) {
+  await purgeLegacyCacheOnce();
+  if (!isCacheableScanner(scanner)) {
+    return { key: "", cached: null };
+  }
   const mtimes = await Promise.all(scopePaths.map((filePath) => getMtimeMs(filePath)));
   const scopeHash = computeScopeHash(scopePaths, mtimes);
   const version = await scannerRunner.getScannerVersion(scanner);
@@ -915,7 +991,7 @@ async function readScannerCache(scanner, config, scopePaths) {
   };
 }
 async function writeScannerCache(scanner, key, result) {
-  if (shouldSkipCache(result)) {
+  if (shouldSkipCache(result, scanner)) {
     return;
   }
   await writeCacheEntry(join7(process.cwd(), CACHE_DIR), {

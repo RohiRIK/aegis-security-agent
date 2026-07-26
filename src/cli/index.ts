@@ -17,6 +17,7 @@ const HELP_TEXT = [
   `    ${c.cyan("install")}  ${c.dim("Install Aegis config into the current project")}`,
   `    ${c.cyan("status")}   ${c.dim("Show installation status")}`,
   `    ${c.cyan("tools")}    ${c.dim("Install, check, or remove scanner binaries")}`,
+    `    ${c.cyan("scan")}     ${c.dim("Headless deep scan of a directory → HTML/SARIF/verdict")}`,
     `    ${c.cyan("verdict")}  ${c.dim("Read or append verdict audit log entries")}`,
     `    ${c.cyan("report")}   ${c.dim("Generate security reports from audit data")}`,
     `    ${c.cyan("help")}     ${c.dim("Show this help")}`,
@@ -26,6 +27,22 @@ const HELP_TEXT = [
   `    ${c.cyan("--claude")}       ${c.dim("Install for Claude Code")}`,
   `    ${c.cyan("--force")}        ${c.dim("Overwrite existing files")}`,
   `    ${c.cyan("--skip-docker")}  ${c.dim("Skip Docker availability check")}`,
+].join("\n");
+
+const SCAN_HELP_TEXT = [
+  `  ${c.bold("Usage")}`,
+  `    ${c.cyan("aegis scan")} ${c.dim("[options]")}`,
+  "",
+  `  ${c.bold("Options")}`,
+  `    ${c.cyan("--target, -t <path|git-url>")}  ${c.dim("Target to scan (default: current directory)")}`,
+  `    ${c.cyan("--branch <name>")}              ${c.dim("Git branch to check out (git URLs only)")}`,
+  `    ${c.cyan("--subpath <dir>")}              ${c.dim("Limit scan to a subdirectory within the target")}`,
+  `    ${c.cyan("--allow-untrusted")}            ${c.dim("Allow scanning untrusted git URLs (shallow clone to tmp)")}`,
+  `    ${c.cyan("--max-repo-size-mb <N>")}       ${c.dim("Max size for cloned repos in MB (default: 2048)")}`,
+  `    ${c.cyan("--out, -o <file>")}             ${c.dim("Write verdict to file (default: stdout)")}`,
+  `    ${c.cyan("--no-catalog")}                 ${c.dim("Skip saving report to the ~/.aegis catalog")}`,
+  `    ${c.cyan("--json")}                       ${c.dim("Output verdict as JSON")}`,
+  `    ${c.cyan("--help, -h")}                   ${c.dim("Show this help")}`,
 ].join("\n");
 
 function parseInstallFlags(args: string[]): InstallFlags {
@@ -116,6 +133,16 @@ async function main(): Promise<number> {
     case "report": {
       const { runReport, parseReportFlags } = await import("./report.ts");
       return await runReport(parseReportFlags(args));
+    }
+    case "scan": {
+      if (args.includes("--help") || args.includes("-h")) {
+        printHeader();
+        println(SCAN_HELP_TEXT);
+        println();
+        return 0;
+      }
+      const { runScan, parseScanFlags } = await import("./scan.ts");
+      return await runScan(parseScanFlags(args));
     }
     default:
       process.stderr.write(`  ${icon.fail} Unknown command: ${c.bold(command)}\n`);

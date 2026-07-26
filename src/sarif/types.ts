@@ -20,6 +20,8 @@ export type SarifReportingDescriptor = {
   id: string;
   shortDescription?: { text: string };
   defaultConfiguration?: { level: SarifLevel };
+  /** Remediation guidance — rendered by GitHub code scanning as rule help. */
+  help?: { text: string };
 };
 
 export type SarifToolComponent = {

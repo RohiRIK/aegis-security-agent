@@ -4,8 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  CACHEABLE_SCANNERS,
   computeCacheKey,
   getCacheTtl,
+  isCacheableScanner,
+  purgeUncacheableEntries,
   readCacheEntry,
   shouldSkipCache,
   writeCacheEntry,
@@ -104,8 +107,50 @@ describe("shouldSkipCache", () => {
     expect(shouldSkipCache({ ...okResult, stdout: "1 CRITICAL finding" })).toBe(true);
   });
 
-  test("returns false for clean ok results", () => {
-    expect(shouldSkipCache(okResult)).toBe(false);
+  test("returns true for a clean ok result when no scanner is named", () => {
+    // The caller cannot prove the output is safe to persist ⇒ do not persist.
+    expect(shouldSkipCache(okResult)).toBe(true);
+  });
+
+  test.each(["semgrep", "trivy", "trufflehog"])(
+    "never persists raw stdout for %s — its output can embed source or secrets",
+    (scanner) => {
+      expect(isCacheableScanner(scanner)).toBe(false);
+      expect(shouldSkipCache(okResult, scanner)).toBe(true);
+      expect(
+        shouldSkipCache({ ...okResult, stdout: '{"extra":{"lines":"const k = \\"AKIA...\\""}}' }, scanner),
+      ).toBe(true);
+    },
+  );
+
+  test("an unknown scanner is not cacheable by default", () => {
+    expect(shouldSkipCache(okResult, "some-future-scanner")).toBe(true);
+  });
+
+  test("the raw-stdout allowlist is empty — caching raw output is opt-in", () => {
+    expect([...CACHEABLE_SCANNERS]).toEqual([]);
+  });
+});
+
+describe("purgeUncacheableEntries", () => {
+  test("removes entries written before the allowlist existed", async () => {
+    await writeCacheEntry(tempDir, { key: "legacy-a", timestamp: Date.now(), ttl: 1_000, result: okResult });
+    await writeCacheEntry(tempDir, { key: "legacy-b", timestamp: Date.now(), ttl: 1_000, result: okResult });
+
+    expect(await purgeUncacheableEntries(tempDir)).toBe(2);
+    await expect(readCacheEntry(tempDir, "legacy-a")).resolves.toBeNull();
+    await expect(readCacheEntry(tempDir, "legacy-b")).resolves.toBeNull();
+  });
+
+  test("leaves unrelated files alone", async () => {
+    await Bun.write(join(tempDir, "notes.txt"), "keep me");
+    await purgeUncacheableEntries(tempDir);
+
+    expect(await Bun.file(join(tempDir, "notes.txt")).text()).toBe("keep me");
+  });
+
+  test("a missing cache directory is not an error", async () => {
+    await expect(purgeUncacheableEntries(join(tempDir, "absent"))).resolves.toBe(0);
   });
 });
 

@@ -1,0 +1,10 @@
+{
+  "custom_scanners": {
+    "custom-patterns": { "enabled": true, "severity": "high" },
+    "gitleaks-replacement": { "enabled": true, "entropy_threshold": 4.5, "severity": "high" },
+    "path-traversal": { "enabled": true, "severity": "critical" },
+    "hardcoded-ip": { "enabled": false, "severity": "medium" },
+    "weak-crypto": { "enabled": true, "severity": "high" }
+  },
+  "exclude_paths": ["node_modules/**", ".git/**", ".opencode/**", "dist/**", "*.min.js", "vendor/**", ".aegis/**", ".hermes/**", "src/**/*.test.ts", "src/**/*.test.ts.snap", "src/events/__snapshots__/**", "aegis-policy.json", "docs/**", "tests/**", "plans/**", "scripts/**", "tasks/**", "binaries/**", "tools/GMAIL_OAUTH_README.md", "src/core/patterns.ts", "src/opencode-smoke-test.ts"]
+}

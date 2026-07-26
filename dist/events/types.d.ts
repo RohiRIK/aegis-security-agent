@@ -1,7 +1,12 @@
 export type AegisEventKind = "policy.match" | "scanner.finding" | "scanner.summary" | "env.redaction" | "permission.warning" | "session.start" | "session.end" | "install.warning";
 export type AegisEventSeverity = "critical" | "high" | "medium" | "low" | "info";
+/** External scanner binaries Aegis drives. */
+export type ExternalScannerName = "semgrep" | "trivy" | "trufflehog" | "gitleaks" | "njsscan";
+/** In-process regex scanners (see `core/patterns.ts`). */
+export type InternalScannerName = "custom-patterns" | "gitleaks-replacement" | "path-traversal" | "hardcoded-ip" | "weak-crypto";
+export type ScannerName = ExternalScannerName | InternalScannerName;
 export type NormalizedFinding = {
-    scanner: "semgrep" | "trivy" | "trufflehog";
+    scanner: ScannerName;
     ruleId: string;
     message: string;
     severity: AegisEventSeverity;
@@ -12,6 +17,8 @@ export type NormalizedFinding = {
     };
     package?: string;
     fingerprint?: string;
+    /** Remediation guidance shown in the report's Fix Guide column. */
+    fix?: string;
 };
 export type AegisEvent = {
     schema: "aegis/v1";

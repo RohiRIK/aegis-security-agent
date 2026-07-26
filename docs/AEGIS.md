@@ -38,7 +38,7 @@ The plugin operates in observation mode:
 ### Scanner Infrastructure
 
 - **Timeout enforcement**: All scanner invocations use `runScannerWithTimeout()` with per-scanner budgets (semgrep 120s, trivy 60s, trufflehog 90s). Timed-out scans return `{ status: "timeout" }` and trigger degraded mode fallbacks.
-- **Scan caching**: File-based cache with TTL (semgrep/trufflehog 10min, trivy 60min). Failed runs, timeouts, and CRITICAL findings are never cached. Cache lives in `.aegis/scan-cache/`.
+- **Scan caching**: Persisting a scanner's raw stdout is opt-in via the `CACHEABLE_SCANNERS` allowlist in `src/lib/scan-cache.ts`, and the allowlist is **empty**: semgrep (`extra.lines`), trivy (secret `Match`) and trufflehog (`Raw`/`RawV2`) all echo source or secret material back, so none may be written to `.aegis/scan-cache/`. Non-allowlisted scanners are neither written nor read, and entries left by earlier versions are purged on the first scan of a process. Restoring caching means caching *normalized findings* (value already stripped), not adding a scanner to the allowlist. The TTL table (semgrep/trufflehog 10min, trivy 60min) and the failed-run/timeout/CRITICAL guards remain for that future path.
 - **Scanner provisioning**: `aegis tools install --tool=<name>|--all` auto-downloads scanner binaries from GitHub Releases with SHA256 verification. Supports trivy, trufflehog (binary), and semgrep (via pipx/uv).
 
 ### Verdict History
@@ -189,7 +189,7 @@ All paths are auto-managed by the package. Users never create these manually.
 .aegis/
 ├── audit.log          # NDJSON verdict events + session events
 ├── scans/             # Scanner output files (semgrep, trivy, trufflehog JSON)
-└── scan-cache/        # TTL-based scan result cache
+└── scan-cache/        # TTL cache, allowlist-gated (empty allowlist ⇒ unused)
 
 ~/.aegis/
 └── bin/               # Provisioned scanner binaries (trivy, trufflehog, semgrep)

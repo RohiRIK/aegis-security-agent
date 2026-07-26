@@ -64,8 +64,8 @@ def mask_connection_string(text: str) -> str:
 
 ```python
 SERVICE_ACCOUNT = {
-    "type": "service_account",
-    "private_key": "-----BEGIN PRIVATE KEY-----\npretend\n-----END PRIVATE KEY-----",
+    "type": "service_account",  # aegis:ignore — deliberate anti-example, not a key
+    "private_key": "-----BEGIN PRIVATE KEY-----\npretend\n-----END PRIVATE KEY-----",  # aegis:ignore
 }
 ```
 

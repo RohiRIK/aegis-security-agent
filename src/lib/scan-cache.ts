@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { join } from "node:path";
+import { chmod, readdir, unlink } from "node:fs/promises";
 
 import { ensureDir, fileExists } from "./base.ts";
 import type { ScannerResult } from "./scanner.ts";
@@ -72,15 +73,80 @@ export async function readCacheEntry(cacheDir: string, key: string): Promise<Cac
 
 export async function writeCacheEntry(cacheDir: string, entry: CacheEntry): Promise<void> {
   await ensureDir(cacheDir);
-  await Bun.write(join(cacheDir, `${entry.key}.json`), JSON.stringify(entry));
+  // Cached stdout may hold code snippets / vuln detail — restrict to owner.
+  await chmod(cacheDir, 0o700).catch(() => {});
+  const filePath = join(cacheDir, `${entry.key}.json`);
+  await Bun.write(filePath, JSON.stringify(entry));
+  await chmod(filePath, 0o600).catch(() => {});
 }
 
-export function shouldSkipCache(result: ScannerResult): boolean {
+/**
+ * Scanners whose *raw stdout* may be persisted to disk.
+ *
+ * A cache entry stores the whole `ScannerResult`, stdout included. Every
+ * scanner wired today quotes source back at us — semgrep's `extra.lines`,
+ * trivy's secret `Match`, trufflehog's `Raw`/`RawV2` — so a cache write can
+ * land a live credential in `.aegis/scan-cache`. Caching raw output is
+ * therefore opt-in, and the opt-in requires proving the scanner cannot embed
+ * source or secret material. None currently clear that bar, so the allowlist
+ * is empty by construction: correctness over a cache hit.
+ *
+ * To restore caching, cache *normalized findings* (value already stripped by
+ * the normalizer) rather than adding a scanner here.
+ */
+export const CACHEABLE_SCANNERS: ReadonlySet<string> = new Set<string>();
+
+/** True when this scanner's raw stdout is allowed to touch disk at all. */
+export function isCacheableScanner(scanner: string): boolean {
+  return CACHEABLE_SCANNERS.has(scanner);
+}
+
+export function shouldSkipCache(result: ScannerResult, scanner?: string): boolean {
+  // No scanner named ⇒ caller cannot prove the output is safe to persist.
+  if (scanner === undefined || !isCacheableScanner(scanner)) {
+    return true;
+  }
+
   if (result.status !== "ok") {
     return true;
   }
 
   return result.stdout.includes("CRITICAL");
+}
+
+/**
+ * Deletes entries written before the allowlist existed. Those files hold raw
+ * scanner stdout — the material the allowlist now refuses to persist — so an
+ * upgrade has to clear what is already on disk, not merely stop adding to it.
+ *
+ * Entry filenames are opaque hashes, so an entry cannot be attributed to a
+ * scanner after the fact. While the allowlist is empty every entry on disk is
+ * by definition unpersistable and goes; adding an allowlist entry means the
+ * scanner name has to be recorded in `CacheEntry` for this to stay correct.
+ */
+export async function purgeUncacheableEntries(cacheDir: string): Promise<number> {
+  if (CACHEABLE_SCANNERS.size > 0) {
+    return 0;
+  }
+
+  let names: string[];
+  try {
+    names = await readdir(cacheDir);
+  } catch {
+    return 0; // no cache directory — nothing to purge
+  }
+
+  let removed = 0;
+  for (const name of names) {
+    if (!name.endsWith(".json")) continue;
+    try {
+      await unlink(join(cacheDir, name));
+      removed += 1;
+    } catch {
+      // already gone or not ours to remove
+    }
+  }
+  return removed;
 }
 
 export function getCacheTtl(scanner: string): number {
