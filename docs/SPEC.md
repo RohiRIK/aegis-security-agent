@@ -1245,8 +1245,8 @@ CLI beat file so an operator can always override a checked-in config without edi
 ### 18.6 Test Growth
 
 - **Baseline:** 347 tests
-- **Final:** 532 tests (+185), 1313 `expect()` calls
-- **New test files:** `patterns.test.ts`, `builtin-scan.test.ts`, `external-scanners.test.ts`
+- **Final:** 676 tests (+329), 1556 `expect()` calls, TypeScript 5.0+ strict-mode clean
+- **New test files:** `patterns.test.ts`, `builtin-scan.test.ts`, `external-scanners.test.ts`, `rules-config.test.ts`, `scan.test.ts`, `html.test.ts`, `catalog.test.ts`, `fix-guide.test.ts`, `verdict.test.ts`, `security.normalize.test.ts`
 
 ---
 

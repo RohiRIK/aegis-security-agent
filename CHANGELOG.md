@@ -8,8 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **5 built-in in-process scanners** — `custom-patterns`, `gitleaks-replacement`, `path-traversal`, `hardcoded-ip`, `weak-crypto` — run regex-based matching directly with no external binary required, configurable per-scanner via `aegis-rules.json` or CLI flags
+- **200+ polyglot security patterns** across Python (28 rules: eval, pickle, os.system, verify=False, f-string SQLi), PowerShell (15 rules: IEX, SkipCertificateCheck, Assembly::Load), Shell/Bash (12 rules: pipe-to-shell, curl-pipe-sh, rm -rf /, chmod 777), JS/TS (14 rules: child_process.exec, eval, crypto.createCipher weak algos, jwt.verify no-algo), and generic (30+ rules: AWS/GitHub/OpenAI/SSH key patterns, JWT, base64, entropy-gated secrets)
+- **Rules configuration** (`aegis-rules.json`) — per-scanner `enabled`, `severity`, `entropy_threshold`, plus global `exclude_paths`; CLI overrides `--scanner-disable X,Y` / `--scanners X,Y` / `--scanner-enable-all`
+- **Enhanced HTML report** (`src/report/html.ts`) — severity heatmap bar (CSS proportional segments), scanner detail cards (name, version, status, duration, finding count), fix guidance column (from `src/report/fix-guide.ts`), dark mode (`@media prefers-color-scheme: dark`)
 - **Headless `aegis scan` subcommand** — runs Semgrep + Trivy + TruffleHog against a target directory or git URL, returns unified SAFE | RISKY | BLOCKED verdict with exit codes 0/1/2/3
-- **HTML report renderer** (`src/report/html.ts`) — self-contained, XSS-escaped, zero-dependency HTML reports with severity summary table and findings detail
 - **Catalog writer** (`src/report/catalog.ts`) — writes `report.html`, `report.sarif`, and `verdict.json` under `~/.aegis/<Repo>/<YYYY-MM-DD>/<verdict>/`; `AEGIS_HOME` env override
 - **TruffleHog normalizer** (`trufflehogToNormalized` in `src/core/security.ts`) — secrets findings now reach SARIF/catalog alongside SAST and CVE results
 - **Verdict computation** (`src/core/verdict.ts`) — `computeVerdict()`, `tallySeverities()`, exit-code mapping
@@ -20,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`getScannerVersionSafe`** in scanner.ts — safe version lookup for report metadata
 - **Hardened `runScannerWithTimeout`** — catches `Bun.spawn` failures on missing binaries → degraded (never SAFE-by-omission)
 - **`endLine` field on `SemgrepFinding`** — optional, backward-compatible
+- **676 tests, 0 fail** (1556 `expect()` calls), TypeScript 5.0+ strict-mode clean (`tsc --noEmit` passes)
 
 ### Changed
 - `aegis-policy.json` — relaxed to permissive-by-default: `run_shell.default` → `"host"`, `edit_file.default` → `"allow"`, `host_passthrough` → `".*"`, trimmed `high_risk_patterns` to truly destructive commands only, disabled scanners
